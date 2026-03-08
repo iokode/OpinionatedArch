@@ -1,0 +1,10 @@
+  5. Btrfs mount options: `compress`, `noatime`, SSD policy, and per-subvolume options.
+  6. Base networking: `NetworkManager` vs `systemd-networkd`, Wi-Fi tooling, DHCP/static.
+  7. Locale/keyboard/timezone: system language, console keymap, RTC/UTC clock policy.
+  8. System identity: hostname and `/etc/hosts` template.
+  9. Package baseline: what is always installed (`base` dev tools, firmware, core tools) and what remains optional.
+  10. AUR policy: whether to use `paru`, how to install it, and which build user to use.
+  11. Default systemd services: which units are always enabled at install time.
+  12. Base security policy: firewall, SSH (if applicable), sudo policy.
+  13. Real session/login strategy: initial display manager and fallback until custom implementation exists.
+  14. Post-install user flow: official script to create login users + subvolume + groups + snapshots.
