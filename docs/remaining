@@ -1,4 +1,3 @@
-  5. Btrfs mount options: `compress`, `noatime`, SSD policy, and per-subvolume options.
   6. Base networking: `NetworkManager` vs `systemd-networkd`, Wi-Fi tooling, DHCP/static.
   7. Locale/keyboard/timezone: system language, console keymap, RTC/UTC clock policy.
   8. System identity: hostname and `/etc/hosts` template.
