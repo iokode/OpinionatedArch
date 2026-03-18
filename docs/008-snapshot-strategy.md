@@ -9,6 +9,8 @@ Snapshot policy is split by scope:
 
 Home snapshots are per-user because rollback scope must be isolated per login user. Because Btrfs snapshots are created at subvolume level, each login user home is a dedicated subvolume.
 
+Snapshot strategy is restore-only. Snapshots are not boot targets in GRUB.
+
 ### Snapshot Retention Policy
 
 - `@`: keep the last 60 automatic snapshots.
@@ -27,6 +29,7 @@ Home snapshots are per-user because rollback scope must be isolated per login us
 - Keeping 60 automatic snapshots in `@` and 60 per-user home snapshots is used because recovery history must be long enough to be useful but still bounded; if too low, useful rollback points disappear too quickly, and if unbounded, disk usage grows without control.
 - Never auto-purging manual snapshots is used because manual snapshots are deliberate operator checkpoints; if auto-purged, explicitly chosen recovery anchors can disappear without operator intent.
 - Requiring a human-readable justification in manual snapshot name/label is used because indefinite retention requires future audit and cleanup decisions; if unlabeled, old manual snapshots become hard to evaluate and safe cleanup becomes guesswork.
+- Restore-only snapshot policy is required because GRUB snapshot boot entries add complexity and do not align well with `/boot` outside snapshot scope; if snapshot boot is enabled, recovery semantics become less predictable.
 
 ## Implementation Plan
 
@@ -35,13 +38,34 @@ Home snapshots are per-user because rollback scope must be isolated per login us
 3. Trigger a user-home snapshot when a login session starts.
 4. Expose a manual command/script for on-demand per-user home snapshots.
 5. Ensure user-provisioning flow registers new login users for login-time and manual home snapshots.
+6. Expose a restore command/script for `@` snapshots and document live+chroot restore procedure for severe failures.
 
 ## Considerations
 
 - Root and home snapshot flows should remain independent.
 - Login snapshots should not block login if snapshot creation fails.
 - Snapshot naming should make session boundaries easy to identify.
-- If `/boot` is outside Btrfs, snapshot rollback does not cover boot artifacts.
+- Since `/boot` is outside Btrfs, snapshot rollback does not cover boot artifacts.
+- Severe recovery path is: boot live/netboot, chroot, then execute snapshot restore.
+
+## Restore Procedure (Reference)
+
+Root snapshot restore is performed with `snapper`:
+
+1. List snapshots:
+   `snapper -c root list`
+2. Roll back to a target snapshot:
+   `snapper -c root rollback <snapshot-number>`
+3. Reboot.
+
+For severe failures:
+
+1. Boot from live/netboot.
+2. Unlock and mount the installed system, then enter `arch-chroot`.
+3. Run `snapper -c root list` and `snapper -c root rollback <snapshot-number>`.
+4. Exit chroot and reboot.
+
+If rollback and `/boot` content are out of sync, repair kernel/initramfs from chroot before reboot.
 
 ## Critical Notes With Replies (Copy of Discussion)
 

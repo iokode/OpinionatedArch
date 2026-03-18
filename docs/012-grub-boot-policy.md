@@ -24,10 +24,9 @@ GRUB update policy:
 - Default boot entry: `OpinionatedArch`
 Entry order:
 1. `OpinionatedArch`
-2. `Snapshots` (submenu with latest 60 snapshots of `@`)
-3. `Netboot Arch`
-4. `EFI firmware`
-5. `Shutdown`
+2. `Netboot Arch`
+3. `EFI firmware`
+4. `Shutdown`
 
 ### Main PC Profile
 
@@ -43,12 +42,12 @@ Entry order:
 - Laptop timeout `2s` is required because Laptop does not need extra OS selection and should reach unlock quickly; if timeout is long, normal startup becomes slower without benefit.
 - Main PC timeout unlimited is required because external OS selection is a real and frequent use case; if timeout auto-boots quickly, intended OS selection is missed.
 - Stable entry order is required because boot menu usage must be predictable under normal and recovery conditions; if order changes, operator error risk increases.
-- `Snapshots` submenu with latest 60 `@` snapshots is required because snapshot boot access must be available directly from GRUB and aligned with snapshot retention policy; if missing, recovery takes longer and is less accessible.
 - `Netboot Arch` entry is required because it provides a built-in recovery/install path from GRUB; if missing, fallback requires separate manual boot handling.
 - A fixed ESP path for netboot EFI (`/EFI/OpinionatedArch/netbootx64.efi`) is required because GRUB chainload entries should not depend on dynamic discovery; if path is variable, entry generation and maintenance become brittle.
 - Not auto-updating the copied netboot EFI binary is required because this workflow treats it as a stable recovery launcher; if it is changed implicitly during normal updates, recovery behavior can change without explicit operator intent.
 - `EFI firmware` and `Shutdown` entries are required because low-level firmware access and safe power-off should be available without booting Linux; if missing, those operations become less direct.
 - External OS entries only on Main PC are required because that profile hosts multi-OS usage while Laptop does not; if added everywhere, Laptop menu becomes unnecessary clutter.
+- Snapshot recovery is intentionally restore-based (not snapshot boot entries) because booting snapshots adds boot-menu complexity and interacts poorly with `/boot` being outside `@`; if snapshot boot entries are enabled, recovery expectations and boot behavior become harder to reason about.
 - Regenerating `grub.cfg` after GRUB package/template changes is required because menu state must match installed scripts and entries; if skipped, menu can drift from intended policy.
 - Re-running `grub-install` when ESP GRUB payload needs refresh is required because package updates alone do not guarantee deployed EFI loader state is refreshed; if omitted when needed, bootloader behavior can remain outdated.
 
@@ -57,17 +56,16 @@ Entry order:
 1. Configure GRUB defaults from selected machine role (`Laptop` or `Main PC`).
 2. Set role timeout (`2` for Laptop, `-1` for Main PC) and default entry (`OpinionatedArch`).
 3. Generate fixed base menu entries in the specified order.
-4. Integrate snapshot submenu for latest 60 `@` snapshots.
-5. Add `Netboot Arch`, `EFI firmware`, and `Shutdown` entries.
-6. For Main PC only, insert external OS entries between `Netboot Arch` and `EFI firmware`.
-7. Copy netboot EFI binary to `/EFI/OpinionatedArch/netbootx64.efi` on ESP and create GRUB chainload entry.
-8. After GRUB package/template changes, regenerate `grub.cfg`.
-9. Re-run `grub-install` when ESP GRUB payload refresh is required.
-10. Validate final menu order and timeout behavior.
+4. Add `Netboot Arch`, `EFI firmware`, and `Shutdown` entries.
+5. For Main PC only, insert external OS entries between `Netboot Arch` and `EFI firmware`.
+6. Copy netboot EFI binary to `/EFI/OpinionatedArch/netbootx64.efi` on ESP and create GRUB chainload entry.
+7. After GRUB package/template changes, regenerate `grub.cfg`.
+8. Re-run `grub-install` when ESP GRUB payload refresh is required.
+9. Validate final menu order and timeout behavior.
 
 ## Considerations
 
 - With `/boot` on EFI, rollback of `@` does not rollback kernel/initramfs.
 - Kernel-update recovery is expected through live/netboot workflow and package downgrade when needed.
-- Snapshot submenu generation depends on snapshot tooling integration and must remain aligned with the selected snapshot policy.
+- Snapshot restore workflow is external to GRUB menu entries by policy.
 - Netboot EFI binary lifecycle is explicit/manual by policy; updating it is a deliberate maintenance action.
