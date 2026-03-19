@@ -5,6 +5,7 @@
 The system is designed for one physical person. Multiple Linux users may exist, but they do not represent multiple people. Two account types are used: logical non-login users for service isolation, and login users for interactive work contexts.
 
 The installer asks for the complete list of login user names. Logical users are not prompted and are always created by baseline policy.
+The login username `system` is a reserved name and must not be accepted as a login user name.
 
 Two explicit groups are used:
 
@@ -23,6 +24,7 @@ The `root` account has no password set and is not intended for interactive login
 
 - Two account types (`logical` and `login`) are required because service accounts must run background processes with restricted privileges and must not appear as human login identities.
 - The installer asks for the full login-user list because login identities are machine-specific operational choices and cannot be inferred safely from baseline defaults.
+- Reserving the login username `system` is required because snapshot paths use `/snapshots/system` for system scope; if a login user is named `system`, snapshot-domain paths collide and user/system separation breaks.
 - `dotfiles` and `login-users` are separate groups because a service account may need to read configuration from `/dotfiles` (for example, a keymapper service reading its config file) without being an interactive login account.
 - A dedicated home subvolume per login user is required because restoring one user state must not rollback another user home.
 - A unified password for disk encryption and login users is used because the operator explicitly prioritizes one strong memorized secret over multiple secrets that would likely be written down.
@@ -51,6 +53,7 @@ The `root` account has no password set and is not intended for interactive login
 - Root remains non-interactive and passwordless by design.
 - Root recovery procedures must be documented and available.
 - Login usernames should be validated before creation.
+- The login username `system` must always be rejected as reserved.
 - Logical users must not be enabled for interactive login unless explicitly requested.
 - Login users should not be created through raw `useradd` flows that bypass home-subvolume provisioning.
 

@@ -8,6 +8,10 @@ Snapshot policy is split by scope:
 - User scope (`/home/<login-user>` subvolume): snapshot at login start for that specific user and on explicit manual request.
 
 Home snapshots are per-user because rollback scope must be isolated per login user. Because Btrfs snapshots are created at subvolume level, each login user home is a dedicated subvolume.
+All snapshots are stored in a single `@snapshots` subvolume mounted at `/snapshots` with structured paths:
+
+- `/snapshots/system`
+- `/snapshots/<login-user>`
 
 Snapshot strategy is restore-only. Snapshots are not boot targets in GRUB.
 
@@ -26,6 +30,8 @@ Snapshot strategy is restore-only. Snapshots are not boot targets in GRUB.
 - Per-user home snapshots are created at login start because accidental deletion or overwrite risk appears during active user work; if the snapshot is not created before the session starts, there is no guaranteed rollback point for mistakes made early in that session.
 - Manual per-user home snapshots are used because some user operations are intentionally high-risk (for example bulk moves or destructive cleanup); if omitted, those operations have no explicit pre-change recovery anchor.
 - Dedicated home subvolumes are required because Btrfs can snapshot only at subvolume boundaries; if homes are not split per user subvolume, isolated per-user rollback cannot be implemented.
+- A single snapshot storage subvolume (`@snapshots`) is required because this model centralizes snapshot data while keeping a simple mount layout; if omitted, storage layout drifts from the chosen single-container policy.
+- Structured paths (`system`, `<login-user>`) inside `/snapshots` are required because system and per-user histories must remain targetable independently; if omitted, create/restore operations are easier to misapply.
 - Keeping 60 automatic snapshots in `@` and 60 per-user home snapshots is used because recovery history must be long enough to be useful but still bounded; if too low, useful rollback points disappear too quickly, and if unbounded, disk usage grows without control.
 - Never auto-purging manual snapshots is used because manual snapshots are deliberate operator checkpoints; if auto-purged, explicitly chosen recovery anchors can disappear without operator intent.
 - Requiring a human-readable justification in manual snapshot name/label is used because indefinite retention requires future audit and cleanup decisions; if unlabeled, old manual snapshots become hard to evaluate and safe cleanup becomes guesswork.
@@ -37,35 +43,22 @@ Snapshot strategy is restore-only. Snapshots are not boot targets in GRUB.
 2. Expose a manual command/script for on-demand root snapshots.
 3. Trigger a user-home snapshot when a login session starts.
 4. Expose a manual command/script for on-demand per-user home snapshots.
-5. Ensure user-provisioning flow registers new login users for login-time and manual home snapshots.
-6. Expose a restore command/script for `@` snapshots and document live+chroot restore procedure for severe failures.
+5. Configure snapshot paths so system snapshots target `/snapshots/system` and user snapshots target `/snapshots/<login-user>`.
+6. Ensure user-provisioning flow registers new login users for login-time and manual home snapshots.
+7. Implement dedicated create/restore scripts for this path-based snapshot layout in a later scripting phase.
 
 ## Considerations
 
 - Root and home snapshot flows should remain independent.
 - Login snapshots should not block login if snapshot creation fails.
 - Snapshot naming should make session boundaries easy to identify.
+- Snapshot storage must remain separated by domain inside `/snapshots`: `system` for system snapshots and `<login-user>` per user.
 - Since `/boot` is outside Btrfs, snapshot rollback does not cover boot artifacts.
 - Severe recovery path is: boot live/netboot, chroot, then execute snapshot restore.
 
 ## Restore Procedure (Reference)
 
-Root snapshot restore is performed with `snapper`:
-
-1. List snapshots:
-   `snapper -c root list`
-2. Roll back to a target snapshot:
-   `snapper -c root rollback <snapshot-number>`
-3. Reboot.
-
-For severe failures:
-
-1. Boot from live/netboot.
-2. Unlock and mount the installed system, then enter `arch-chroot`.
-3. Run `snapper -c root list` and `snapper -c root rollback <snapshot-number>`.
-4. Exit chroot and reboot.
-
-If rollback and `/boot` content are out of sync, repair kernel/initramfs from chroot before reboot.
+Create/restore command interface for this single-`@snapshots` path model is intentionally deferred to dedicated snapshot scripts.
 
 ## Critical Notes With Replies (Copy of Discussion)
 
