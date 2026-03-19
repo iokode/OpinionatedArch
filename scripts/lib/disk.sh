@@ -26,10 +26,6 @@ partition_path() {
 }
 
 prepare_disk_layout() {
-  if mountpoint -q /mnt; then
-    die "/mnt is already mounted. Unmount it before running installer."
-  fi
-
   log "Wiping partition table on ${TARGET_DISK}"
   wipefs -af "${TARGET_DISK}"
   sgdisk --zap-all "${TARGET_DISK}"
@@ -89,10 +85,12 @@ prepare_disk_layout() {
   mount -o subvol=@log /dev/mapper/cryptroot /mnt/var/log
   mount -o subvol=@pkg /dev/mapper/cryptroot /mnt/var/cache/pacman/pkg
   mount -o subvol=@snapshots /dev/mapper/cryptroot /mnt/.snapshots
+  mkdir -p /mnt/.snapshots/root
 
   for user in "${LOGIN_USERS[@]}"; do
     mkdir -p "/mnt/home/${user}"
     mount -o subvol=@home-"${user}" /dev/mapper/cryptroot "/mnt/home/${user}"
+    mkdir -p "/mnt/.snapshots/home-${user}"
   done
 
   mount "${EFI_PART}" /mnt/boot

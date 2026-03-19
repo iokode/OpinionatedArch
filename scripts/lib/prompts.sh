@@ -20,6 +20,131 @@ declare OWNER_RETURN_ADDRESS=""
 declare INCLUDE_LOGO="no"
 declare LOGO_URL=""
 declare LOGO_LOCAL_PATH="/tmp/oparch-logo.png"
+declare PROCEED_INSTALL="ask"
+
+parse_login_users_csv() {
+  local raw_users="$1"
+  local -a parsed=()
+  local token=""
+  local clean=""
+
+  IFS=',' read -r -a parsed <<< "${raw_users}"
+  LOGIN_USERS=()
+
+  for token in "${parsed[@]}"; do
+    clean="$(trim "${token}")"
+    [[ -z "${clean}" ]] && continue
+
+    if ! validate_username "${clean}"; then
+      warn "Invalid username: ${clean}"
+      LOGIN_USERS=()
+      return 1
+    fi
+
+    if [[ " ${LOGIN_USERS[*]} " != *" ${clean} "* ]]; then
+      LOGIN_USERS+=("${clean}")
+    fi
+  done
+
+  if [[ "${#LOGIN_USERS[@]}" -eq 0 ]]; then
+    warn "At least one valid login username is required."
+    return 1
+  fi
+
+  return 0
+}
+
+load_inputs_from_config_file() {
+  local config_file="${OPARCH_CONFIG_FILE}"
+  [[ -f "${config_file}" ]] || die "Config file not found: ${config_file}"
+
+  local line=""
+  local key=""
+  local value=""
+
+  while IFS= read -r line || [[ -n "${line}" ]]; do
+    line="${line%$'\r'}"
+    line="$(trim "${line}")"
+    [[ -z "${line}" ]] && continue
+    [[ "${line}" =~ ^# ]] && continue
+
+    [[ "${line}" == *"="* ]] || die "Invalid config line (expected key=value): ${line}"
+
+    key="$(trim "${line%%=*}")"
+    value="$(trim "${line#*=}")"
+
+    if [[ "${value}" =~ ^\".*\"$ || "${value}" =~ ^\'.*\'$ ]]; then
+      value="${value:1:${#value}-2}"
+    fi
+
+    case "${key}" in
+      TARGET_DISK) TARGET_DISK="${value}" ;;
+      MACHINE_ROLE) MACHINE_ROLE="${value}" ;;
+      CPU_VENDOR) CPU_VENDOR="${value}" ;;
+      ZRAM_SWAP_GB) ZRAM_SWAP_GB="${value}" ;;
+      SWAP_PARTITION_GB) SWAP_PARTITION_GB="${value}" ;;
+      LOGIN_USERS_CSV) LOGIN_USERS_CSV="${value}" ;;
+      SHARED_SECRET) SHARED_SECRET="${value}" ;;
+      CONSOLE_KEYMAP) CONSOLE_KEYMAP="${value}" ;;
+      TIMEZONE) TIMEZONE="${value}" ;;
+      HOSTNAME_VALUE) HOSTNAME_VALUE="${value}" ;;
+      OWNER_NAME) OWNER_NAME="${value}" ;;
+      OWNER_PHONE) OWNER_PHONE="${value}" ;;
+      OWNER_EMAIL) OWNER_EMAIL="${value}" ;;
+      OWNER_RETURN_ADDRESS) OWNER_RETURN_ADDRESS="${value}" ;;
+      INCLUDE_LOGO) INCLUDE_LOGO="${value}" ;;
+      LOGO_URL) LOGO_URL="${value}" ;;
+      *) die "Unknown key in config file: ${key}" ;;
+    esac
+  done < "${config_file}"
+
+  TARGET_DISK="${TARGET_DISK:-}"
+  MACHINE_ROLE="${MACHINE_ROLE:-}"
+  CPU_VENDOR="${CPU_VENDOR:-}"
+  ZRAM_SWAP_GB="${ZRAM_SWAP_GB:-}"
+  SWAP_PARTITION_GB="${SWAP_PARTITION_GB:-}"
+  CONSOLE_KEYMAP="${CONSOLE_KEYMAP:-}"
+  TIMEZONE="${TIMEZONE:-}"
+  HOSTNAME_VALUE="${HOSTNAME_VALUE:-}"
+  OWNER_NAME="${OWNER_NAME:-}"
+  OWNER_PHONE="${OWNER_PHONE:-}"
+  OWNER_EMAIL="${OWNER_EMAIL:-}"
+  OWNER_RETURN_ADDRESS="${OWNER_RETURN_ADDRESS:-}"
+  INCLUDE_LOGO="${INCLUDE_LOGO:-no}"
+  LOGO_URL="${LOGO_URL:-}"
+  SHARED_SECRET="${SHARED_SECRET:-}"
+  PROCEED_INSTALL="yes"
+
+  [[ -n "${TARGET_DISK}" && -b "${TARGET_DISK}" ]] || die "TARGET_DISK must be an existing block device."
+  [[ "${MACHINE_ROLE}" == "Laptop" || "${MACHINE_ROLE}" == "MainPC" ]] || die "MACHINE_ROLE must be Laptop or MainPC."
+  [[ "${CPU_VENDOR}" == "Intel" || "${CPU_VENDOR}" == "AMD" ]] || die "CPU_VENDOR must be Intel or AMD."
+  [[ "${ZRAM_SWAP_GB}" =~ ^[0-9]+$ ]] || die "ZRAM_SWAP_GB must be a non-negative integer."
+  [[ "${SWAP_PARTITION_GB}" =~ ^[0-9]+$ ]] || die "SWAP_PARTITION_GB must be a non-negative integer."
+  [[ -n "${SHARED_SECRET}" ]] || die "SHARED_SECRET cannot be empty."
+  [[ -n "${CONSOLE_KEYMAP}" ]] || die "CONSOLE_KEYMAP cannot be empty."
+  [[ -e "/usr/share/zoneinfo/${TIMEZONE}" ]] || die "Invalid TIMEZONE: ${TIMEZONE}"
+  validate_hostname "${HOSTNAME_VALUE}" || die "Invalid HOSTNAME_VALUE."
+  [[ -n "${OWNER_NAME}" ]] || die "OWNER_NAME cannot be empty."
+  [[ -n "${OWNER_PHONE}" ]] || die "OWNER_PHONE cannot be empty."
+  [[ -n "${OWNER_EMAIL}" ]] || die "OWNER_EMAIL cannot be empty."
+  [[ -n "${OWNER_RETURN_ADDRESS}" ]] || die "OWNER_RETURN_ADDRESS cannot be empty."
+
+  parse_login_users_csv "${LOGIN_USERS_CSV:-}" || die "Invalid LOGIN_USERS_CSV."
+
+  case "${INCLUDE_LOGO}" in
+    yes|no) ;;
+    *) die "INCLUDE_LOGO must be yes or no." ;;
+  esac
+
+  if [[ "${INCLUDE_LOGO}" == "yes" ]]; then
+    [[ -n "${LOGO_URL}" ]] || die "LOGO_URL is required when INCLUDE_LOGO=yes."
+    authenticated_logo_download "${LOGO_URL}" || die "Logo download failed from LOGO_URL in config file."
+    log "Logo downloaded to ${LOGO_LOCAL_PATH}."
+  else
+    LOGO_URL=""
+    rm -f "${LOGO_LOCAL_PATH}"
+  fi
+}
 
 authenticated_logo_download() {
   local url="$1"
@@ -33,42 +158,21 @@ authenticated_logo_download() {
 
 collect_login_users() {
   local raw_users=""
-  local -a parsed=()
-  local token=""
-  local clean=""
 
   while true; do
     raw_users="$(ask_non_empty "Login usernames (comma-separated): ")"
-    IFS=',' read -r -a parsed <<< "${raw_users}"
-
-    LOGIN_USERS=()
-    for token in "${parsed[@]}"; do
-      clean="$(trim "${token}")"
-      [[ -z "${clean}" ]] && continue
-
-      if ! validate_username "${clean}"; then
-        warn "Invalid username: ${clean}"
-        LOGIN_USERS=()
-        break
-      fi
-
-      if [[ " ${LOGIN_USERS[*]} " != *" ${clean} "* ]]; then
-        LOGIN_USERS+=("${clean}")
-      fi
-    done
-
-    if [[ "${#LOGIN_USERS[@]}" -eq 0 ]]; then
-      warn "At least one valid login username is required."
-      continue
-    fi
-
-    return 0
+    parse_login_users_csv "${raw_users}" && return 0
   done
 }
 
 collect_install_inputs() {
   log "Detected disks:"
   lsblk -dpno NAME,SIZE,MODEL | sed 's/^/  - /'
+
+  if [[ -n "${OPARCH_CONFIG_FILE:-}" ]]; then
+    load_inputs_from_config_file
+    return 0
+  fi
 
   while true; do
     TARGET_DISK="$(ask_non_empty "Target disk (example: /dev/nvme0n1): ")"
@@ -152,6 +256,13 @@ summarize_install_plan() {
   printf '  timezone: %s\n' "${TIMEZONE}"
   printf '  hostname: %s\n' "${HOSTNAME_VALUE}"
   printf '  include logo: %s\n' "${INCLUDE_LOGO}"
+
+  if [[ "${PROCEED_INSTALL}" == "yes" ]]; then
+    return 0
+  fi
+  if [[ "${PROCEED_INSTALL}" == "no" ]]; then
+    die "Aborted by config file."
+  fi
 
   local proceed
   proceed="$(ask_yes_no "Proceed with installation?")"

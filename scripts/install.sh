@@ -14,6 +14,31 @@ source "${SCRIPT_DIR}/lib/bootstrap.sh"
 # shellcheck source=lib/chroot.sh
 source "${SCRIPT_DIR}/lib/chroot.sh"
 
+parse_args() {
+  OPARCH_VERBOSE="${OPARCH_VERBOSE:-0}"
+  OPARCH_CONFIG_FILE="${OPARCH_CONFIG_FILE:-}"
+
+  while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+      -verbose)
+        OPARCH_VERBOSE=1
+        shift
+        ;;
+      -configfile)
+        [[ "$#" -ge 2 ]] || die "Missing value for -configfile"
+        OPARCH_CONFIG_FILE="$2"
+        shift 2
+        ;;
+      *)
+        die "Unknown argument: $1"
+        ;;
+    esac
+  done
+
+  export OPARCH_VERBOSE
+  export OPARCH_CONFIG_FILE
+}
+
 require_dependencies() {
   local dependencies=(
     lsblk
@@ -40,6 +65,8 @@ require_dependencies() {
 }
 
 main() {
+  parse_args "$@"
+
   require_root
   require_dependencies
 

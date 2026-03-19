@@ -42,6 +42,7 @@ write_install_state() {
     printf 'INCLUDE_LOGO=%q\n' "${INCLUDE_LOGO}"
     printf 'ROOT_PART_UUID=%q\n' "${ROOT_PART_UUID}"
     printf 'SWAP_PART_UUID=%q\n' "${SWAP_PART_UUID}"
+    printf 'OPARCH_VERBOSE=%q\n' "${OPARCH_VERBOSE:-0}"
   } > /mnt/root/oparch-install.env
   chmod 600 /mnt/root/oparch-install.env
 }
@@ -58,15 +59,30 @@ install_base_system() {
   mkdir -p /mnt/etc
   printf 'KEYMAP=%s\n' "${CONSOLE_KEYMAP}" > /mnt/etc/vconsole.conf
 
-  log "Running pacstrap"
-  pacstrap -K /mnt \
-    base \
-    linux \
-    linux-headers \
-    linux-firmware \
-    mkinitcpio \
-    iptables-nft \
-    "${microcode_package}"
+  log "Installing packages..."
+  if [[ "${OPARCH_VERBOSE:-0}" == "1" ]]; then
+    pacstrap -K /mnt \
+      base \
+      linux \
+      linux-headers \
+      linux-firmware \
+      mkinitcpio \
+      iptables-nft \
+      "${microcode_package}"
+  else
+    if ! pacstrap -K /mnt \
+      base \
+      linux \
+      linux-headers \
+      linux-firmware \
+      mkinitcpio \
+      iptables-nft \
+      "${microcode_package}" >/tmp/oparch-pacstrap.log 2>&1; then
+      warn "pacstrap failed. Showing last 120 lines."
+      tail -n 120 /tmp/oparch-pacstrap.log >&2 || true
+      return 1
+    fi
+  fi
 
   log "Generating fstab"
   genfstab -U /mnt > /mnt/etc/fstab

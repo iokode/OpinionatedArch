@@ -14,6 +14,19 @@ source /root/oparch-install.env
 # Ensure this exists before package hooks trigger mkinitcpio.
 printf 'KEYMAP=%s\n' "${CONSOLE_KEYMAP}" > /etc/vconsole.conf
 
+run_pacman() {
+  if [[ "${OPARCH_VERBOSE:-0}" == "1" ]]; then
+    pacman "$@"
+  else
+    if ! pacman "$@" >/var/log/oparch-pacman.log 2>&1; then
+      echo "[ERROR] pacman command failed: pacman $*" >&2
+      echo "[ERROR] Last 120 lines from /var/log/oparch-pacman.log:" >&2
+      tail -n 120 /var/log/oparch-pacman.log >&2 || true
+      return 1
+    fi
+  fi
+}
+
 set_or_replace_config_key() {
   local file="$1"
   local key="$2"
@@ -27,7 +40,8 @@ set_or_replace_config_key() {
 }
 
 install_post_chroot_packages() {
-  pacman -Sy --noconfirm --needed \
+  echo "[INFO] Installing packages..."
+  run_pacman -Sy --noconfirm --needed \
     btrfs-progs \
     cryptsetup \
     grub \
@@ -39,7 +53,8 @@ install_post_chroot_packages() {
 }
 
 install_snap_pac() {
-  pacman -S --noconfirm --needed snap-pac
+  echo "[INFO] Installing packages..."
+  run_pacman -S --noconfirm --needed snap-pac
 }
 
 configure_locale_and_time() {
@@ -58,8 +73,8 @@ configure_identity() {
 }
 
 configure_users_and_groups() {
-  groupadd -f dotfiles
-  groupadd -f login-users
+  groupadd dotfiles
+  groupadd login-users
 
   install -d -m 2775 -o root -g dotfiles /dotfiles
   install -d -m 2775 -o root -g dotfiles /dotfiles/config
@@ -68,15 +83,8 @@ configure_users_and_groups() {
 
   local user
   for user in "${login_users[@]}"; do
-    if ! id "${user}" >/dev/null 2>&1; then
-      useradd -M -d "/home/${user}" -G wheel,dotfiles,login-users -s /bin/bash "${user}"
-    else
-      usermod -aG wheel,dotfiles,login-users "${user}"
-    fi
-
-    if [[ -d "/home/${user}" ]]; then
-      chown -R "${user}:${user}" "/home/${user}"
-    fi
+    useradd -M -d "/home/${user}" -G wheel,dotfiles,login-users -s /bin/bash "${user}"
+    chown -R "${user}:${user}" "/home/${user}"
 
     printf '%s:%s\n' "${user}" "${SHARED_SECRET}" | chpasswd
   done
@@ -90,32 +98,18 @@ SUDO_EOF
 }
 
 configure_network_stack() {
-  if [[ "$(readlink -f /etc/resolv.conf || true)" != "/run/systemd/resolve/stub-resolv.conf" ]]; then
-    ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
-  fi
   systemctl enable NetworkManager.service
   systemctl enable systemd-resolved.service
 }
 
 configure_snapshots() {
-  if [[ ! -f /etc/snapper/configs/root ]]; then
-    snapper -c root create-config /
-  fi
-
-  sed -i 's/^NUMBER_LIMIT=.*/NUMBER_LIMIT="60"/' /etc/snapper/configs/root
+  mkdir -p /.snapshots/root
 
   IFS=',' read -r -a login_users <<< "${LOGIN_USERS_CSV}"
   local user
-  local config_name
   for user in "${login_users[@]}"; do
-    config_name="home-${user}"
-    if [[ ! -f "/etc/snapper/configs/${config_name}" ]]; then
-      snapper -c "${config_name}" create-config "/home/${user}"
-    fi
-    sed -i 's/^NUMBER_LIMIT=.*/NUMBER_LIMIT="60"/' "/etc/snapper/configs/${config_name}"
+    mkdir -p "/.snapshots/home-${user}"
   done
-
-  systemctl enable snapper-cleanup.timer
 
   cat > /usr/local/bin/oparch-snapshot-system <<'SYSTEM_SNAP_EOF'
 #!/usr/bin/env bash
@@ -127,7 +121,12 @@ if [[ -z "${reason}" ]]; then
   exit 1
 fi
 
-snapper -c root create --description "manual:${reason}" --cleanup-algorithm ""
+timestamp="$(date +%Y%m%d-%H%M%S)"
+slug="$(printf '%s' "${reason}" | tr '[:space:]/' '__' | tr -cd '[:alnum:]_.-')"
+[[ -n "${slug}" ]] || slug="manual"
+target="/.snapshots/root/${timestamp}-${slug}"
+
+btrfs subvolume snapshot -r / "${target}"
 SYSTEM_SNAP_EOF
   chmod 755 /usr/local/bin/oparch-snapshot-system
 
@@ -142,8 +141,17 @@ if [[ -z "${target_user}" || -z "${reason}" ]]; then
   exit 1
 fi
 
-config_name="home-${target_user}"
-snapper -c "${config_name}" create --description "manual:${reason}" --cleanup-algorithm ""
+source_subvol="/home/${target_user}"
+target_dir="/.snapshots/home-${target_user}"
+[[ -d "${source_subvol}" ]] || { echo "Home subvolume not found: ${source_subvol}" >&2; exit 1; }
+mkdir -p "${target_dir}"
+
+timestamp="$(date +%Y%m%d-%H%M%S)"
+slug="$(printf '%s' "${reason}" | tr '[:space:]/' '__' | tr -cd '[:alnum:]_.-')"
+[[ -n "${slug}" ]] || slug="manual"
+target="${target_dir}/${timestamp}-${slug}"
+
+btrfs subvolume snapshot -r "${source_subvol}" "${target}"
 HOME_SNAP_EOF
   chmod 755 /usr/local/bin/oparch-snapshot-home
 }
@@ -157,9 +165,7 @@ configure_swap_encryption() {
 cryptswap UUID=${SWAP_PART_UUID} /dev/urandom swap,cipher=aes-xts-plain64,size=256
 CRYPTTAB_EOF
 
-  if ! grep -q '^/dev/mapper/cryptswap ' /etc/fstab; then
-    printf '/dev/mapper/cryptswap none swap defaults 0 0\n' >> /etc/fstab
-  fi
+  printf '/dev/mapper/cryptswap none swap defaults 0 0\n' >> /etc/fstab
 }
 
 configure_plymouth_defaults() {
