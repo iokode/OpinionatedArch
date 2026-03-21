@@ -103,12 +103,12 @@ configure_network_stack() {
 }
 
 configure_snapshots() {
-  mkdir -p /.snapshots/root
+  mkdir -p /snapshots/root
 
   IFS=',' read -r -a login_users <<< "${LOGIN_USERS_CSV}"
   local user
   for user in "${login_users[@]}"; do
-    mkdir -p "/.snapshots/home-${user}"
+    mkdir -p "/snapshots/home-${user}"
   done
 
   cat > /usr/local/bin/oparch-snapshot-system <<'SYSTEM_SNAP_EOF'
@@ -124,7 +124,7 @@ fi
 timestamp="$(date +%Y%m%d-%H%M%S)"
 slug="$(printf '%s' "${reason}" | tr '[:space:]/' '__' | tr -cd '[:alnum:]_.-')"
 [[ -n "${slug}" ]] || slug="manual"
-target="/.snapshots/root/${timestamp}-${slug}"
+target="/snapshots/root/${timestamp}-${slug}"
 
 btrfs subvolume snapshot -r / "${target}"
 SYSTEM_SNAP_EOF
@@ -142,7 +142,7 @@ if [[ -z "${target_user}" || -z "${reason}" ]]; then
 fi
 
 source_subvol="/home/${target_user}"
-target_dir="/.snapshots/home-${target_user}"
+target_dir="/snapshots/home-${target_user}"
 [[ -d "${source_subvol}" ]] || { echo "Home subvolume not found: ${source_subvol}" >&2; exit 1; }
 mkdir -p "${target_dir}"
 
