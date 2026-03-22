@@ -41,6 +41,12 @@ parse_login_users_csv() {
       return 1
     fi
 
+    if [[ "${clean}" == "system" ]]; then
+      warn "Username 'system' is reserved."
+      LOGIN_USERS=()
+      return 1
+    fi
+
     if [[ " ${LOGIN_USERS[*]} " != *" ${clean} "* ]]; then
       LOGIN_USERS+=("${clean}")
     fi

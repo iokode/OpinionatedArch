@@ -3,7 +3,7 @@
 # shellcheck source=common.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
-run_chroot_configuration() {
+configure_installed_system() {
   log "Running chroot configuration"
 
   arch-chroot /mnt /bin/bash -s <<'CHROOT_EOF'
@@ -103,12 +103,12 @@ configure_network_stack() {
 }
 
 configure_snapshots() {
-  mkdir -p /snapshots/root
+  mkdir -p /snapshots/system
 
   IFS=',' read -r -a login_users <<< "${LOGIN_USERS_CSV}"
   local user
   for user in "${login_users[@]}"; do
-    mkdir -p "/snapshots/home-${user}"
+    mkdir -p "/snapshots/${user}"
   done
 
   cat > /usr/local/bin/oparch-snapshot-system <<'SYSTEM_SNAP_EOF'
@@ -124,7 +124,7 @@ fi
 timestamp="$(date +%Y%m%d-%H%M%S)"
 slug="$(printf '%s' "${reason}" | tr '[:space:]/' '__' | tr -cd '[:alnum:]_.-')"
 [[ -n "${slug}" ]] || slug="manual"
-target="/snapshots/root/${timestamp}-${slug}"
+target="/snapshots/system/${timestamp}-${slug}"
 
 btrfs subvolume snapshot -r / "${target}"
 SYSTEM_SNAP_EOF
@@ -142,7 +142,7 @@ if [[ -z "${target_user}" || -z "${reason}" ]]; then
 fi
 
 source_subvol="/home/${target_user}"
-target_dir="/snapshots/home-${target_user}"
+target_dir="/snapshots/${target_user}"
 [[ -d "${source_subvol}" ]] || { echo "Home subvolume not found: ${source_subvol}" >&2; exit 1; }
 mkdir -p "${target_dir}"
 

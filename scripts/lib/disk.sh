@@ -85,12 +85,12 @@ prepare_disk_layout() {
   mount -o subvol=@log /dev/mapper/cryptroot /mnt/var/log
   mount -o subvol=@pkg /dev/mapper/cryptroot /mnt/var/cache/pacman/pkg
   mount -o subvol=@snapshots /dev/mapper/cryptroot /mnt/snapshots
-  mkdir -p /mnt/snapshots/root
+  mkdir -p /mnt/snapshots/system
 
   for user in "${LOGIN_USERS[@]}"; do
     mkdir -p "/mnt/home/${user}"
     mount -o subvol=@home-"${user}" /dev/mapper/cryptroot "/mnt/home/${user}"
-    mkdir -p "/mnt/snapshots/home-${user}"
+    mkdir -p "/mnt/snapshots/${user}"
   done
 
   mount "${EFI_PART}" /mnt/boot

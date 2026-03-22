@@ -47,7 +47,7 @@ write_install_state() {
   chmod 600 /mnt/root/oparch-install.env
 }
 
-install_base_system() {
+bootstrap_base_system() {
   local microcode_package=""
   if [[ "${CPU_VENDOR}" == "Intel" ]]; then
     microcode_package="intel-ucode"

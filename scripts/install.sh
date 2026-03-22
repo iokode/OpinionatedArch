@@ -39,8 +39,8 @@ parse_args() {
   export OPARCH_CONFIG_FILE
 }
 
-require_dependencies() {
-  local dependencies=(
+require_live_dependencies() {
+  local live_dependencies=(
     lsblk
     wipefs
     sgdisk
@@ -59,7 +59,7 @@ require_dependencies() {
   )
 
   local dep
-  for dep in "${dependencies[@]}"; do
+  for dep in "${live_dependencies[@]}"; do
     require_command "${dep}"
   done
 }
@@ -68,13 +68,13 @@ main() {
   parse_args "$@"
 
   require_root
-  require_dependencies
+  require_live_dependencies
 
   collect_install_inputs
   summarize_install_plan
   prepare_disk_layout
-  install_base_system
-  run_chroot_configuration
+  bootstrap_base_system
+  configure_installed_system
 
   log "Installation flow completed."
   log "Review /mnt and reboot when ready."
