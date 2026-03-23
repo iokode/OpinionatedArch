@@ -4,7 +4,9 @@
 
 This repository defines a system used by one physical person across multiple machines and multiple login contexts. The installation model is interactive and role-aware, and it avoids coupling behavior to a single personal username.
 
-The operating model is single-person, multi-account. Login users can represent separate work contexts for the same person, while non-login service users can be used to run restricted background processes. Dotfiles are centralized at `/dotfiles` so all intended login users consume the same source of configuration.
+The operating model is single-person, multi-account. Login users can represent separate work contexts for the same person, while non-login service users can be used to run restricted background processes. Active shared configuration is centralized at `/dotfiles` so all intended login users consume the same source of configuration.
+
+The installer repository is persisted separately at `/oparch`. This keeps installation logic and decision documents independent from active runtime configuration.
 
 ### Machine Roles
 
@@ -19,6 +21,7 @@ The operating model is single-person, multi-account. Login users can represent s
 - Interactive installation is required because user list and role-specific options are machine-time inputs; if fully static, the installer would produce wrong identities or wrong optional components on some targets.
 - Avoiding hardcoded personal usernames is required because login-user names are inputs and can change over time; if usernames are hardcoded, provisioning and link logic break when names differ.
 - Centralizing shared configuration at `/dotfiles` is required because the same person uses multiple login users and some managed config targets are system paths (for example `/etc`); if configuration is anchored to one home, cross-user linking and system-level config management become fragile.
+- Keeping installer sources at `/oparch` is required because installation logic must remain inspectable after deployment without coupling it to runtime config layout; if installer files are mixed into active config paths, maintenance and troubleshooting scopes become harder to separate.
 
 ## Implementation Plan
 
@@ -26,6 +29,7 @@ The operating model is single-person, multi-account. Login users can represent s
 2. Ask for machine role early in the installer flow.
 3. Apply role-specific branches only where needed (for example, GRUB behavior).
 4. Keep shared configuration rooted at `/dotfiles/config/`.
+5. Persist the installer repository at `/oparch`.
 
 ## Considerations
 

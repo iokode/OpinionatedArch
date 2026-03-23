@@ -1,6 +1,6 @@
 # OpinionatedArch Installer
 
-This repository is the source of truth for a full Arch Linux setup driven from a live environment. The final target machine keeps this repository at `/dotfiles`, and the installer applies configuration mainly through symbolic links.
+This repository is the source of truth for a full Arch Linux setup driven from a live environment. The final target machine keeps this repository at `/oparch`, while active shared runtime configuration lives at `/dotfiles`; the installer applies configuration mainly through symbolic links.
 
 ## Repository layout
 

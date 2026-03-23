@@ -10,7 +10,7 @@ The installation filesystem is `btrfs`. The chosen layout uses these subvolumes:
 - `@pkg`
 - `@snapshots`
 
-The dotfiles repository is not a dedicated subvolume; it stays in `/dotfiles` inside `@`.
+The shared dotfiles path is not a dedicated subvolume; it stays in `/dotfiles` inside `@`.
 Login-user homes are handled as dedicated per-user subvolumes under `/home`, not as plain directories.
 `@snapshots` is mounted at `/snapshots` and stores snapshot paths by domain:
 
