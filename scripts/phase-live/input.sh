@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
 
-# shellcheck source=common.sh
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
-
 declare TARGET_DISK=""
 declare MACHINE_ROLE=""
 declare CPU_VENDOR=""
@@ -19,7 +16,8 @@ declare OWNER_EMAIL=""
 declare OWNER_RETURN_ADDRESS=""
 declare INCLUDE_LOGO="no"
 declare LOGO_URL=""
-declare LOGO_LOCAL_PATH="/tmp/oparch-logo.png"
+declare OPARCH_TEMP_DIR="/tmp/oparch"
+declare LOGO_LOCAL_PATH="/tmp/oparch/logo.png"
 declare PROCEED_INSTALL="ask"
 
 parse_login_users_csv() {
@@ -58,6 +56,19 @@ parse_login_users_csv() {
   fi
 
   return 0
+}
+
+authenticated_logo_download() {
+  local url="$1"
+
+  if run_cmd curl -fL --retry 2 --connect-timeout 10 -o "${LOGO_LOCAL_PATH}" "${url}"; then
+    return 0
+  fi
+  return 1
+}
+
+prepare_live_temp_dir() {
+  run_cmd mkdir -p "${OPARCH_TEMP_DIR}"
 }
 
 load_inputs_from_config_file() {
@@ -148,18 +159,7 @@ load_inputs_from_config_file() {
     log "Logo downloaded to ${LOGO_LOCAL_PATH}."
   else
     LOGO_URL=""
-    rm -f "${LOGO_LOCAL_PATH}"
   fi
-}
-
-authenticated_logo_download() {
-  local url="$1"
-
-  rm -f "${LOGO_LOCAL_PATH}"
-  if curl -fL --retry 2 --connect-timeout 10 -o "${LOGO_LOCAL_PATH}" "${url}"; then
-    return 0
-  fi
-  return 1
 }
 
 collect_login_users() {
@@ -172,8 +172,17 @@ collect_login_users() {
 }
 
 collect_install_inputs() {
+  prepare_live_temp_dir
+
   log "Detected disks:"
-  lsblk -dpno NAME,SIZE,MODEL | sed 's/^/  - /'
+  if [[ "${OPARCH_VERBOSE:-0}" == "0" ]]; then
+    local disk_line=""
+    while IFS= read -r disk_line; do
+      log "  - ${disk_line}"
+    done < <(lsblk -dpno NAME,SIZE,MODEL)
+  else
+    lsblk -dpno NAME,SIZE,MODEL | sed 's/^/  - /'
+  fi
 
   if [[ -n "${OPARCH_CONFIG_FILE:-}" ]]; then
     load_inputs_from_config_file
@@ -240,7 +249,6 @@ collect_install_inputs() {
       if [[ "${failed_action}" == "continue-without-logo" ]]; then
         INCLUDE_LOGO="no"
         LOGO_URL=""
-        rm -f "${LOGO_LOCAL_PATH}"
         break
       fi
     done
@@ -252,16 +260,16 @@ summarize_install_plan() {
   login_user_csv="$(join_by ', ' "${LOGIN_USERS[@]}")"
 
   log "Installation summary"
-  printf '  target disk: %s\n' "${TARGET_DISK}"
-  printf '  machine role: %s\n' "${MACHINE_ROLE}"
-  printf '  cpu vendor: %s\n' "${CPU_VENDOR}"
-  printf '  zram size (GB): %s\n' "${ZRAM_SWAP_GB}"
-  printf '  swap partition size (GB): %s\n' "${SWAP_PARTITION_GB}"
-  printf '  login users: %s\n' "${login_user_csv}"
-  printf '  keymap: %s\n' "${CONSOLE_KEYMAP}"
-  printf '  timezone: %s\n' "${TIMEZONE}"
-  printf '  hostname: %s\n' "${HOSTNAME_VALUE}"
-  printf '  include logo: %s\n' "${INCLUDE_LOGO}"
+  printf '  target disk: %s\n' "${TARGET_DISK}" >&3
+  printf '  machine role: %s\n' "${MACHINE_ROLE}" >&3
+  printf '  cpu vendor: %s\n' "${CPU_VENDOR}" >&3
+  printf '  zram size (GB): %s\n' "${ZRAM_SWAP_GB}" >&3
+  printf '  swap partition size (GB): %s\n' "${SWAP_PARTITION_GB}" >&3
+  printf '  login users: %s\n' "${login_user_csv}" >&3
+  printf '  keymap: %s\n' "${CONSOLE_KEYMAP}" >&3
+  printf '  timezone: %s\n' "${TIMEZONE}" >&3
+  printf '  hostname: %s\n' "${HOSTNAME_VALUE}" >&3
+  printf '  include logo: %s\n' "${INCLUDE_LOGO}" >&3
 
   if [[ "${PROCEED_INSTALL}" == "yes" ]]; then
     return 0

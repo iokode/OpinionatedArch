@@ -2,17 +2,28 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+OPARCH_REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-# shellcheck source=lib/common.sh
-source "${SCRIPT_DIR}/lib/common.sh"
-# shellcheck source=lib/prompts.sh
-source "${SCRIPT_DIR}/lib/prompts.sh"
-# shellcheck source=lib/disk.sh
-source "${SCRIPT_DIR}/lib/disk.sh"
-# shellcheck source=lib/bootstrap.sh
-source "${SCRIPT_DIR}/lib/bootstrap.sh"
-# shellcheck source=lib/chroot.sh
-source "${SCRIPT_DIR}/lib/chroot.sh"
+# shellcheck source=lib/log.sh
+source "${SCRIPT_DIR}/lib/log.sh"
+# shellcheck source=lib/validate.sh
+source "${SCRIPT_DIR}/lib/validate.sh"
+# shellcheck source=lib/input.sh
+source "${SCRIPT_DIR}/lib/input.sh"
+# shellcheck source=lib/exec.sh
+source "${SCRIPT_DIR}/lib/exec.sh"
+
+# shellcheck source=phase-live/input.sh
+source "${SCRIPT_DIR}/phase-live/input.sh"
+# shellcheck source=phase-live/disk.sh
+source "${SCRIPT_DIR}/phase-live/disk.sh"
+# shellcheck source=phase-live/bootstrap.sh
+source "${SCRIPT_DIR}/phase-live/bootstrap.sh"
+# shellcheck source=phase-live/main.sh
+source "${SCRIPT_DIR}/phase-live/main.sh"
+
+# shellcheck source=phase-chroot/main.sh
+source "${SCRIPT_DIR}/phase-chroot/main.sh"
 
 parse_args() {
   OPARCH_VERBOSE="${OPARCH_VERBOSE:-0}"
@@ -21,11 +32,19 @@ parse_args() {
   while [[ "$#" -gt 0 ]]; do
     case "$1" in
       -verbose)
-        OPARCH_VERBOSE=1
-        shift
+        [[ "$#" -ge 2 ]] || die "Missing value for -verbose (expected 1 or 2)"
+        case "$2" in
+          1|2)
+            OPARCH_VERBOSE="$2"
+            ;;
+          *)
+            die "Invalid -verbose value: $2 (expected 1 or 2)"
+            ;;
+        esac
+        shift 2
         ;;
-      -configfile)
-        [[ "$#" -ge 2 ]] || die "Missing value for -configfile"
+      -file)
+        [[ "$#" -ge 2 ]] || die "Missing value for -file"
         OPARCH_CONFIG_FILE="$2"
         shift 2
         ;;
@@ -37,46 +56,16 @@ parse_args() {
 
   export OPARCH_VERBOSE
   export OPARCH_CONFIG_FILE
-}
-
-require_live_dependencies() {
-  local live_dependencies=(
-    lsblk
-    wipefs
-    sgdisk
-    partprobe
-    udevadm
-    mkfs.fat
-    cryptsetup
-    mkfs.btrfs
-    mount
-    btrfs
-    pacstrap
-    genfstab
-    arch-chroot
-    blkid
-    curl
-  )
-
-  local dep
-  for dep in "${live_dependencies[@]}"; do
-    require_command "${dep}"
-  done
+  export OPARCH_REPO_ROOT
 }
 
 main() {
   parse_args "$@"
 
-  require_root
-  require_live_dependencies
+  run_phase_live
+  run_phase_chroot
 
-  collect_install_inputs
-  summarize_install_plan
-  prepare_disk_layout
-  bootstrap_base_system
-  configure_installed_system
-
-  log "Installation flow completed."
+  log "Installation completed."
   log "Review /mnt and reboot when ready."
 }
 
