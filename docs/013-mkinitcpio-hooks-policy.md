@@ -37,15 +37,14 @@ Keyboard layout for unlock is provided by installer input and applied through `k
 1. Install required packages in target system before initramfs generation (`mkinitcpio`, `plymouth`, kernel package).
 2. Write installer-selected keyboard layout to `/etc/vconsole.conf`.
 3. Set the `HOOKS` line in `/etc/mkinitcpio.conf` to the decided list.
-4. Configure kernel command line for classic encryption flow (`cryptdevice=... root=...`) and Plymouth rendering (`quiet splash`).
-5. Generate images with `mkinitcpio -P`.
-6. Validate that unlock prompt is rendered by Plymouth and that root unlock succeeds.
+4. Generate images with `mkinitcpio -P`.
+5. Validate that unlock prompt is rendered by Plymouth and that root unlock succeeds.
 
 ## Considerations
 
 - Hook order is part of policy and must not be arbitrarily reordered.
 - `plymouth` must appear before `encrypt`.
-- Reference to `plymouth-encrypt` is treated as obsolete for current Arch hook set in this repository.
+- Reference to `plymouth-encrypt` is treated as obsolete for current Arch hook set in this project.
 - If initramfs policy changes to systemd later, migrate explicitly to `sd-encrypt` in a dedicated decision update.
 
 ## References

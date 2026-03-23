@@ -12,7 +12,7 @@ Two explicit groups are used:
 - `dotfiles`: grants access to shared dotfiles according to the dotfiles policy.
 - `login-users`: marks accounts intended for interactive login.
 
-Each login user home is a dedicated Btrfs subvolume, so snapshots and rollbacks can be scoped per user. This applies both during initial installation and when adding a new login user later on an already installed system.
+As specified in `004-btrfs-subvolume-layout.md`, each login user home is a dedicated subvolume. This applies both during initial installation and when adding a new login user later on an already installed system.
 
 Authentication is unified: the installer asks one password and uses it both for disk encryption and for all login users.
 
@@ -24,9 +24,9 @@ The `root` account has no password set and is not intended for interactive login
 
 - Two account types (`logical` and `login`) are required because service accounts must run background processes with restricted privileges and must not appear as human login identities.
 - The installer asks for the full login-user list because login identities are machine-specific operational choices and cannot be inferred safely from baseline defaults.
-- Reserving the login username `system` is required because snapshot paths use `/snapshots/system` for system scope; if a login user is named `system`, snapshot-domain paths collide and user/system separation breaks.
+- Reserving the login username `system` is required because, as specified in `008-snapshot-strategy.md`, `system` is the reserved scope name for system snapshots; if a login user is named `system`, snapshot-domain paths collide and user/system separation breaks.
 - `dotfiles` and `login-users` are separate groups because a service account may need to read configuration from `/dotfiles` (for example, a keymapper service reading its config file) without being an interactive login account.
-- A dedicated home subvolume per login user is required because restoring one user state must not rollback another user home.
+- Per-user rollback scope is required in this user model; as specified in `004-btrfs-subvolume-layout.md`, this is implemented with one home subvolume per login user.
 - A unified password for disk encryption and login users is used because the operator explicitly prioritizes one strong memorized secret over multiple secrets that would likely be written down.
 - Conditional post-boot login behavior is required because some session managers do not support username-only login mode safely or natively.
 - Root is passwordless and non-interactive because privileged operations are intended to be executed through sudo from login users, and direct root login is intentionally excluded from normal operation.
@@ -41,7 +41,7 @@ The `root` account has no password set and is not intended for interactive login
 6. Configure login flow according to session-manager capability: username-only when supported, otherwise username plus password.
 7. Leave `root` without password and disable interactive root login.
 8. Apply shared dotfiles links for every login user from `/dotfiles/config/`.
-9. Ensure each login user is provisioned with a dedicated home subvolume.
+9. Ensure each login user is provisioned according to `004-btrfs-subvolume-layout.md` (one home subvolume per login user).
 10. Provide a standard user-provisioning command/script for post-install user creation so home-subvolume and user creation remain coupled.
 
 ## Considerations
@@ -55,7 +55,7 @@ The `root` account has no password set and is not intended for interactive login
 - Login usernames should be validated before creation.
 - The login username `system` must always be rejected as reserved.
 - Logical users must not be enabled for interactive login unless explicitly requested.
-- Login users should not be created through raw `useradd` flows that bypass home-subvolume provisioning.
+- Login users should not be created through raw `useradd` flows that bypass the provisioning model defined in `004-btrfs-subvolume-layout.md`.
 
 ## Critical Notes With Replies (Copy of Discussion)
 

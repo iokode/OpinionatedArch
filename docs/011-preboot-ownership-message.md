@@ -31,7 +31,7 @@ The canonical message content is: "This device belongs to [owner name]. If found
 
 The installer asks for all message data at install time (owner name, phone, email, return address).
 
-The ownership screen may optionally include a company logo. The installer first asks whether logo inclusion is desired. If yes, it asks for `logo_url`, downloads it during installation to `/tmp`, and embeds it into Plymouth assets before initramfs generation.
+The ownership screen may optionally include a company logo. The installer first asks whether logo inclusion is desired. If yes, it asks for `logo_url`, downloads it during installation, and embeds it into Plymouth assets before initramfs generation.
 
 If logo download fails (for example 404 or invalid URL), the installer must not continue silently. It must ask whether to retry with a new URL or continue consciously without logo.
 
@@ -54,20 +54,20 @@ Implementation target is a custom Plymouth theme used during LUKS unlock.
 - Installer-time capture of owner name, phone, email, and return address is required because personal identity/contact data must not be hardcoded in scripts; if hardcoded, reuse across machines and updates becomes error-prone.
 - Optional logo support is required because ownership branding is useful but not always desired on every machine; if logo inclusion cannot be chosen explicitly, installer behavior becomes less controllable.
 - `logo_url` is required only when logo inclusion is enabled because logo source data must be explicit and reproducible; if source is implicit, logo provisioning becomes brittle.
-- Downloading the logo only at install time and staging it in `/tmp` before embedding is required because early boot has no network guarantees; if boot depends on remote retrieval, unlock UI can fail or degrade unpredictably.
+- Downloading the logo only at install time is required because early boot has no network guarantees; if boot depends on remote retrieval, unlock UI can fail or degrade unpredictably.
 - Logo download failure must trigger explicit operator choice (retry URL or continue without logo) because URL typos are common and silent fallback hides configuration mistakes; if failure is silent, intended branding is lost without user awareness.
 - Using a custom Plymouth theme is required because default cryptsetup prompts do not provide the needed multilingual visual customization; if default prompt is kept, this message cannot be presented as designed.
 
 ## Implementation Plan
 
-1. Add a Plymouth theme under repository config assets for pre-boot unlock.
+1. Add a Plymouth theme under project assets for pre-boot unlock.
 2. Prompt for owner name, phone, email, and return address values.
 3. Add four localized text blocks with labels (`ENG`, `CAT`, `ESP`, `FRA`) and the same owner/contact data in each block.
 4. Add PNG flag assets and place them next to each language block.
 5. Prompt whether to include a logo (`yes/no`).
 6. If `yes`, prompt for `logo_url` and attempt download during installation.
 7. If download fails, prompt for explicit choice: retry with a new URL or continue without logo.
-8. If logo download succeeds, stage it in `/tmp` and copy it into Plymouth theme assets used for initramfs generation.
+8. If logo download succeeds, copy it into Plymouth theme assets used for initramfs generation.
 9. Arrange the layout as a 2x2 grid with clear separators.
 10. Configure initramfs and boot flow to use Plymouth during disk unlock.
 11. Validate readability on real display resolutions used by the target machines.
