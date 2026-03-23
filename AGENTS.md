@@ -44,6 +44,17 @@ Question format (mandatory):
 - Do not infer missing requirements when they can change implementation decisions.
 - If clarification is needed, stop and ask concise, explicit options.
 
+## Explicit Authorization Gate (Mandatory)
+- If there are 2 or more valid implementation options, stop and ask before choosing.
+- Do not treat generic approvals (for example: "go ahead", "adelante", "continue") as blanket approval for sub-decisions.
+- A generic approval only authorizes executing the approved plan, not choosing new implementation alternatives not explicitly selected.
+- If a command fails and fixing it requires choosing between alternatives (paths, tools, layouts, behavior), stop and ask before editing.
+- Before any non-trivial edit, state in chat:
+  1) the exact decision being made,
+  2) the exact user message that authorizes that decision.
+- If no exact authorization exists for that decision, ask first.
+- In this repository, Ask-Before-Assuming and Scope rules override autonomous-progress behavior.
+
 ## Literal Language Rule (Mandatory)
 - Interpret all user words by their literal definition.
 - Treat user examples as examples only, not as exhaustive scope unless explicitly stated.
@@ -63,6 +74,20 @@ Question format (mandatory):
 - Keep documentation and scripting direct: one concern per file, one source of truth per topic.
 - Avoid duplicate explanations across files.
 - If multiple valid approaches exist, choose the less complex one or ask before adding complexity.
+
+## Clean Live Baseline Rule (Mandatory)
+- Installer scripts must assume execution starts from a clean Arch live environment baseline.
+- Do not add defensive state-handling for pre-existing install paths or artifacts that are impossible in that baseline.
+- Do not add preventive cleanup/check patterns "just in case" (for example: deleting targets before first creation, force flags used only to tolerate unknown prior state).
+- Keep install flow linear when baseline state is known; fewer commands and fewer branches are preferred.
+
+## Critical Project Quality Rule (Mandatory)
+- Treat this project as critical production infrastructure. Quick fixes and ad-hoc patches are not acceptable.
+- Before changing behavior in installer scripts, read the full relevant code path end-to-end.
+- Do not patch a downstream symptom without tracing the upstream data flow that produces it.
+- For any asset/data flow (for example logos, netboot binaries, generated config), define and preserve one single source of truth and one transfer path. Do not introduce duplicate download/copy paths for the same artifact.
+- Do not apply workaround fixes of any nature (path-only moves, timing hacks, extra retries, duplicated logic, conditional bypasses, or similar) when root cause is unresolved. Fix root cause, not symptoms.
+- If a fix could be interpreted as a workaround, stop and ask for approval before applying it.
 
 ## Docs Structure Clarification (Mandatory)
 - Any "one-level" constraint applies to filesystem directory structure under `docs/` only.
