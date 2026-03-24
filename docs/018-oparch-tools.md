@@ -10,6 +10,22 @@ Creates a new login user with the required baseline policy: account, groups, hom
 ### Why it is needed
 Creating login users manually is error-prone and can break assumptions used by snapshot and permission policies. A single command ensures new users always match the expected model.
 
+## Tool: `oparch-user-remove`
+
+### What it does
+Removes a login user, including account removal, home-subvolume removal, and mount/fstab cleanup. The command asks whether home data should be preserved. If preservation is selected, it asks for a destination login user and copies data to `/home/<target-user>/other-users-home-data/<removed-user>` before removal.
+
+### Why it is needed
+Manual user removal can leave inconsistent state (stale fstab entries, mounted paths, orphaned subvolumes). A dedicated command keeps removal deterministic while offering an explicit and repeatable data-preservation path.
+
+## Tool: `oparch-password-rotate`
+
+### What it does
+Rotates the shared secret used by disk encryption and login users. It changes the LUKS passphrase on the encrypted root device and updates all members of `login-users` to the same new password. It accepts old and new passwords via parameter for scripting, and when password parameters are omitted it reads them with `read -s`.
+
+### Why it is needed
+The system model uses one shared secret for both disk unlock and login users. Rotating that secret manually in multiple places is error-prone and can desynchronize boot unlock and account login. A dedicated command keeps both sides synchronized in one operation.
+
 ## Tool: `oparch-dotfiles-link`
 
 ### What it does
