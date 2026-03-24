@@ -40,7 +40,6 @@ The `root` account has no password set and is not intended for interactive login
 5. Prompt once for a shared secret and apply it to disk encryption and all login users.
 6. Configure login flow according to session-manager capability: username-only when supported, otherwise username plus password.
 7. Leave `root` without password and disable interactive root login.
-8. Apply shared dotfiles links for every login user from `/dotfiles/config/`.
 9. Ensure each login user is provisioned according to `004-btrfs-subvolume-layout.md` (one home subvolume per login user).
 10. Provide a standard user-provisioning command/script for post-install user creation so home-subvolume and user creation remain coupled.
 

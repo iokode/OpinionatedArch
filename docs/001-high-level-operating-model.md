@@ -4,7 +4,7 @@
 
 This repository defines a system used by one physical person across multiple machines and multiple login contexts. The installation model is interactive and role-aware, and it avoids coupling behavior to a single personal username.
 
-The operating model is single-person, multi-account. Login users can represent separate work contexts for the same person, while non-login service users can be used to run restricted background processes. Active shared configuration is centralized at `/dotfiles` so all intended login users consume the same source of configuration.
+The operating model is single-person, multi-account. Login users can represent separate work contexts for the same person, while non-login service users can be used to run restricted background processes. Active shared configuration is centralized at `/dotfiles` so all intended login users consume the same source of configuration. Active shared configuration is centralized at `/dotfiles` so all intended login users consume the same source of configuration.
 
 The installer repository is persisted separately at `/oparch`. This keeps installation logic and decision documents independent from active runtime configuration.
 
@@ -28,7 +28,7 @@ The installer repository is persisted separately at `/oparch`. This keeps instal
 1. Keep high-level policy decisions in `docs/`.
 2. Ask for machine role early in the installer flow.
 3. Apply role-specific branches only where needed (for example, GRUB behavior).
-4. Keep shared configuration rooted at `/dotfiles/config/`.
+4. Keep shared-dotfiles implementation in `003-shared-dotfiles-model.md`.
 5. Persist the installer repository at `/oparch`.
 
 ## Considerations
