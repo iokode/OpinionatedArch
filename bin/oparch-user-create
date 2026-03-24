@@ -1,0 +1,132 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/log.sh
+source "${SCRIPT_DIR}/../lib/log.sh"
+
+usage() {
+  cat <<'USAGE_EOF'
+Usage: oparch-user-create <username>
+
+Create a login user with OpinionatedArch baseline policy:
+- groups: wheel,dotfiles,login-users
+- dedicated Btrfs home subvolume: @home-<username>
+- mount point: /home/<username> (persisted in /etc/fstab)
+- snapshot path: /snapshots/<username>
+USAGE_EOF
+}
+
+validate_username() {
+  local username="$1"
+
+  [[ "${username}" != "system" ]] || die "Username 'system' is reserved."
+  [[ "${username}" =~ ^[a-z_][a-z0-9_-]*$ ]] || die "Invalid username format: ${username}"
+}
+
+create_home_subvolume() {
+  local username="$1"
+  local source_dev="$2"
+  local top_level_mount
+
+  top_level_mount="$(mktemp -d /tmp/oparch-user-create.XXXXXX)"
+  trap 'mountpoint -q "${top_level_mount}" && umount "${top_level_mount}"; rmdir "${top_level_mount}" 2>/dev/null || true' RETURN
+
+  mount -o subvolid=5 "${source_dev}" "${top_level_mount}"
+
+  [[ ! -d "${top_level_mount}/@home-${username}" ]] || die "Subvolume already exists: @home-${username}"
+  btrfs subvolume create "${top_level_mount}/@home-${username}" >/dev/null
+
+  umount "${top_level_mount}"
+  rmdir "${top_level_mount}"
+  trap - RETURN
+}
+
+ensure_fstab_entry() {
+  local username="$1"
+  local source_dev="$2"
+  local mount_point="/home/${username}"
+  local fstab_line
+
+  fstab_line="${source_dev} ${mount_point} btrfs defaults,subvol=@home-${username} 0 0"
+
+  if grep -qE "^[^#[:space:]]+[[:space:]]+${mount_point//\//\/}[[:space:]]+" /etc/fstab; then
+    die "An /etc/fstab entry already exists for ${mount_point}"
+  fi
+
+  printf '%s\n' "${fstab_line}" >> /etc/fstab
+  systemctl daemon-reload
+}
+
+create_user_account() {
+  local username="$1"
+
+  id "${username}" >/dev/null 2>&1 && die "User already exists: ${username}"
+  useradd -M -d "/home/${username}" -G wheel,dotfiles,login-users -s /bin/bash "${username}"
+}
+
+mount_home_subvolume_now() {
+  local username="$1"
+  local source_dev="$2"
+  local mount_point="/home/${username}"
+
+  install -d "${mount_point}"
+  mount -o subvol="@home-${username}" "${source_dev}" "${mount_point}"
+  chown -R "${username}:${username}" "${mount_point}"
+}
+
+ensure_snapshot_path() {
+  local username="$1"
+
+  install -d "/snapshots/${username}"
+}
+
+set_user_password_from_login_users() {
+  local username="$1"
+  local reference_user=""
+  local reference_hash=""
+
+  reference_user="$(getent group login-users | awk -F: '{print $4}' | tr ',' '\n' | sed '/^$/d' | head -n1)"
+  [[ -n "${reference_user}" ]] || die "No existing login-users found to copy password from."
+  reference_hash="$(getent shadow "${reference_user}" | awk -F: '{print $2}')"
+  [[ -n "${reference_hash}" ]] || die "Unable to read password hash from reference user: ${reference_user}"
+
+  printf '%s:%s\n' "${username}" "${reference_hash}" | chpasswd -e
+}
+
+parse_args() {
+  local username="${1:-}"
+  shift || true
+
+  [[ -n "${username}" ]] || {
+    usage
+    exit 1
+  }
+  [[ "$#" -eq 0 ]] || die "Unknown argument: $1"
+
+  printf '%s\n' "${username}"
+}
+
+main() {
+  local username=""
+  local source_dev=""
+
+  username="$(parse_args "$@")"
+
+  require_root_or_warn_exit "This command must run as root."
+  validate_username "${username}"
+
+  source_dev="$(findmnt -n -o SOURCE /)"
+  source_dev="${source_dev%%[*}"
+
+  create_home_subvolume "${username}" "${source_dev}"
+  ensure_fstab_entry "${username}" "${source_dev}"
+  create_user_account "${username}"
+  mount_home_subvolume_now "${username}" "${source_dev}"
+  ensure_snapshot_path "${username}"
+  set_user_password_from_login_users "${username}"
+
+  printf 'User created successfully: %s\n' "${username}"
+}
+
+main "$@"

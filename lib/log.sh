@@ -18,3 +18,11 @@ die() {
   printf '[ERROR] %s\n' "$*" >&4
   exit 1
 }
+
+require_root_or_warn_exit() {
+  local message="${1:-This command must run as root.}"
+  if [[ "${EUID}" -ne 0 ]]; then
+    warn "${message}"
+    exit 1
+  fi
+}

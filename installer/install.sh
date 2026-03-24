@@ -4,14 +4,14 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OPARCH_REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-# shellcheck source=lib/log.sh
-source "${SCRIPT_DIR}/lib/log.sh"
-# shellcheck source=lib/validate.sh
-source "${SCRIPT_DIR}/lib/validate.sh"
-# shellcheck source=lib/input.sh
-source "${SCRIPT_DIR}/lib/input.sh"
-# shellcheck source=lib/exec.sh
-source "${SCRIPT_DIR}/lib/exec.sh"
+# shellcheck source=../lib/log.sh
+source "${OPARCH_REPO_ROOT}/lib/log.sh"
+# shellcheck source=../lib/validate.sh
+source "${OPARCH_REPO_ROOT}/lib/validate.sh"
+# shellcheck source=../lib/input.sh
+source "${OPARCH_REPO_ROOT}/lib/input.sh"
+# shellcheck source=../lib/exec.sh
+source "${OPARCH_REPO_ROOT}/lib/exec.sh"
 
 # shellcheck source=phase-live/input.sh
 source "${SCRIPT_DIR}/phase-live/input.sh"

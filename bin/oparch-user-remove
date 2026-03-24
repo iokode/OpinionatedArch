@@ -1,0 +1,205 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/log.sh
+source "${SCRIPT_DIR}/../lib/log.sh"
+
+usage() {
+  cat <<'USAGE_EOF'
+Usage: oparch-user-remove <username> [--preserve-home <target-user>] [--preserve-snapshots]
+
+Remove a login user. Home data can be preserved by copying it to:
+  /home/<target-user>/other-users-home-data/<removed-user>
+USAGE_EOF
+}
+
+validate_username() {
+  local username="$1"
+
+  [[ "${username}" != "system" ]] || die "Username 'system' is reserved and cannot be removed."
+  [[ "${username}" =~ ^[a-z_][a-z0-9_-]*$ ]] || die "Invalid username format: ${username}"
+}
+
+ensure_login_user_membership() {
+  local username="$1"
+
+  id -nG "${username}" | tr ' ' '\n' | grep -qx 'login-users' || die "User is not a login user (missing group login-users): ${username}"
+}
+
+copy_home_data() {
+  local removed_user="$1"
+  local target_user="$2"
+  local source_home="/home/${removed_user}"
+  local target_dir="/home/${target_user}/other-users-home-data/${removed_user}"
+
+  [[ -d "${source_home}" ]] || die "Home path not found: ${source_home}"
+  [[ ! -e "${target_dir}" ]] || die "Target path already exists: ${target_dir}"
+
+  install -d -o "${target_user}" -g "${target_user}" "${target_dir}"
+  cp -a "${source_home}/." "${target_dir}/"
+  chown -R "${target_user}:${target_user}" "${target_dir}"
+}
+
+get_root_source_device() {
+  local source_dev=""
+
+  source_dev="$(findmnt -n -o SOURCE /)"
+  source_dev="${source_dev%%[*}"
+
+  printf '%s\n' "${source_dev}"
+}
+
+remove_fstab_home_entry() {
+  local removed_user="$1"
+  local mount_point="/home/${removed_user}"
+  local tmp_file
+
+  tmp_file="$(mktemp /tmp/oparch-user-remove-fstab.XXXXXX)"
+  trap 'rm -f "${tmp_file}"' RETURN
+
+  awk -v mp="${mount_point}" '($2 != mp) { print }' /etc/fstab > "${tmp_file}"
+  cat "${tmp_file}" > /etc/fstab
+  systemctl daemon-reload
+
+  rm -f "${tmp_file}"
+  trap - RETURN
+}
+
+require_home_mounted() {
+  local removed_user="$1"
+  local mount_point="/home/${removed_user}"
+
+  mountpoint -q "${mount_point}" || die "Home is not mounted: ${mount_point}"
+}
+
+unmount_home() {
+  local removed_user="$1"
+  local mount_point="/home/${removed_user}"
+
+  umount "${mount_point}"
+}
+
+delete_home_subvolume() {
+  local removed_user="$1"
+  local source_dev="$2"
+  local top_level_mount
+
+  top_level_mount="$(mktemp -d /tmp/oparch-user-remove.XXXXXX)"
+  trap 'mountpoint -q "${top_level_mount}" && umount "${top_level_mount}"; rmdir "${top_level_mount}" 2>/dev/null || true' RETURN
+
+  mount -o subvolid=5 "${source_dev}" "${top_level_mount}"
+  btrfs subvolume delete "${top_level_mount}/@home-${removed_user}" >/dev/null
+  umount "${top_level_mount}"
+  rmdir "${top_level_mount}"
+
+  trap - RETURN
+}
+
+remove_user_snapshot_scope() {
+  local removed_user="$1"
+  local scope_dir="/snapshots/${removed_user}"
+  local child=""
+
+  for child in "${scope_dir}"/*; do
+    [[ -e "${child}" ]] || break
+    btrfs subvolume delete "${child}" >/dev/null
+  done
+
+  rmdir "${scope_dir}"
+}
+
+remove_user_account() {
+  local removed_user="$1"
+
+  userdel "${removed_user}"
+}
+
+remove_home_mountpoint() {
+  local removed_user="$1"
+
+  rmdir "/home/${removed_user}"
+}
+
+parse_args() {
+  local removed_user="${1:-}"
+  shift || true
+  local preserve_home_data=false
+  local destination_user=""
+  local preserve_snapshots=false
+
+  while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+      --preserve-home)
+        [[ "$#" -ge 2 ]] || die "--preserve-home requires a destination user."
+        preserve_home_data=true
+        destination_user="$2"
+        shift 2
+        ;;
+      --preserve-snapshots)
+        preserve_snapshots=true
+        shift
+        ;;
+      *)
+        die "Unknown argument: $1"
+        ;;
+    esac
+  done
+
+  [[ -n "${removed_user}" ]] || {
+    usage
+    exit 1
+  }
+
+  printf '%s\n%s\n%s\n%s\n' "${removed_user}" "${preserve_home_data}" "${destination_user}" "${preserve_snapshots}"
+}
+
+main() {
+  local parsed=""
+  local removed_user=""
+  local preserve_home_data=""
+  local destination_user=""
+  local preserve_snapshots=""
+  local source_dev=""
+
+  parsed="$(parse_args "$@")"
+  removed_user="$(printf '%s\n' "${parsed}" | sed -n '1p')"
+  preserve_home_data="$(printf '%s\n' "${parsed}" | sed -n '2p')"
+  destination_user="$(printf '%s\n' "${parsed}" | sed -n '3p')"
+  preserve_snapshots="$(printf '%s\n' "${parsed}" | sed -n '4p')"
+
+  require_root_or_warn_exit "This command must run as root."
+  validate_username "${removed_user}"
+  id "${removed_user}" >/dev/null 2>&1 || die "User does not exist: ${removed_user}"
+  ensure_login_user_membership "${removed_user}"
+  require_home_mounted "${removed_user}"
+
+  if [[ "${preserve_home_data}" == true ]]; then
+    [[ -n "${destination_user}" ]] || die "Destination user is required when preserving home data."
+    validate_username "${destination_user}"
+    [[ "${destination_user}" != "${removed_user}" ]] || die "Destination user cannot be the removed user."
+    id "${destination_user}" >/dev/null 2>&1 || die "Destination user does not exist: ${destination_user}"
+    ensure_login_user_membership "${destination_user}"
+    copy_home_data "${removed_user}" "${destination_user}"
+  fi
+
+  source_dev="$(get_root_source_device)"
+
+  unmount_home "${removed_user}"
+  remove_fstab_home_entry "${removed_user}"
+  delete_home_subvolume "${removed_user}" "${source_dev}"
+  if [[ "${preserve_snapshots}" != true ]]; then
+    remove_user_snapshot_scope "${removed_user}"
+  fi
+  remove_user_account "${removed_user}"
+  remove_home_mountpoint "${removed_user}"
+
+  if [[ "${preserve_home_data}" == true ]]; then
+    printf 'User removed successfully: %s\n' "${removed_user}"
+    printf 'Home data copied to: /home/%s/other-users-home-data/%s\n' "${destination_user}" "${removed_user}"
+  else
+    printf 'User removed successfully: %s\n' "${removed_user}"
+  fi
+}
+
+main "$@"
