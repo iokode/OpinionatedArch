@@ -5,7 +5,6 @@ chroot_configure_users_and_groups() {
   groupadd login-users
 
   install -d -m 2775 -o root -g dotfiles /dotfiles
-  install -d -m 2775 -o root -g dotfiles /dotfiles/config
 
   IFS=',' read -r -a login_users <<< "${LOGIN_USERS_CSV}"
 

@@ -5,17 +5,17 @@ This repository is the source of truth for a full Arch Linux setup driven from a
 ## Repository layout
 
 ```text
-├── scripts/
-├── config/
+├── installer/
+├── assets/
 └── docs/
 ```
 
-- `scripts/`: executable logic for installation and setup.
-- `config/`: managed configuration files linked into user and system targets.
+- `installer/`: executable logic for installation and setup.
+- `assets/`: managed assets copied or linked into system target.
 - `docs/`: decision documents.
 
 ## Usage
-
+ 
 1. Boot the Arch Linux live environment.
 2. Run the installer entrypoint.
 3. Answer the interactive prompts.
