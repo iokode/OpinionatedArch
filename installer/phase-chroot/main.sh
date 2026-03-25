@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 run_phase_chroot() {
-  log "Running chroot configuration"
+  log "Running chroot configuration..."
 
   run_cmd arch-chroot /mnt /bin/bash -s <<'CHROOT_EOF'
 set -euo pipefail
@@ -27,6 +27,7 @@ chroot_configure_initramfs
 chroot_configure_grub
 chroot_install_snap_pac
 
+chmod ugo+x /oparch/bin/*
 rm -rf /oparch/tmp
 rm /root/oparch-install.env
 CHROOT_EOF

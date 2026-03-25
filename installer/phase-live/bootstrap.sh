@@ -4,7 +4,7 @@ stage_netboot_binary() {
   local netboot_url="https://archlinux.org/static/netboot/ipxe-arch.efi"
   local netboot_local_path="/tmp/oparch/netbootx64.efi"
 
-  log "Downloading Arch netboot EFI binary."
+  log "Downloading Arch netboot EFI binary..."
   run_cmd curl -fL --retry 2 --connect-timeout 10 -o "${netboot_local_path}" "${netboot_url}"
   run_cmd mkdir /mnt/boot/EFI
   run_cmd mkdir /mnt/boot/EFI/OpinionatedArch
@@ -57,24 +57,34 @@ bootstrap_base_system() {
   local microcode_package=""
   if [[ "${CPU_VENDOR}" == "Intel" ]]; then
     microcode_package="intel-ucode"
-  else
+  elif [[ "${CPU_VENDOR}" == "AMD" ]]; then
     microcode_package="amd-ucode"
   fi
 
   run_cmd mkdir /mnt/etc
   printf 'KEYMAP=%s\n' "${CONSOLE_KEYMAP}" > /mnt/etc/vconsole.conf
 
-  log "Installing packages..."
-  run_pkg_cmd pacstrap -K /mnt \
-    base \
-    linux \
-    linux-headers \
-    linux-firmware \
-    mkinitcpio \
-    iptables-nft \
-    "${microcode_package}"
+  log "Installing base system..."
+  if [[ -n "${microcode_package}" ]]; then
+    run_pkg_cmd pacstrap -K /mnt \
+      base \
+      linux \
+      linux-headers \
+      linux-firmware \
+      mkinitcpio \
+      iptables-nft \
+      "${microcode_package}"
+  else
+    run_pkg_cmd pacstrap -K /mnt \
+      base \
+      linux \
+      linux-headers \
+      linux-firmware \
+      mkinitcpio \
+      iptables-nft
+  fi
 
-  log "Generating fstab"
+  log "Generating fstab..."
   if [[ "${OPARCH_VERBOSE:-0}" == "0" ]]; then
     if ! genfstab -U /mnt > /mnt/etc/fstab 2>/tmp/oparch-cmd.log; then
       warn "Command failed: genfstab -U /mnt"

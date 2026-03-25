@@ -134,7 +134,7 @@ load_inputs_from_config_file() {
 
   [[ -n "${TARGET_DISK}" && -b "${TARGET_DISK}" ]] || die "TARGET_DISK must be an existing block device."
   [[ "${MACHINE_ROLE}" == "Laptop" || "${MACHINE_ROLE}" == "MainPC" ]] || die "MACHINE_ROLE must be Laptop or MainPC."
-  [[ "${CPU_VENDOR}" == "Intel" || "${CPU_VENDOR}" == "AMD" ]] || die "CPU_VENDOR must be Intel or AMD."
+  [[ "${CPU_VENDOR}" == "Intel" || "${CPU_VENDOR}" == "AMD" || "${CPU_VENDOR}" == "other" ]] || die "CPU_VENDOR must be Intel, AMD, or other."
   [[ "${ZRAM_SWAP_GB}" =~ ^[0-9]+$ ]] || die "ZRAM_SWAP_GB must be a non-negative integer."
   [[ "${SWAP_PARTITION_GB}" =~ ^[0-9]+$ ]] || die "SWAP_PARTITION_GB must be a non-negative integer."
   [[ -n "${SHARED_SECRET}" ]] || die "SHARED_SECRET cannot be empty."
@@ -174,35 +174,85 @@ collect_login_users() {
 collect_install_inputs() {
   prepare_live_temp_dir
 
-  log "Detected disks:"
-  if [[ "${OPARCH_VERBOSE:-0}" == "0" ]]; then
-    local disk_line=""
-    while IFS= read -r disk_line; do
-      log "  - ${disk_line}"
-    done < <(lsblk -dpno NAME,SIZE,MODEL)
-  else
-    lsblk -dpno NAME,SIZE,MODEL | sed 's/^/  - /'
-  fi
-
   if [[ -n "${OPARCH_CONFIG_FILE:-}" ]]; then
     load_inputs_from_config_file
     return 0
   fi
 
-  while true; do
-    TARGET_DISK="$(ask_non_empty "Target disk (example: /dev/nvme0n1): ")"
-    if [[ -b "${TARGET_DISK}" ]]; then
-      break
-    fi
-    warn "${TARGET_DISK} is not a block device."
+  local -a available_disks=()
+  local disk_entry=""
+  local selected_disk_number=""
+  local selected_disk_index=0
+
+  while IFS= read -r disk_entry; do
+    [[ -n "${disk_entry}" ]] || continue
+    available_disks+=("${disk_entry}")
+  done < <(lsblk -dpno NAME,TYPE | awk '$2 == "disk" { print $1 }')
+
+  [[ "${#available_disks[@]}" -gt 0 ]] || die "No selectable disks found."
+
+  printf 'Available target disks:\n' >&3
+  for selected_disk_index in "${!available_disks[@]}"; do
+    printf '%d. %s\n' "$((selected_disk_index + 1))" "${available_disks[$selected_disk_index]}" >&3
   done
 
-  local destructive_confirmation
-  destructive_confirmation="$(ask_non_empty "Type 'wipe-all' to confirm destructive install: ")"
-  [[ "${destructive_confirmation}" == "wipe-all" ]] || die "Aborted. Confirmation value must be 'wipe-all'."
+  while true; do
+    selected_disk_number="$(ask_uint "Choose disk number: ")"
+    selected_disk_index=$((selected_disk_number - 1))
 
-  MACHINE_ROLE="$(ask_choice "Machine role (Laptop/MainPC): " "Laptop" "MainPC")"
-  CPU_VENDOR="$(ask_choice "CPU vendor (Intel/AMD): " "Intel" "AMD")"
+    if (( selected_disk_index >= 0 && selected_disk_index < ${#available_disks[@]} )); then
+      TARGET_DISK="${available_disks[$selected_disk_index]}"
+      break
+    fi
+
+    warn "Invalid disk number. Choose a value between 1 and ${#available_disks[@]}."
+  done
+
+  local machine_role_number=""
+  printf 'Machine role:\n' >&3
+  printf '1. Laptop\n' >&3
+  printf '2. MainPC\n' >&3
+  while true; do
+    machine_role_number="$(ask_uint "Choose machine role number: ")"
+    case "${machine_role_number}" in
+      1)
+        MACHINE_ROLE="Laptop"
+        break
+        ;;
+      2)
+        MACHINE_ROLE="MainPC"
+        break
+        ;;
+      *)
+        warn "Invalid machine role number. Choose 1 or 2."
+        ;;
+    esac
+  done
+  local cpu_vendor_number=""
+  printf 'CPU vendor:\n' >&3
+  printf '1. Intel\n' >&3
+  printf '2. AMD\n' >&3
+  printf '3. other\n' >&3
+  while true; do
+    cpu_vendor_number="$(ask_uint "Choose CPU vendor number: ")"
+    case "${cpu_vendor_number}" in
+      1)
+        CPU_VENDOR="Intel"
+        break
+        ;;
+      2)
+        CPU_VENDOR="AMD"
+        break
+        ;;
+      3)
+        CPU_VENDOR="other"
+        break
+        ;;
+      *)
+        warn "Invalid CPU vendor number. Choose 1, 2, or 3."
+        ;;
+    esac
+  done
 
   ZRAM_SWAP_GB="$(ask_uint "zram size in GB: ")"
   SWAP_PARTITION_GB="$(ask_uint "Swap partition size in GB: ")"
@@ -255,11 +305,22 @@ collect_install_inputs() {
   fi
 }
 
+confirm_destructive_install() {
+  local destructive_confirmation=""
+
+  if [[ "${OPARCH_WIPE_ALL:-no}" == "yes" ]]; then
+    return 0
+  fi
+
+  destructive_confirmation="$(ask_non_empty "Type 'wipe-all' to confirm destructive install: ")"
+  [[ "${destructive_confirmation}" == "wipe-all" ]] || die "Aborted. Confirmation value must be 'wipe-all'."
+}
+
 summarize_install_plan() {
   local login_user_csv
   login_user_csv="$(join_by ', ' "${LOGIN_USERS[@]}")"
 
-  log "Installation summary"
+  printf 'Installation summary:\n' >&3
   printf '  target disk: %s\n' "${TARGET_DISK}" >&3
   printf '  machine role: %s\n' "${MACHINE_ROLE}" >&3
   printf '  cpu vendor: %s\n' "${CPU_VENDOR}" >&3

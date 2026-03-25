@@ -23,11 +23,11 @@ partition_path() {
 }
 
 prepare_disk_layout() {
-  log "Wiping partition table on ${TARGET_DISK}"
+  log "Wiping partition table on ${TARGET_DISK}..."
   run_cmd wipefs -af "${TARGET_DISK}"
   run_cmd sgdisk --zap-all "${TARGET_DISK}"
 
-  log "Creating GPT partitions"
+  log "Creating GPT partitions..."
   run_cmd sgdisk -n 1:0:+1G -t 1:ef00 -c 1:EFI "${TARGET_DISK}"
 
   if [[ "${SWAP_PARTITION_GB}" -gt 0 ]]; then
@@ -46,17 +46,17 @@ prepare_disk_layout() {
   run_cmd partprobe "${TARGET_DISK}"
   run_cmd udevadm settle
 
-  log "Formatting EFI partition ${EFI_PART}"
+  log "Formatting EFI partition ${EFI_PART}..."
   run_cmd mkfs.fat -F32 "${EFI_PART}"
 
-  log "Creating LUKS2 container on ${ROOT_PART}"
+  log "Creating LUKS2 container on ${ROOT_PART}..."
   run_cmd_with_input "${SHARED_SECRET}" cryptsetup luksFormat --type luks2 --batch-mode --key-file - "${ROOT_PART}"
   run_cmd_with_input "${SHARED_SECRET}" cryptsetup open --key-file - "${ROOT_PART}" cryptroot
 
-  log "Creating Btrfs filesystem"
+  log "Creating Btrfs filesystem..."
   run_cmd mkfs.btrfs -f /dev/mapper/cryptroot
 
-  log "Creating Btrfs subvolumes"
+  log "Creating Btrfs subvolumes..."
   run_cmd mount /dev/mapper/cryptroot /mnt
   run_cmd btrfs subvolume create /mnt/@
   run_cmd btrfs subvolume create /mnt/@log
@@ -70,7 +70,7 @@ prepare_disk_layout() {
 
   run_cmd umount /mnt
 
-  log "Mounting Btrfs subvolumes"
+  log "Mounting Btrfs subvolumes..."
   run_cmd mount -o subvol=@ /dev/mapper/cryptroot /mnt
   mkdir /mnt/boot
   mkdir /mnt/home

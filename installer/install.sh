@@ -28,25 +28,30 @@ source "${SCRIPT_DIR}/phase-chroot/main.sh"
 parse_args() {
   OPARCH_VERBOSE="${OPARCH_VERBOSE:-0}"
   OPARCH_CONFIG_FILE="${OPARCH_CONFIG_FILE:-}"
+  OPARCH_WIPE_ALL="${OPARCH_WIPE_ALL:-no}"
 
   while [[ "$#" -gt 0 ]]; do
     case "$1" in
-      -verbose)
-        [[ "$#" -ge 2 ]] || die "Missing value for -verbose (expected 1 or 2)"
+      --verbose|-v)
+        [[ "$#" -ge 2 ]] || die "Missing value for --verbose/-v (expected 1 or 2)"
         case "$2" in
           1|2)
             OPARCH_VERBOSE="$2"
             ;;
           *)
-            die "Invalid -verbose value: $2 (expected 1 or 2)"
+            die "Invalid --verbose/-v value: $2 (expected 1 or 2)"
             ;;
         esac
         shift 2
         ;;
-      -file)
-        [[ "$#" -ge 2 ]] || die "Missing value for -file"
+      --file|-f)
+        [[ "$#" -ge 2 ]] || die "Missing value for --file/-f"
         OPARCH_CONFIG_FILE="$2"
         shift 2
+        ;;
+      --wipe-all|-w)
+        OPARCH_WIPE_ALL="yes"
+        shift
         ;;
       *)
         die "Unknown argument: $1"
@@ -56,6 +61,7 @@ parse_args() {
 
   export OPARCH_VERBOSE
   export OPARCH_CONFIG_FILE
+  export OPARCH_WIPE_ALL
   export OPARCH_REPO_ROOT
 }
 
@@ -65,8 +71,7 @@ main() {
   run_phase_live
   run_phase_chroot
 
-  log "Installation completed."
-  log "Review /mnt and reboot when ready."
+  log "Installation completed. Review /mnt and reboot when ready."
 }
 
 main "$@"
