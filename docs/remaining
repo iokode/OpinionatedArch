@@ -3,3 +3,4 @@
   11. Default systemd services: which units are always enabled at install time.
   12. Base security policy: firewall, SSH (if applicable), sudo policy.
   13. Real session/login strategy: initial display manager and fallback until custom implementation exists.
+  14. Nvidia driver: ask about the nvidia driver to install (nouveau, nvidia, nvidia-open or none) in a 1..4 selector with a hint about the GPU model
