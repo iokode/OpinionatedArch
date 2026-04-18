@@ -7,12 +7,12 @@ run_phase_chroot() {
 set -euo pipefail
 
 source /root/oparch-install.env
-source /usr/oparch/installer/phase-chroot/packages.sh
-source /usr/oparch/installer/phase-chroot/identity.sh
-source /usr/oparch/installer/phase-chroot/users.sh
-source /usr/oparch/installer/phase-chroot/network.sh
-source /usr/oparch/installer/phase-chroot/snapshots.sh
-source /usr/oparch/installer/phase-chroot/boot.sh
+source /usr/opinionatedarch/installer/phase-chroot/packages.sh
+source /usr/opinionatedarch/installer/phase-chroot/identity.sh
+source /usr/opinionatedarch/installer/phase-chroot/users.sh
+source /usr/opinionatedarch/installer/phase-chroot/network.sh
+source /usr/opinionatedarch/installer/phase-chroot/snapshots.sh
+source /usr/opinionatedarch/installer/phase-chroot/boot.sh
 
 chroot_prepare_vconsole
 chroot_install_base_packages
@@ -27,8 +27,8 @@ chroot_configure_initramfs
 chroot_configure_grub
 chroot_install_snap_pac
 
-chmod ugo+x /usr/oparch/bin/*
-rm -rf /usr/oparch/tmp
+chmod ugo+x /usr/opinionatedarch/bin/*
+rm -rf /usr/opinionatedarch/tmp
 rm /root/oparch-install.env
 CHROOT_EOF
 
