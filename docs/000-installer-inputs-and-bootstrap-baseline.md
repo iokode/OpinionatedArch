@@ -34,8 +34,8 @@ The installer asks for:
 ### Temporary Paths for Installer Staging
 
 - Live installer temporary path for transient installation files: `/tmp/oparch`.
-- Target chroot temporary path for transient installation files: `/oparch/tmp`.
-- Remove `/oparch/tmp` at the end of the installer script.
+- Target chroot temporary path for transient installation files: `/usr/oparch/tmp`.
+- Remove `/usr/oparch/tmp` at the end of the installer script.
 
 ### Bootstrap Package List
 
@@ -75,8 +75,8 @@ Post-chroot (`pacman -S`):
 - CPU-vendor microcode selection is required because early microcode package is vendor-specific for Intel/AMD and intentionally absent for `other`; if this mapping is not explicit, package selection can be incorrect.
 - Explicit service baseline is required because “installed” is not equivalent to “enabled”; if services are not listed explicitly, first-boot behavior is inconsistent.
 - `/tmp/oparch` in live installer is required because transient installation files need deterministic staging before files are copied into the target system; if omitted, installer temp-file flow becomes scattered and harder to reason about.
-- `/oparch/tmp` in target chroot is required because `/tmp` may be cleaned by package hooks before later setup steps run; if `/tmp` is used as the only target staging path, transient files can disappear mid-install.
-- Removing `/oparch/tmp` at the end is required because those assets are transient installer inputs only; if retained, stale artifacts remain after installation.
+- `/usr/oparch/tmp` in target chroot is required because `/tmp` may be cleaned by package hooks before later setup steps run; if `/tmp` is used as the only target staging path, transient files can disappear mid-install.
+- Removing `/usr/oparch/tmp` at the end is required because those assets are transient installer inputs only; if retained, stale artifacts remain after installation.
 
 ## Implementation Plan
 
@@ -86,8 +86,8 @@ Post-chroot (`pacman -S`):
 4. Install post-chroot package set with `pacman -S` in target context.
 5. Enable the minimum service baseline in chroot before first reboot.
 6. Stage transient installer files in `/tmp/oparch` during live installation.
-7. Copy required transient files from `/tmp/oparch` to `/oparch/tmp` in target before chroot setup steps that consume them.
-8. Remove `/oparch/tmp` at the end of the installer script.
+7. Copy required transient files from `/tmp/oparch` to `/usr/oparch/tmp` in target before chroot setup steps that consume them.
+8. Remove `/usr/oparch/tmp` at the end of the installer script.
 
 ## Considerations
 

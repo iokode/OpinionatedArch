@@ -13,18 +13,18 @@ stage_netboot_binary() {
 }
 
 stage_live_temp_assets_for_repo() {
-  run_cmd mkdir -p /mnt/oparch/tmp
-  run_cmd cp -a /tmp/oparch/. /mnt/oparch/tmp/
-  log "Staged /tmp/oparch to /mnt/oparch/tmp for chroot."
+  run_cmd mkdir -p /mnt/usr/oparch/tmp
+  run_cmd cp -a /tmp/oparch/. /mnt/usr/oparch/tmp/
+  log "Staged /tmp/oparch to /mnt/usr/oparch/tmp for chroot."
 }
 
 stage_install_repo() {
-  run_cmd mkdir /mnt/oparch
-  run_cmd cp -a "${OPARCH_REPO_ROOT}/." /mnt/oparch/
-  run_cmd chown -R root:root /mnt/oparch
-  run_cmd find /mnt/oparch -type d -exec chmod 755 {} +
-  run_cmd find /mnt/oparch -type f -exec chmod 644 {} +
-  log "Staged installer repository to /oparch."
+  run_cmd mkdir -p /mnt/usr/oparch
+  run_cmd cp -a "${OPARCH_REPO_ROOT}/." /mnt/usr/oparch/
+  run_cmd chown -R root:root /mnt/usr/oparch
+  run_cmd find /mnt/usr/oparch -type d -exec chmod 755 {} +
+  run_cmd find /mnt/usr/oparch -type f -exec chmod 644 {} +
+  log "Staged installer repository to /usr/oparch."
 }
 
 write_install_state() {

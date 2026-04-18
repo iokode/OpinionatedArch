@@ -36,7 +36,7 @@ OWNERSHIP_EOF
 
   if [[ "${INCLUDE_LOGO}" == "yes" ]]; then
     install -d -m 755 /usr/share/plymouth/themes/opinionatedarch
-    cp /oparch/tmp/logo.png /usr/share/plymouth/themes/opinionatedarch/logo.png
+    cp /usr/oparch/tmp/logo.png /usr/share/plymouth/themes/opinionatedarch/logo.png
   fi
 
   plymouth-set-default-theme bgrt
