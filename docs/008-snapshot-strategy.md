@@ -4,7 +4,7 @@
 
 Snapshot policy is split by scope:
 
-- System scope (`@`): snapshot on each package installation/update transaction and on explicit manual request.
+- System scope (`@`): snapshot at boot start, on each package installation/update transaction, and on explicit manual request.
 - User scope (`/home/<login-user>` subvolume): snapshot at login start for that specific user and on explicit manual request.
 
 Home snapshots are per-user because rollback scope must be isolated per login user. Because Btrfs snapshots are created at subvolume level, each login user home is a dedicated subvolume.
@@ -25,6 +25,7 @@ Snapshot strategy is restore-only. Snapshots are not boot targets in GRUB.
 
 ## Why
 
+- `@` snapshots at boot start are used so the operator can restore the system later if they break it during that work session.
 - `@` snapshots on package transactions are used because package install/update is the main source of system-state risk; if skipped, there is no immediate rollback anchor after a bad package transaction.
 - Manual `@` snapshots are used because rare manual system changes still happen outside package tooling; if missing, those changes cannot be rolled back to a known pre-change state.
 - Per-user home snapshots are created at login start because accidental deletion or overwrite risk appears during active user work; if the snapshot is not created before the session starts, there is no guaranteed rollback point for mistakes made early in that session.
@@ -39,7 +40,7 @@ Snapshot strategy is restore-only. Snapshots are not boot targets in GRUB.
 
 ## Implementation Plan
 
-1. Configure root snapshot automation for package install/update operations.
+1. Configure root snapshot automation for boot start and package install/update operations.
 2. Expose a manual command/script for on-demand root snapshots.
 3. Trigger a user-home snapshot when a login session starts.
 4. Expose a manual command/script for on-demand per-user home snapshots.
@@ -50,6 +51,7 @@ Snapshot strategy is restore-only. Snapshots are not boot targets in GRUB.
 ## Considerations
 
 - Root and home snapshot flows should remain independent.
+- Boot snapshots should not prevent the system from starting if snapshot creation fails.
 - Login snapshots should not block login if snapshot creation fails.
 - Snapshot naming should make session boundaries easy to identify.
 - Snapshot storage must remain separated by domain inside `/snapshots`: `system` for system snapshots and `<login-user>` per user.
