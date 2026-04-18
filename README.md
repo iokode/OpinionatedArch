@@ -1,6 +1,8 @@
 # OpinionatedArch
 
-OpinionatedArch is a strongly opinionated Arch Linux system.
+OpinionatedArch is a strongly opinionated Arch Linux system inspired by Omarchy.
+
+Its documentation explains the reason behind each design decision.
 
 ## Main opinions
 
@@ -8,7 +10,8 @@ OpinionatedArch is a strongly opinionated Arch Linux system.
 - the system includes a pre-boot ownership and return message
 - the storage model is fixed around `btrfs`, using the full disk without multiple partitions for other operating systems
 - the storage model includes one home subvolume per login account
-- snapshots are split into system scope and per-account scope, and recovery is restore-based rather than snapshot-boot-based
+- system snapshots are created at boot and on package install/update operations, and home snapshots are created at login
+- snapshot recovery is restore-based rather than snapshot-boot-based
 - encryption is mandatory and uses `LUKS2`
 - the baseline kernel is `linux` only, no other kernels are supported
 - the system language is fixed to English, except for the pre-boot ownership message, which may be multilingual
