@@ -13,7 +13,7 @@ OpinionatedArch is a strongly opinionated Arch Linux system.
 - the baseline kernel is `linux` only, no other kernels are supported
 - the system language is fixed to English, except for the pre-boot ownership message, which may be multilingual
 
-## Usage
+## Installation
 
 1. Boot an Arch Linux live environment (archiso).
 2. Clone or copy this repository into that environment.
