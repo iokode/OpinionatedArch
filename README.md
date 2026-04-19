@@ -8,7 +8,7 @@ Its documentation explains the reason behind each design decision.
 
 - the system is designed for one physical person, with multiple login accounts used as separate work contexts
 - the system includes a pre-boot ownership and return message
-- the storage model is fixed around `btrfs`, using the full disk without multiple partitions for other operating systems
+- the storage model is fixed around `btrfs`, using the full disk without multiple partitions for other operating systems; other OS could be installed in other disks
 - the storage model includes one home subvolume per login account
 - system snapshots are created at boot and on package install/update operations, and home snapshots are created at login
 - snapshot recovery is restore-based rather than snapshot-boot-based
