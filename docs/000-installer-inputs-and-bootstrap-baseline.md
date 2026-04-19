@@ -14,7 +14,7 @@ The installer asks for:
 
 1. target disk
 2. destructive confirmation (`wipe-all`)
-3. machine role (`Laptop` or `Main PC`)
+3. startup policy (`manual` or `automatic`)
 4. CPU vendor (`Intel`, `AMD`, or `other`) for microcode package selection
 5. zram swap size in GB
 6. disk swap partition size in GB

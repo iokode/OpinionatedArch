@@ -22,4 +22,4 @@ The selected strategy is single-kernel: install and maintain only `linux`.
 ## Considerations
 
 - All referenced kernel variants are official Arch packages, but they serve different trade-offs.
-- This decision can be revisited later if role-specific requirements justify multi-kernel maintenance.
+- This decision can be revisited later if explicit requirements justify multi-kernel maintenance.

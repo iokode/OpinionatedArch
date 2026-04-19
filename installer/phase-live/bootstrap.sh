@@ -32,7 +32,7 @@ write_install_state() {
   login_users_csv="$(join_by ',' "${LOGIN_USERS[@]}")"
 
   {
-    printf 'MACHINE_ROLE=%q\n' "${MACHINE_ROLE}"
+    printf 'STARTUP_POLICY=%q\n' "${STARTUP_POLICY}"
     printf 'CPU_VENDOR=%q\n' "${CPU_VENDOR}"
     printf 'ZRAM_SWAP_GB=%q\n' "${ZRAM_SWAP_GB}"
     printf 'SWAP_PARTITION_GB=%q\n' "${SWAP_PARTITION_GB}"

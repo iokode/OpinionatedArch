@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 declare TARGET_DISK=""
-declare MACHINE_ROLE=""
+declare STARTUP_POLICY=""
 declare CPU_VENDOR=""
 declare ZRAM_SWAP_GB=""
 declare SWAP_PARTITION_GB=""
@@ -96,7 +96,7 @@ load_inputs_from_config_file() {
 
     case "${key}" in
       TARGET_DISK) TARGET_DISK="${value}" ;;
-      MACHINE_ROLE) MACHINE_ROLE="${value}" ;;
+      STARTUP_POLICY) STARTUP_POLICY="${value}" ;;
       CPU_VENDOR) CPU_VENDOR="${value}" ;;
       ZRAM_SWAP_GB) ZRAM_SWAP_GB="${value}" ;;
       SWAP_PARTITION_GB) SWAP_PARTITION_GB="${value}" ;;
@@ -116,7 +116,7 @@ load_inputs_from_config_file() {
   done < "${config_file}"
 
   TARGET_DISK="${TARGET_DISK:-}"
-  MACHINE_ROLE="${MACHINE_ROLE:-}"
+  STARTUP_POLICY="${STARTUP_POLICY:-}"
   CPU_VENDOR="${CPU_VENDOR:-}"
   ZRAM_SWAP_GB="${ZRAM_SWAP_GB:-}"
   SWAP_PARTITION_GB="${SWAP_PARTITION_GB:-}"
@@ -133,7 +133,7 @@ load_inputs_from_config_file() {
   PROCEED_INSTALL="yes"
 
   [[ -n "${TARGET_DISK}" && -b "${TARGET_DISK}" ]] || die "TARGET_DISK must be an existing block device."
-  [[ "${MACHINE_ROLE}" == "Laptop" || "${MACHINE_ROLE}" == "MainPC" ]] || die "MACHINE_ROLE must be Laptop or MainPC."
+  [[ "${STARTUP_POLICY}" == "manual" || "${STARTUP_POLICY}" == "automatic" ]] || die "STARTUP_POLICY must be manual or automatic."
   [[ "${CPU_VENDOR}" == "Intel" || "${CPU_VENDOR}" == "AMD" || "${CPU_VENDOR}" == "other" ]] || die "CPU_VENDOR must be Intel, AMD, or other."
   [[ "${ZRAM_SWAP_GB}" =~ ^[0-9]+$ ]] || die "ZRAM_SWAP_GB must be a non-negative integer."
   [[ "${SWAP_PARTITION_GB}" =~ ^[0-9]+$ ]] || die "SWAP_PARTITION_GB must be a non-negative integer."
@@ -208,23 +208,23 @@ collect_install_inputs() {
     warn "Invalid disk number. Choose a value between 1 and ${#available_disks[@]}."
   done
 
-  local machine_role_number=""
-  printf 'Machine role:\n' >&3
-  printf '1. Laptop\n' >&3
-  printf '2. MainPC\n' >&3
+  local startup_policy_number=""
+  printf 'Startup policy:\n' >&3
+  printf '1. manual\n' >&3
+  printf '2. automatic\n' >&3
   while true; do
-    machine_role_number="$(ask_uint "Choose machine role number: ")"
-    case "${machine_role_number}" in
+    startup_policy_number="$(ask_uint "Choose startup policy number: ")"
+    case "${startup_policy_number}" in
       1)
-        MACHINE_ROLE="Laptop"
+        STARTUP_POLICY="manual"
         break
         ;;
       2)
-        MACHINE_ROLE="MainPC"
+        STARTUP_POLICY="automatic"
         break
         ;;
       *)
-        warn "Invalid machine role number. Choose 1 or 2."
+        warn "Invalid startup policy number. Choose 1 or 2."
         ;;
     esac
   done
@@ -322,7 +322,7 @@ summarize_install_plan() {
 
   printf 'Installation summary:\n' >&3
   printf '  target disk: %s\n' "${TARGET_DISK}" >&3
-  printf '  machine role: %s\n' "${MACHINE_ROLE}" >&3
+  printf '  startup policy: %s\n' "${STARTUP_POLICY}" >&3
   printf '  cpu vendor: %s\n' "${CPU_VENDOR}" >&3
   printf '  zram size (GB): %s\n' "${ZRAM_SWAP_GB}" >&3
   printf '  swap partition size (GB): %s\n' "${SWAP_PARTITION_GB}" >&3

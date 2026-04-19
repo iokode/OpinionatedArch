@@ -7,10 +7,6 @@ The base network stack for this project is:
 - `NetworkManager`
 - `systemd-resolved`
 
-This applies to current interactive machine profiles (Laptop and Main PC).
-
-The installer configures default DHCP/auto networking only. It does not encode machine-specific static network policy.
-
 Advanced per-machine DNS/routing policy is intentionally post-install.
 
 ## Why
@@ -33,4 +29,4 @@ Advanced per-machine DNS/routing policy is intentionally post-install.
 
 - Running both `NetworkManager` and `systemd-resolved` is intentional in this policy.
 - Do not enable competing network managers in parallel for the same interfaces.
-- Future server/headless role can define a different stack in a dedicated decision document.
+

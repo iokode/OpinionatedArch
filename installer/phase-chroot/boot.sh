@@ -48,12 +48,15 @@ chroot_configure_initramfs() {
 }
 
 chroot_configure_grub() {
-  local timeout_value="2"
-  if [[ "${MACHINE_ROLE}" == "MainPC" ]]; then
+  local timeout_style="hidden"
+  local timeout_value="1"
+  if [[ "${STARTUP_POLICY}" == "manual" ]]; then
+    timeout_style="menu"
     timeout_value="-1"
   fi
 
   chroot_set_or_replace_config_key /etc/default/grub GRUB_DEFAULT '0'
+  chroot_set_or_replace_config_key /etc/default/grub GRUB_TIMEOUT_STYLE "${timeout_style}"
   chroot_set_or_replace_config_key /etc/default/grub GRUB_TIMEOUT "${timeout_value}"
   chroot_set_or_replace_config_key /etc/default/grub GRUB_CMDLINE_LINUX_DEFAULT '"quiet splash"'
   chroot_set_or_replace_config_key /etc/default/grub GRUB_CMDLINE_LINUX "\"cryptdevice=UUID=${ROOT_PART_UUID}:cryptroot root=/dev/mapper/cryptroot\""
