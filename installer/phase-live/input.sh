@@ -180,9 +180,8 @@ collect_install_inputs() {
   fi
 
   local -a available_disks=()
+  local -a disk_labels=()
   local disk_entry=""
-  local selected_disk_number=""
-  local selected_disk_index=0
 
   while IFS= read -r disk_entry; do
     [[ -n "${disk_entry}" ]] || continue
@@ -191,68 +190,33 @@ collect_install_inputs() {
 
   [[ "${#available_disks[@]}" -gt 0 ]] || die "No selectable disks found."
 
-  printf 'Available target disks:\n' >&3
-  for selected_disk_index in "${!available_disks[@]}"; do
-    printf '%d. %s\n' "$((selected_disk_index + 1))" "${available_disks[$selected_disk_index]}" >&3
+  local disk_path=""
+  local disk_size=""
+  local disk_model=""
+  for disk_path in "${available_disks[@]}"; do
+    disk_size="$(lsblk -dno SIZE "${disk_path}" 2>/dev/null | head -1 | xargs)"
+    disk_model="$(lsblk -dno MODEL "${disk_path}" 2>/dev/null | head -1 | xargs)"
+    if [[ -n "${disk_model}" ]]; then
+      disk_labels+=("${disk_path} (${disk_size}, ${disk_model})")
+    else
+      disk_labels+=("${disk_path} (${disk_size})")
+    fi
   done
 
-  while true; do
-    selected_disk_number="$(ask_uint "Choose disk number: ")"
-    selected_disk_index=$((selected_disk_number - 1))
+  local selected_disk_label
+  selected_disk_label="$(printf '%s\n' "${disk_labels[@]}" | prompt_choose)"
 
-    if (( selected_disk_index >= 0 && selected_disk_index < ${#available_disks[@]} )); then
-      TARGET_DISK="${available_disks[$selected_disk_index]}"
+  local i=0
+  for disk_path in "${available_disks[@]}"; do
+    if [[ "${disk_labels[$i]}" == "${selected_disk_label}" ]]; then
+      TARGET_DISK="${disk_path}"
       break
     fi
-
-    warn "Invalid disk number. Choose a value between 1 and ${#available_disks[@]}."
+    ((i++))
   done
 
-  local startup_policy_number=""
-  printf 'Startup policy:\n' >&3
-  printf '1. manual\n' >&3
-  printf '2. automatic\n' >&3
-  while true; do
-    startup_policy_number="$(ask_uint "Choose startup policy number: ")"
-    case "${startup_policy_number}" in
-      1)
-        STARTUP_POLICY="manual"
-        break
-        ;;
-      2)
-        STARTUP_POLICY="automatic"
-        break
-        ;;
-      *)
-        warn "Invalid startup policy number. Choose 1 or 2."
-        ;;
-    esac
-  done
-  local cpu_vendor_number=""
-  printf 'CPU vendor:\n' >&3
-  printf '1. Intel\n' >&3
-  printf '2. AMD\n' >&3
-  printf '3. other\n' >&3
-  while true; do
-    cpu_vendor_number="$(ask_uint "Choose CPU vendor number: ")"
-    case "${cpu_vendor_number}" in
-      1)
-        CPU_VENDOR="Intel"
-        break
-        ;;
-      2)
-        CPU_VENDOR="AMD"
-        break
-        ;;
-      3)
-        CPU_VENDOR="other"
-        break
-        ;;
-      *)
-        warn "Invalid CPU vendor number. Choose 1, 2, or 3."
-        ;;
-    esac
-  done
+  STARTUP_POLICY="$(printf 'manual\nautomatic\n' | prompt_choose "Startup policy:")"
+  CPU_VENDOR="$(printf 'Intel\nAMD\nother\n' | prompt_choose "CPU vendor:")"
 
   ZRAM_SWAP_GB="$(ask_uint "zram size in GB: ")"
   SWAP_PARTITION_GB="$(ask_uint "Swap partition size in GB: ")"
@@ -261,10 +225,30 @@ collect_install_inputs() {
 
   SHARED_SECRET="$(read_secret_with_confirmation "Shared secret (LUKS + login users): ")"
 
-  CONSOLE_KEYMAP="$(ask_non_empty "Console keymap (example: us, es): ")"
+  local -a keymap_list=()
+  local km=""
+  while IFS= read -r km; do
+    [[ -n "${km}" ]] || continue
+    keymap_list+=("$km")
+  done < <(localectl list-keymaps 2>/dev/null)
+  CONSOLE_KEYMAP="$(printf '%s\n' "${keymap_list[@]}" | prompt_filter "Console keymap")"
+  CONSOLE_KEYMAP="$(trim "${CONSOLE_KEYMAP}")"
+  if [[ -z "${CONSOLE_KEYMAP}" ]]; then
+    die "Keymap selection cancelled."
+  fi
 
+  local -a timezone_list=()
+  local tz=""
+  while IFS= read -r tz; do
+    [[ -n "${tz}" ]] || continue
+    timezone_list+=("$tz")
+  done < <(find /usr/share/zoneinfo -type f 2>/dev/null | sed 's|/usr/share/zoneinfo/||')
   while true; do
-    TIMEZONE="$(ask_non_empty "Timezone (example: Europe/Madrid): ")"
+    TIMEZONE="$(printf '%s\n' "${timezone_list[@]}" | prompt_filter "Timezone")"
+    TIMEZONE="$(trim "${TIMEZONE}")"
+    if [[ -z "${TIMEZONE}" ]]; then
+      die "Timezone selection cancelled."
+    fi
     if [[ -e "/usr/share/zoneinfo/${TIMEZONE}" ]]; then
       break
     fi
@@ -284,7 +268,7 @@ collect_install_inputs() {
   OWNER_EMAIL="$(ask_non_empty "Owner email for pre-boot message: ")"
   OWNER_RETURN_ADDRESS="$(ask_non_empty "Owner return address for pre-boot message: ")"
 
-  INCLUDE_LOGO="$(ask_yes_no "Include company logo in pre-boot message?")"
+  INCLUDE_LOGO="$(printf 'yes\nno\n' | prompt_choose "Include company logo in pre-boot message?")"
   if [[ "${INCLUDE_LOGO}" == "yes" ]]; then
     while true; do
       LOGO_URL="$(ask_non_empty "Logo URL: ")"
@@ -295,7 +279,7 @@ collect_install_inputs() {
 
       warn "Logo download failed."
       local failed_action
-      failed_action="$(ask_choice "Type retry or continue-without-logo: " "retry" "continue-without-logo")"
+      failed_action="$(printf 'retry\ncontinue-without-logo\n' | prompt_choose "Logo download failed.")"
       if [[ "${failed_action}" == "continue-without-logo" ]]; then
         INCLUDE_LOGO="no"
         LOGO_URL=""
@@ -340,6 +324,6 @@ summarize_install_plan() {
   fi
 
   local proceed
-  proceed="$(ask_yes_no "Proceed with installation?")"
+  proceed="$(printf 'yes\nno\n' | prompt_choose "Proceed with installation?")"
   [[ "${proceed}" == "yes" ]] || die "Aborted by user."
 }

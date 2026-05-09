@@ -6,12 +6,15 @@ OPARCH_REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 # shellcheck source=../lib/log.sh
 source "${OPARCH_REPO_ROOT}/lib/log.sh"
+# shellcheck source=../lib/exec.sh
+source "${OPARCH_REPO_ROOT}/lib/exec.sh"
+
+run_cmd pacman -Sy gum --noconfirm
+
 # shellcheck source=../lib/validate.sh
 source "${OPARCH_REPO_ROOT}/lib/validate.sh"
 # shellcheck source=../lib/input.sh
 source "${OPARCH_REPO_ROOT}/lib/input.sh"
-# shellcheck source=../lib/exec.sh
-source "${OPARCH_REPO_ROOT}/lib/exec.sh"
 
 # shellcheck source=phase-live/input.sh
 source "${SCRIPT_DIR}/phase-live/input.sh"

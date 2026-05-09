@@ -24,6 +24,7 @@ chroot_install_base_packages() {
     cryptsetup \
     grub \
     efibootmgr \
+    gum \
     plymouth \
     sudo \
     networkmanager \

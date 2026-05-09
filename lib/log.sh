@@ -6,6 +6,20 @@ if [[ -z "${OPARCH_LOG_FDS_READY:-}" ]]; then
   OPARCH_LOG_FDS_READY=1
 fi
 
+working() {
+  local title="$1"
+  shift
+  if [[ "${OPARCH_VERBOSE:-0}" == "0" ]]; then
+    if ! run_with_spinner "${title}" "$@"; then
+      warn "Command failed: $*"
+      return 1
+    fi
+  else
+    printf '[INFO] > %s\n' "$*" >&3
+    "$@"
+  fi
+}
+
 log() {
   printf '[INFO] %s\n' "$*" >&3
 }

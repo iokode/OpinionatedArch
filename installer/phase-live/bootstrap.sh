@@ -4,8 +4,7 @@ stage_netboot_binary() {
   local netboot_url="https://archlinux.org/static/netboot/ipxe-arch.efi"
   local netboot_local_path="/tmp/oparch/netbootx64.efi"
 
-  log "Downloading Arch netboot EFI binary..."
-  run_cmd curl -fL --retry 2 --connect-timeout 10 -o "${netboot_local_path}" "${netboot_url}"
+  working "Downloading Arch netboot EFI binary..." curl -fL --retry 2 --connect-timeout 10 -o "${netboot_local_path}" "${netboot_url}"
   run_cmd mkdir /mnt/boot/EFI
   run_cmd mkdir /mnt/boot/EFI/OpinionatedArch
   run_cmd cp "${netboot_local_path}" /mnt/boot/EFI/OpinionatedArch/netbootx64.efi
@@ -14,13 +13,13 @@ stage_netboot_binary() {
 
 stage_live_temp_assets_for_repo() {
   run_cmd mkdir -p /mnt/usr/opinionatedarch/tmp
-  run_cmd cp -a /tmp/oparch/. /mnt/usr/opinionatedarch/tmp/
+  working "Staging /tmp/oparch for chroot..." cp -a /tmp/oparch/. /mnt/usr/opinionatedarch/tmp/
   log "Staged /tmp/oparch to /mnt/usr/opinionatedarch/tmp for chroot."
 }
 
 stage_install_repo() {
   run_cmd mkdir -p /mnt/usr/opinionatedarch
-  run_cmd cp -a "${OPARCH_REPO_ROOT}/." /mnt/usr/opinionatedarch/
+  working "Staging installer repository..." cp -a "${OPARCH_REPO_ROOT}/." /mnt/usr/opinionatedarch/
   run_cmd chown -R root:root /mnt/usr/opinionatedarch
   run_cmd find /mnt/usr/opinionatedarch -type d -exec chmod 755 {} +
   run_cmd find /mnt/usr/opinionatedarch -type f -exec chmod 644 {} +
@@ -50,7 +49,7 @@ write_install_state() {
     printf 'SWAP_PART_UUID=%q\n' "${SWAP_PART_UUID}"
     printf 'OPARCH_VERBOSE=%q\n' "${OPARCH_VERBOSE:-0}"
   } > /mnt/root/oparch-install.env
-  chmod 600 /mnt/root/oparch-install.env
+  run_cmd chmod 600 /mnt/root/oparch-install.env
 }
 
 bootstrap_base_system() {
@@ -64,9 +63,8 @@ bootstrap_base_system() {
   run_cmd mkdir /mnt/etc
   printf 'KEYMAP=%s\n' "${CONSOLE_KEYMAP}" > /mnt/etc/vconsole.conf
 
-  log "Installing base system..."
   if [[ -n "${microcode_package}" ]]; then
-    run_pkg_cmd pacstrap -K /mnt \
+    run_pkg_cmd --title "Installing base system..." pacstrap -K /mnt \
       base \
       linux \
       linux-headers \
@@ -75,7 +73,7 @@ bootstrap_base_system() {
       iptables-nft \
       "${microcode_package}"
   else
-    run_pkg_cmd pacstrap -K /mnt \
+    run_pkg_cmd --title "Installing base system..." pacstrap -K /mnt \
       base \
       linux \
       linux-headers \
@@ -84,16 +82,7 @@ bootstrap_base_system() {
       iptables-nft
   fi
 
-  log "Generating fstab..."
-  if [[ "${OPARCH_VERBOSE:-0}" == "0" ]]; then
-    if ! genfstab -U /mnt > /mnt/etc/fstab 2>/tmp/oparch-cmd.log; then
-      warn "Command failed: genfstab -U /mnt"
-      tail -n 120 /tmp/oparch-cmd.log >&4 || true
-      return 1
-    fi
-  else
-    genfstab -U /mnt > /mnt/etc/fstab
-  fi
+  run_cmd bash -c 'genfstab -U /mnt > /mnt/etc/fstab'
 
   stage_netboot_binary
   stage_install_repo

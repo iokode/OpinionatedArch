@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
 
 run_phase_chroot() {
-  log "Running chroot configuration..."
-
-  run_cmd arch-chroot /mnt /bin/bash -s <<'CHROOT_EOF'
+  working "Running chroot configuration..." arch-chroot /mnt /bin/bash -s <<'CHROOT_EOF'
 set -euo pipefail
 
 source /root/oparch-install.env

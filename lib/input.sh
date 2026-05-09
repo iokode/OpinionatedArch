@@ -1,11 +1,47 @@
 #!/usr/bin/env bash
 
+prompt_input() {
+  local prompt="$1"
+
+  gum input --header "${prompt}" --header.foreground "99"
+}
+
+prompt_secret() {
+  local prompt="$1"
+
+  gum input --header "${prompt}" --header.foreground "99" --password
+}
+
+prompt_choose() {
+  local prompt="${1:-}"
+
+  if [[ -n "${prompt}" ]]; then
+    gum choose --header "${prompt}"
+    return 0
+  fi
+
+  gum choose
+}
+
+prompt_filter() {
+  local prompt="$1"
+
+  gum filter --header "${prompt}"
+}
+
+run_with_spinner() {
+  local title="$1"
+  shift
+
+  gum spin --spinner line --show-error --title "${title}" --title.foreground "99" -- "$@"
+}
+
 ask_non_empty() {
   local prompt="$1"
   local value=""
 
   while true; do
-    read -r -p "${prompt}" value
+    value="$(prompt_input "${prompt}")"
     value="$(trim "${value}")"
     if [[ -n "${value}" ]]; then
       printf '%s' "${value}"
@@ -15,55 +51,12 @@ ask_non_empty() {
   done
 }
 
-ask_choice() {
-  local prompt="$1"
-  shift
-  local -a choices=("$@")
-  local value=""
-  local choice=""
-
-  while true; do
-    read -r -p "${prompt}" value
-    value="$(trim "${value}")"
-    for choice in "${choices[@]}"; do
-      if [[ "${value}" == "${choice}" ]]; then
-        printf '%s' "${value}"
-        return 0
-      fi
-    done
-    warn "Invalid choice. Valid options: ${choices[*]}"
-  done
-}
-
-ask_yes_no() {
-  local prompt="$1"
-  local answer=""
-
-  while true; do
-    read -r -p "${prompt} [y/n]: " answer
-    answer="$(trim "${answer}")"
-    case "${answer}" in
-      y|Y|yes|YES)
-        printf 'yes'
-        return 0
-        ;;
-      n|N|no|NO)
-        printf 'no'
-        return 0
-        ;;
-      *)
-        warn "Please answer y or n."
-        ;;
-    esac
-  done
-}
-
 ask_uint() {
   local prompt="$1"
   local value=""
 
   while true; do
-    read -r -p "${prompt}" value
+    value="$(prompt_input "${prompt}")"
     value="$(trim "${value}")"
     if [[ "${value}" =~ ^[0-9]+$ ]]; then
       printf '%s' "${value}"
@@ -79,16 +72,13 @@ read_secret_with_confirmation() {
   local second=""
 
   while true; do
-    read -r -s -p "${prompt}" first
-    printf '\n' >&2
-    read -r -s -p "Confirm secret: " second
-    printf '\n' >&2
-
+    first="$(prompt_secret "${prompt}")"
     if [[ -z "${first}" ]]; then
       warn "Secret cannot be empty."
       continue
     fi
 
+    second="$(prompt_secret "Confirm secret: ")"
     if [[ "${first}" != "${second}" ]]; then
       warn "Values do not match."
       continue
