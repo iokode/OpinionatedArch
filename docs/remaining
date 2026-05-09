@@ -1,7 +1,24 @@
-  9. Package baseline: what is always installed (`base` dev tools, firmware, core tools) and what remains optional.
-  10. AUR policy: whether to use `paru`, how to install it, and which build user to use.
-  11. Default systemd services: which units are always enabled at install time.
-  12. Base security policy: firewall, SSH (if applicable), sudo policy.
-  13. Real session/login strategy: initial display manager and fallback until custom implementation exists.
-  14. Nvidia driver: ask about the nvidia driver to install (nouveau, nvidia, nvidia-open or none) in a 1..4 selector with a hint about the GPU model
-  15. Dotfiles loader: sync symlinks with $home template variables, package lists (pacman and AUR) and sync scripts
+Package baseline: what is always installed (`base` dev tools, firmware, core tools) and what remains optional.
+AUR policy: whether to use `paru`, how to install it, and which build user to use.
+Default systemd services: which units are always enabled at install time.
+Base security policy: firewall, SSH (if applicable), sudo policy.
+Real session/login strategy: initial display manager and fallback until custom implementation exists.
+Nvidia driver: ask about the nvidia driver to install (nouveau, nvidia, nvidia-open or none) in a 1..4 selector with a hint about the GPU model
+Dotfiles loader: sync symlinks with $home template variables, package lists (pacman and AUR) and sync scripts
+Recovery system: a read-only ext4 partition with an arch installation with tools to chroot the system
+Replace packages installation in chroot by pacstrap
+Generate archiso with installer, recovery scripts and gum
+Dotfiles sync tool: a tool to create links to dotfiles across all login accounts
+Per user dotfiles: allowing to have some dotfiles that are per-user; per example, git config
+Allow to clone a dotfiles repository during installation
+Environment variables management, allowing them to be versioned in /dotfiles and implement a mechanism to avoid version the secrets variables
+Pack tools in pacman packages and create the oparch repository
+Create the oparchiso image with installer
+Missing tools:
+  - oparch-network-manager: gum+fzf wifi and wired network manager
+  - oparch-pacman: gum+fzf browser across pacman repositories and package installer
+  - oparch-aur (with pkgbuild analytics): gum+fzf+paru browser across AUR repository, PKGBUILD inspector (LLM-based) and package installer
+
+Missing recovery tools:
+  - oparch-chroot: select disk where oparch is installed using gum, mount it and chroot it
+  - oparch-snapshot: gum+fzf snapshot browser and restorer
