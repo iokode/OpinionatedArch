@@ -15,6 +15,7 @@ Pack tools in pacman packages and create the oparch repository
 Create the oparchiso image with installer
 Rename 'CPU selection' in installation by 'Microcode installation'
 Decouple plymouth config from installation - it could be considered an 'installer plugin' that could be disabled
+Remove snapper and snap-pac; replace by snapshot manager scripts
 Missing tools:
   - oparch-network-manager: gum+fzf wifi and wired network manager
   - oparch-pacman: gum+fzf browser across pacman repositories and package installer
