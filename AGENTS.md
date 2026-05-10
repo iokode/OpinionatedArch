@@ -128,3 +128,8 @@ And answer explicitly:
 - Do not introduce duplicate download/copy paths for the same artifact.
 - Do not apply workaround fixes of any nature when root cause is unresolved. Fix root cause, not symptoms.
 - If a fix could be interpreted as a workaround, stop and ask for approval before applying it.
+
+## 12. Documentation Why Rule (Mandatory)
+
+- Before editing any `Why` section, ask: "Is this change explaining a reason, or just restating implementation/facts?"
+- `Why` sections must argue motivation, cause, consequence, or risk. Do not use them to repeat what the implementation does.

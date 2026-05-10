@@ -25,6 +25,10 @@ CRYPTTAB_EOF
 }
 
 chroot_configure_plymouth_defaults() {
+  if [[ "${INCLUDE_RETURN_MESSAGE}" != "yes" ]]; then
+    return 0
+  fi
+
   install -d -m 755 /etc/opinionatedarch
   cat > /etc/opinionatedarch/ownership.env <<OWNERSHIP_EOF
 OWNER_NAME=${OWNER_NAME}
@@ -43,22 +47,30 @@ OWNERSHIP_EOF
 }
 
 chroot_configure_initramfs() {
-  sed -i 's/^HOOKS=.*/HOOKS=(base udev autodetect microcode kms keyboard keymap block plymouth encrypt filesystems)/' /etc/mkinitcpio.conf
+  if [[ "${INCLUDE_RETURN_MESSAGE}" == "yes" ]]; then
+    sed -i 's/^HOOKS=.*/HOOKS=(base udev autodetect microcode kms keyboard keymap block plymouth encrypt filesystems)/' /etc/mkinitcpio.conf
+  else
+    sed -i 's/^HOOKS=.*/HOOKS=(base udev autodetect microcode kms keyboard keymap block encrypt filesystems)/' /etc/mkinitcpio.conf
+  fi
   mkinitcpio -P
 }
 
 chroot_configure_grub() {
   local timeout_style="hidden"
   local timeout_value="1"
+  local linux_default="quiet"
   if [[ "${STARTUP_POLICY}" == "manual" ]]; then
     timeout_style="menu"
     timeout_value="-1"
+  fi
+  if [[ "${INCLUDE_RETURN_MESSAGE}" == "yes" ]]; then
+    linux_default="quiet splash"
   fi
 
   chroot_set_or_replace_config_key /etc/default/grub GRUB_DEFAULT '0'
   chroot_set_or_replace_config_key /etc/default/grub GRUB_TIMEOUT_STYLE "${timeout_style}"
   chroot_set_or_replace_config_key /etc/default/grub GRUB_TIMEOUT "${timeout_value}"
-  chroot_set_or_replace_config_key /etc/default/grub GRUB_CMDLINE_LINUX_DEFAULT '"quiet splash"'
+  chroot_set_or_replace_config_key /etc/default/grub GRUB_CMDLINE_LINUX_DEFAULT "\"${linux_default}\""
   chroot_set_or_replace_config_key /etc/default/grub GRUB_CMDLINE_LINUX "\"cryptdevice=UUID=${ROOT_PART_UUID}:cryptroot root=/dev/mapper/cryptroot\""
 
   cat > /etc/grub.d/40_custom <<'GRUB_CUSTOM_EOF'

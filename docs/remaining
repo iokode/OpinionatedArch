@@ -3,7 +3,6 @@ AUR policy: whether to use `paru`, how to install it, and which build user to us
 Default systemd services: which units are always enabled at install time.
 Base security policy: firewall, SSH (if applicable), sudo policy.
 Real session/login strategy: initial display manager and fallback until custom implementation exists.
-Nvidia driver: ask about the nvidia driver to install (nouveau, nvidia, nvidia-open or none) in a 1..4 selector with a hint about the GPU model
 Dotfiles loader: sync symlinks with $home template variables, package lists (pacman and AUR) and sync scripts
 Recovery system: a read-only ext4 partition with an arch installation with tools to chroot the system
 Generate archiso with installer, recovery scripts and gum
@@ -13,7 +12,6 @@ Allow to clone a dotfiles repository during installation
 Environment variables management, allowing them to be versioned in /dotfiles and implement a mechanism to avoid version the secrets variables
 Pack tools in pacman packages and create the oparch repository
 Create the oparchiso image with installer
-Rename 'CPU selection' in installation by 'Microcode installation'
 Decouple plymouth config from installation - it could be considered an 'installer plugin' that could be disabled
 Remove snapper and snap-pac; replace by snapshot manager scripts
 Missing tools:
@@ -26,5 +24,6 @@ Missing recovery tools:
   - oparch-snapshot: gum+fzf snapshot browser and restorer
 Installer plugins:
 - Microcode installer
+- GPU driver installer
 - Returning plymouth configuration
 - Download and sync dotfiles repository

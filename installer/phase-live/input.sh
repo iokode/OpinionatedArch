@@ -2,7 +2,8 @@
 
 declare TARGET_DISK=""
 declare STARTUP_POLICY=""
-declare CPU_VENDOR=""
+declare UCODE_PACKAGE=""
+declare GPU_DRIVER=""
 declare ZRAM_SWAP_GB=""
 declare SWAP_PARTITION_GB=""
 declare -ag LOGIN_USERS=()
@@ -10,6 +11,7 @@ declare SHARED_SECRET=""
 declare CONSOLE_KEYMAP=""
 declare TIMEZONE=""
 declare HOSTNAME_VALUE=""
+declare INCLUDE_RETURN_MESSAGE="no"
 declare OWNER_NAME=""
 declare OWNER_PHONE=""
 declare OWNER_EMAIL=""
@@ -97,7 +99,8 @@ load_inputs_from_config_file() {
     case "${key}" in
       TARGET_DISK) TARGET_DISK="${value}" ;;
       STARTUP_POLICY) STARTUP_POLICY="${value}" ;;
-      CPU_VENDOR) CPU_VENDOR="${value}" ;;
+      UCODE_PACKAGE) UCODE_PACKAGE="${value}" ;;
+      GPU_DRIVER) GPU_DRIVER="${value}" ;;
       ZRAM_SWAP_GB) ZRAM_SWAP_GB="${value}" ;;
       SWAP_PARTITION_GB) SWAP_PARTITION_GB="${value}" ;;
       LOGIN_USERS_CSV) LOGIN_USERS_CSV="${value}" ;;
@@ -105,6 +108,7 @@ load_inputs_from_config_file() {
       CONSOLE_KEYMAP) CONSOLE_KEYMAP="${value}" ;;
       TIMEZONE) TIMEZONE="${value}" ;;
       HOSTNAME_VALUE) HOSTNAME_VALUE="${value}" ;;
+      INCLUDE_RETURN_MESSAGE) INCLUDE_RETURN_MESSAGE="${value}" ;;
       OWNER_NAME) OWNER_NAME="${value}" ;;
       OWNER_PHONE) OWNER_PHONE="${value}" ;;
       OWNER_EMAIL) OWNER_EMAIL="${value}" ;;
@@ -119,12 +123,14 @@ load_inputs_from_config_file() {
 normalize_config_inputs() {
   TARGET_DISK="${TARGET_DISK:-}"
   STARTUP_POLICY="${STARTUP_POLICY:-}"
-  CPU_VENDOR="${CPU_VENDOR:-}"
+  UCODE_PACKAGE="${UCODE_PACKAGE:-}"
+  GPU_DRIVER="${GPU_DRIVER:-}"
   ZRAM_SWAP_GB="${ZRAM_SWAP_GB:-}"
   SWAP_PARTITION_GB="${SWAP_PARTITION_GB:-}"
   CONSOLE_KEYMAP="${CONSOLE_KEYMAP:-}"
   TIMEZONE="${TIMEZONE:-}"
   HOSTNAME_VALUE="${HOSTNAME_VALUE:-}"
+  INCLUDE_RETURN_MESSAGE="${INCLUDE_RETURN_MESSAGE:-no}"
   OWNER_NAME="${OWNER_NAME:-}"
   OWNER_PHONE="${OWNER_PHONE:-}"
   OWNER_EMAIL="${OWNER_EMAIL:-}"
@@ -138,19 +144,28 @@ normalize_config_inputs() {
 validate_install_inputs() {
   [[ -n "${TARGET_DISK}" && -b "${TARGET_DISK}" ]] || die "TARGET_DISK must be an existing block device."
   [[ "${STARTUP_POLICY}" == "manual" || "${STARTUP_POLICY}" == "automatic" ]] || die "STARTUP_POLICY must be manual or automatic."
-  [[ "${CPU_VENDOR}" == "Intel" || "${CPU_VENDOR}" == "AMD" || "${CPU_VENDOR}" == "other" ]] || die "CPU_VENDOR must be Intel, AMD, or other."
+  [[ "${UCODE_PACKAGE}" == "intel-ucode" || "${UCODE_PACKAGE}" == "amd-ucode" || "${UCODE_PACKAGE}" == "none" ]] || die "UCODE_PACKAGE must be intel-ucode, amd-ucode, or none."
+  [[ "${GPU_DRIVER}" == "nvidia" || "${GPU_DRIVER}" == "nvidia-open" || "${GPU_DRIVER}" == "nouveau" || "${GPU_DRIVER}" == "none" ]] || die "GPU_DRIVER must be nvidia, nvidia-open, nouveau, or none."
   [[ "${ZRAM_SWAP_GB}" =~ ^[0-9]+$ ]] || die "ZRAM_SWAP_GB must be a non-negative integer."
   [[ "${SWAP_PARTITION_GB}" =~ ^[0-9]+$ ]] || die "SWAP_PARTITION_GB must be a non-negative integer."
   [[ -n "${SHARED_SECRET}" ]] || die "SHARED_SECRET cannot be empty."
   [[ -n "${CONSOLE_KEYMAP}" ]] || die "CONSOLE_KEYMAP cannot be empty."
   [[ -e "/usr/share/zoneinfo/${TIMEZONE}" ]] || die "Invalid TIMEZONE: ${TIMEZONE}"
   validate_hostname "${HOSTNAME_VALUE}" || die "Invalid HOSTNAME_VALUE."
-  [[ -n "${OWNER_NAME}" ]] || die "OWNER_NAME cannot be empty."
-  [[ -n "${OWNER_PHONE}" ]] || die "OWNER_PHONE cannot be empty."
-  [[ -n "${OWNER_EMAIL}" ]] || die "OWNER_EMAIL cannot be empty."
-  [[ -n "${OWNER_RETURN_ADDRESS}" ]] || die "OWNER_RETURN_ADDRESS cannot be empty."
 
   parse_login_users_csv "${LOGIN_USERS_CSV:-}" || die "Invalid LOGIN_USERS_CSV."
+
+  case "${INCLUDE_RETURN_MESSAGE}" in
+    yes|no) ;;
+    *) die "INCLUDE_RETURN_MESSAGE must be yes or no." ;;
+  esac
+
+  if [[ "${INCLUDE_RETURN_MESSAGE}" == "yes" ]]; then
+    [[ -n "${OWNER_NAME}" ]] || die "OWNER_NAME cannot be empty."
+    [[ -n "${OWNER_PHONE}" ]] || die "OWNER_PHONE cannot be empty."
+    [[ -n "${OWNER_EMAIL}" ]] || die "OWNER_EMAIL cannot be empty."
+    [[ -n "${OWNER_RETURN_ADDRESS}" ]] || die "OWNER_RETURN_ADDRESS cannot be empty."
+  fi
 
   case "${INCLUDE_LOGO}" in
     yes|no) ;;
@@ -159,7 +174,10 @@ validate_install_inputs() {
 }
 
 prepare_config_logo() {
-  if [[ "${INCLUDE_LOGO}" == "yes" ]]; then
+  if [[ "${INCLUDE_RETURN_MESSAGE}" != "yes" ]]; then
+    INCLUDE_LOGO="no"
+    LOGO_URL=""
+  elif [[ "${INCLUDE_LOGO}" == "yes" ]]; then
     [[ -n "${LOGO_URL}" ]] || die "LOGO_URL is required when INCLUDE_LOGO=yes."
     authenticated_logo_download "${LOGO_URL}" || die "Logo download failed from LOGO_URL in config file."
     log "Logo downloaded to ${LOGO_LOCAL_PATH}."
@@ -229,7 +247,8 @@ collect_install_inputs() {
   done
 
   STARTUP_POLICY="$(printf 'manual\nautomatic\n' | prompt_choose "Startup policy:")"
-  CPU_VENDOR="$(printf 'Intel\nAMD\nother\n' | prompt_choose "CPU vendor:")"
+  UCODE_PACKAGE="$(printf 'intel-ucode\namd-ucode\nnone\n' | prompt_choose "Install ucode:")"
+  GPU_DRIVER="$(printf 'nvidia\nnvidia-open\nnouveau\nnone\n' | prompt_choose "GPU driver:")"
 
   ZRAM_SWAP_GB="$(ask_uint "zram size in GB: ")"
   SWAP_PARTITION_GB="$(ask_uint "Swap partition size in GB: ")"
@@ -276,29 +295,35 @@ collect_install_inputs() {
     warn "Invalid hostname format."
   done
 
-  OWNER_NAME="$(ask_non_empty "Owner name for pre-boot message: ")"
-  OWNER_PHONE="$(ask_non_empty "Owner phone for pre-boot message: ")"
-  OWNER_EMAIL="$(ask_non_empty "Owner email for pre-boot message: ")"
-  OWNER_RETURN_ADDRESS="$(ask_non_empty "Owner return address for pre-boot message: ")"
+  INCLUDE_RETURN_MESSAGE="$(printf 'yes\nno\n' | prompt_choose "Include pre-boot return message?")"
+  if [[ "${INCLUDE_RETURN_MESSAGE}" == "yes" ]]; then
+    OWNER_NAME="$(ask_non_empty "Owner name for pre-boot message: ")"
+    OWNER_PHONE="$(ask_non_empty "Owner phone for pre-boot message: ")"
+    OWNER_EMAIL="$(ask_non_empty "Owner email for pre-boot message: ")"
+    OWNER_RETURN_ADDRESS="$(ask_non_empty "Owner return address for pre-boot message: ")"
 
-  INCLUDE_LOGO="$(printf 'yes\nno\n' | prompt_choose "Include company logo in pre-boot message?")"
-  if [[ "${INCLUDE_LOGO}" == "yes" ]]; then
-    while true; do
-      LOGO_URL="$(ask_non_empty "Logo URL: ")"
-      if authenticated_logo_download "${LOGO_URL}"; then
-        log "Logo downloaded to ${LOGO_LOCAL_PATH}."
-        break
-      fi
+    INCLUDE_LOGO="$(printf 'yes\nno\n' | prompt_choose "Include company logo in pre-boot message?")"
+    if [[ "${INCLUDE_LOGO}" == "yes" ]]; then
+      while true; do
+        LOGO_URL="$(ask_non_empty "Logo URL: ")"
+        if authenticated_logo_download "${LOGO_URL}"; then
+          log "Logo downloaded to ${LOGO_LOCAL_PATH}."
+          break
+        fi
 
-      warn "Logo download failed."
-      local failed_action
-      failed_action="$(printf 'retry\ncontinue-without-logo\n' | prompt_choose "Logo download failed.")"
-      if [[ "${failed_action}" == "continue-without-logo" ]]; then
-        INCLUDE_LOGO="no"
-        LOGO_URL=""
-        break
-      fi
-    done
+        warn "Logo download failed."
+        local failed_action
+        failed_action="$(printf 'retry\ncontinue-without-logo\n' | prompt_choose "Logo download failed.")"
+        if [[ "${failed_action}" == "continue-without-logo" ]]; then
+          INCLUDE_LOGO="no"
+          LOGO_URL=""
+          break
+        fi
+      done
+    fi
+  else
+    INCLUDE_LOGO="no"
+    LOGO_URL=""
   fi
 }
 
@@ -320,13 +345,15 @@ summarize_install_plan() {
   printf 'Installation summary:\n' >&3
   printf '  target disk: %s\n' "${TARGET_DISK}" >&3
   printf '  startup policy: %s\n' "${STARTUP_POLICY}" >&3
-  printf '  cpu vendor: %s\n' "${CPU_VENDOR}" >&3
+  printf '  ucode package: %s\n' "${UCODE_PACKAGE}" >&3
+  printf '  gpu driver: %s\n' "${GPU_DRIVER}" >&3
   printf '  zram size (GB): %s\n' "${ZRAM_SWAP_GB}" >&3
   printf '  swap partition size (GB): %s\n' "${SWAP_PARTITION_GB}" >&3
   printf '  login users: %s\n' "${login_user_csv}" >&3
   printf '  keymap: %s\n' "${CONSOLE_KEYMAP}" >&3
   printf '  timezone: %s\n' "${TIMEZONE}" >&3
   printf '  hostname: %s\n' "${HOSTNAME_VALUE}" >&3
+  printf '  include return message: %s\n' "${INCLUDE_RETURN_MESSAGE}" >&3
   printf '  include logo: %s\n' "${INCLUDE_LOGO}" >&3
 
   if [[ "${PROCEED_INSTALL}" == "yes" ]]; then

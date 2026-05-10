@@ -32,7 +32,8 @@ write_install_state() {
 
   {
     printf 'STARTUP_POLICY=%q\n' "${STARTUP_POLICY}"
-    printf 'CPU_VENDOR=%q\n' "${CPU_VENDOR}"
+    printf 'UCODE_PACKAGE=%q\n' "${UCODE_PACKAGE}"
+    printf 'GPU_DRIVER=%q\n' "${GPU_DRIVER}"
     printf 'ZRAM_SWAP_GB=%q\n' "${ZRAM_SWAP_GB}"
     printf 'SWAP_PARTITION_GB=%q\n' "${SWAP_PARTITION_GB}"
     printf 'LOGIN_USERS_CSV=%q\n' "${login_users_csv}"
@@ -40,6 +41,7 @@ write_install_state() {
     printf 'CONSOLE_KEYMAP=%q\n' "${CONSOLE_KEYMAP}"
     printf 'TIMEZONE=%q\n' "${TIMEZONE}"
     printf 'HOSTNAME_VALUE=%q\n' "${HOSTNAME_VALUE}"
+    printf 'INCLUDE_RETURN_MESSAGE=%q\n' "${INCLUDE_RETURN_MESSAGE}"
     printf 'OWNER_NAME=%q\n' "${OWNER_NAME}"
     printf 'OWNER_PHONE=%q\n' "${OWNER_PHONE}"
     printf 'OWNER_EMAIL=%q\n' "${OWNER_EMAIL}"
@@ -66,17 +68,24 @@ bootstrap_base_system() {
     efibootmgr
     gum
     fzf
-    plymouth
     sudo
     networkmanager
     snapper
     snap-pac
   )
 
-  if [[ "${CPU_VENDOR}" == "Intel" ]]; then
-    packages+=(intel-ucode)
-  elif [[ "${CPU_VENDOR}" == "AMD" ]]; then
-    packages+=(amd-ucode)
+  if [[ "${UCODE_PACKAGE}" != "none" ]]; then
+    packages+=("${UCODE_PACKAGE}")
+  fi
+
+  if [[ "${GPU_DRIVER}" == "nvidia" ]]; then
+    packages+=(nvidia)
+  elif [[ "${GPU_DRIVER}" == "nvidia-open" ]]; then
+    packages+=(nvidia-open)
+  fi
+
+  if [[ "${INCLUDE_RETURN_MESSAGE}" == "yes" ]]; then
+    packages+=(plymouth)
   fi
 
   run_pkg_cmd --title "Installing base system..." pacstrap -K /mnt "${packages[@]}"

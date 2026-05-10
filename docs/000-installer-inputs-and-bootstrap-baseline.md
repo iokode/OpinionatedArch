@@ -15,21 +15,23 @@ The installer asks for:
 1. target disk
 2. destructive confirmation (`wipe-all`)
 3. startup policy (`manual` or `automatic`)
-4. CPU vendor (`Intel`, `AMD`, or `other`) for microcode package selection
-5. zram swap size in GB
-6. disk swap partition size in GB
-7. login usernames list
-8. shared secret (used for root LUKS unlock and login-user password)
-9. console keymap
-10. timezone
-11. hostname
-12. pre-boot ownership fields:
+4. ucode package (`intel-ucode`, `amd-ucode`, or `none`)
+5. GPU driver (`nvidia`, `nvidia-open`, `nouveau`, or `none`)
+6. zram swap size in GB
+7. disk swap partition size in GB
+8. login usernames list
+9. shared secret (used for root LUKS unlock and login-user password)
+10. console keymap
+11. timezone
+12. hostname
+13. pre-boot return message inclusion (`yes/no`)
+14. if return message is enabled: pre-boot ownership fields:
     - owner name
     - phone
     - email
     - return address
-13. logo inclusion (`yes/no`)
-14. if logo is enabled: `logo_url` (retry or explicit continue-without-logo on download failure)
+15. if return message is enabled: logo inclusion (`yes/no`)
+16. if logo is enabled: `logo_url` (retry or explicit continue-without-logo on download failure)
 
 ### Temporary Paths for Installer Staging
 
@@ -53,13 +55,15 @@ Installed with `pacstrap`:
 - `efibootmgr`
 - `gum`
 - `fzf`
-- `plymouth`
 - `sudo`
 - `networkmanager`
 - `snapper`
 - `snap-pac`
-- `intel-ucode` (if CPU vendor is `Intel`)
-- `amd-ucode` (if CPU vendor is `AMD`)
+- `intel-ucode` (if selected as the ucode package)
+- `amd-ucode` (if selected as the ucode package)
+- `nvidia` (if GPU driver is `nvidia`)
+- `nvidia-open` (if GPU driver is `nvidia-open`)
+- `plymouth` (if pre-boot return message is enabled)
 
 ### Minimum Services Enabled in Chroot
 
@@ -71,7 +75,8 @@ Installed with `pacstrap`:
 
 - A centralized list is required because installer prompt, package, and service definitions are cross-cutting and easy to duplicate; if this list is not centralized, documentation and script behavior drift.
 - Installing the baseline package set with `pacstrap` is required because package provisioning and target configuration are separate responsibilities; if chroot configuration also installs baseline packages, the package baseline has two sources of truth, and installation performs two package download operations instead of one.
-- CPU-vendor microcode selection is required because early microcode package is vendor-specific for Intel/AMD and intentionally absent for `other`; if this mapping is not explicit, package selection can be incorrect.
+- Ucode package selection is required because CPU microcode must be installed before reboot when the target hardware needs it; if deferred until after first boot, the first run can start without the CPU fixes expected for correct hardware operation.
+- GPU driver selection is required because the target graphics driver must be installed before reboot when the hardware needs it; if deferred until after first boot, the first run can start with missing or incorrect graphics support.
 - Explicit service baseline is required because “installed” is not equivalent to “enabled”; if services are not listed explicitly, first-boot behavior is inconsistent.
 - `/tmp/oparch` in live installer is required because transient installation files need deterministic staging before files are copied into the target system; if omitted, installer temp-file flow becomes scattered and harder to reason about.
 - `/usr/opinionatedarch/tmp` in target chroot is required because `/tmp` may be cleaned by package hooks before later setup steps run; if `/tmp` is used as the only target staging path, transient files can disappear mid-install.
