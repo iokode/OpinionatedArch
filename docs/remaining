@@ -13,6 +13,7 @@ Environment variables management, allowing them to be versioned in /dotfiles and
 Pack tools in pacman packages and create the oparch repository
 Create the oparchiso image with installer
 Remove snapper and snap-pac; replace by snapshot manager scripts
+Add a '-r|--reboot' option to the installer script to reboot when installation finish
 
 Missing tools:
   - oparch-network-manager: gum+fzf wifi and wired network manager
