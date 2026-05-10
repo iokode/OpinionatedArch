@@ -103,6 +103,7 @@ And answer explicitly:
 - Regardless of the prompt language, any newly created code must be written in English.
 - This includes variable names, symbols, and comments.
 - Any newly created text files must also be written in English.
+- Exception: files under `assets/` may contain non-English localization/resource text when their purpose is multilingual user-facing content.
 
 ## 9. Simplicity Rule (Mandatory)
 
