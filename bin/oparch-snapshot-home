@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+target_user="${1:-}"
+reason="${2:-}"
+if [[ -z "${target_user}" || -z "${reason}" ]]; then
+  echo "Usage: oparch-snapshot-home <user> <reason>" >&2
+  exit 1
+fi
+
+source_subvol="/home/${target_user}"
+target_dir="/snapshots/${target_user}"
+[[ -d "${source_subvol}" ]] || { echo "Home subvolume not found: ${source_subvol}" >&2; exit 1; }
+
+timestamp="$(date +%Y%m%d-%H%M%S)"
+slug="$(printf '%s' "${reason}" | tr '[:space:]/' '__' | tr -cd '[:alnum:]_.-')"
+[[ -n "${slug}" ]] || slug="manual"
+target="${target_dir}/${timestamp}-${slug}"
+
+btrfs subvolume snapshot -r "${source_subvol}" "${target}"

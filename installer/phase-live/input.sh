@@ -114,7 +114,9 @@ load_inputs_from_config_file() {
       *) die "Unknown key in config file: ${key}" ;;
     esac
   done < "${config_file}"
+}
 
+normalize_config_inputs() {
   TARGET_DISK="${TARGET_DISK:-}"
   STARTUP_POLICY="${STARTUP_POLICY:-}"
   CPU_VENDOR="${CPU_VENDOR:-}"
@@ -131,7 +133,9 @@ load_inputs_from_config_file() {
   LOGO_URL="${LOGO_URL:-}"
   SHARED_SECRET="${SHARED_SECRET:-}"
   PROCEED_INSTALL="yes"
+}
 
+validate_install_inputs() {
   [[ -n "${TARGET_DISK}" && -b "${TARGET_DISK}" ]] || die "TARGET_DISK must be an existing block device."
   [[ "${STARTUP_POLICY}" == "manual" || "${STARTUP_POLICY}" == "automatic" ]] || die "STARTUP_POLICY must be manual or automatic."
   [[ "${CPU_VENDOR}" == "Intel" || "${CPU_VENDOR}" == "AMD" || "${CPU_VENDOR}" == "other" ]] || die "CPU_VENDOR must be Intel, AMD, or other."
@@ -152,7 +156,9 @@ load_inputs_from_config_file() {
     yes|no) ;;
     *) die "INCLUDE_LOGO must be yes or no." ;;
   esac
+}
 
+prepare_config_logo() {
   if [[ "${INCLUDE_LOGO}" == "yes" ]]; then
     [[ -n "${LOGO_URL}" ]] || die "LOGO_URL is required when INCLUDE_LOGO=yes."
     authenticated_logo_download "${LOGO_URL}" || die "Logo download failed from LOGO_URL in config file."
@@ -160,6 +166,13 @@ load_inputs_from_config_file() {
   else
     LOGO_URL=""
   fi
+}
+
+load_config_inputs() {
+  load_inputs_from_config_file
+  normalize_config_inputs
+  validate_install_inputs
+  prepare_config_logo
 }
 
 collect_login_users() {
@@ -175,7 +188,7 @@ collect_install_inputs() {
   prepare_live_temp_dir
 
   if [[ -n "${OPARCH_CONFIG_FILE:-}" ]]; then
-    load_inputs_from_config_file
+    load_config_inputs
     return 0
   fi
 

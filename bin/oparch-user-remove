@@ -4,6 +4,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../lib/log.sh
 source "${SCRIPT_DIR}/../lib/log.sh"
+# shellcheck source=../lib/validate.sh
+source "${SCRIPT_DIR}/../lib/validate.sh"
 
 usage() {
   cat <<'USAGE_EOF'
@@ -14,11 +16,11 @@ Remove a login user. Home data can be preserved by copying it to:
 USAGE_EOF
 }
 
-validate_username() {
+require_valid_username() {
   local username="$1"
 
   [[ "${username}" != "system" ]] || die "Username 'system' is reserved and cannot be removed."
-  [[ "${username}" =~ ^[a-z_][a-z0-9_-]*$ ]] || die "Invalid username format: ${username}"
+  validate_unbounded_username "${username}" || die "Invalid username format: ${username}"
 }
 
 ensure_login_user_membership() {
@@ -39,15 +41,6 @@ copy_home_data() {
   install -d -o "${target_user}" -g "${target_user}" "${target_dir}"
   cp -a "${source_home}/." "${target_dir}/"
   chown -R "${target_user}:${target_user}" "${target_dir}"
-}
-
-get_root_source_device() {
-  local source_dev=""
-
-  source_dev="$(findmnt -n -o SOURCE /)"
-  source_dev="${source_dev%%[*}"
-
-  printf '%s\n' "${source_dev}"
 }
 
 remove_fstab_home_entry() {
@@ -169,14 +162,14 @@ main() {
   preserve_snapshots="$(printf '%s\n' "${parsed}" | sed -n '4p')"
 
   require_root_or_warn_exit "This command must run as root."
-  validate_username "${removed_user}"
+  require_valid_username "${removed_user}"
   id "${removed_user}" >/dev/null 2>&1 || die "User does not exist: ${removed_user}"
   ensure_login_user_membership "${removed_user}"
   require_home_mounted "${removed_user}"
 
   if [[ "${preserve_home_data}" == true ]]; then
     [[ -n "${destination_user}" ]] || die "Destination user is required when preserving home data."
-    validate_username "${destination_user}"
+    require_valid_username "${destination_user}"
     [[ "${destination_user}" != "${removed_user}" ]] || die "Destination user cannot be the removed user."
     id "${destination_user}" >/dev/null 2>&1 || die "Destination user does not exist: ${destination_user}"
     ensure_login_user_membership "${destination_user}"

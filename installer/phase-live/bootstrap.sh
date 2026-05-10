@@ -53,34 +53,33 @@ write_install_state() {
 }
 
 bootstrap_base_system() {
-  local microcode_package=""
+  local -a packages=(
+    base
+    linux
+    linux-headers
+    linux-firmware
+    mkinitcpio
+    iptables-nft
+    btrfs-progs
+    cryptsetup
+    grub
+    efibootmgr
+    gum
+    fzf
+    plymouth
+    sudo
+    networkmanager
+    snapper
+    snap-pac
+  )
+
   if [[ "${CPU_VENDOR}" == "Intel" ]]; then
-    microcode_package="intel-ucode"
+    packages+=(intel-ucode)
   elif [[ "${CPU_VENDOR}" == "AMD" ]]; then
-    microcode_package="amd-ucode"
+    packages+=(amd-ucode)
   fi
 
-  run_cmd mkdir /mnt/etc
-  printf 'KEYMAP=%s\n' "${CONSOLE_KEYMAP}" > /mnt/etc/vconsole.conf
-
-  if [[ -n "${microcode_package}" ]]; then
-    run_pkg_cmd --title "Installing base system..." pacstrap -K /mnt \
-      base \
-      linux \
-      linux-headers \
-      linux-firmware \
-      mkinitcpio \
-      iptables-nft \
-      "${microcode_package}"
-  else
-    run_pkg_cmd --title "Installing base system..." pacstrap -K /mnt \
-      base \
-      linux \
-      linux-headers \
-      linux-firmware \
-      mkinitcpio \
-      iptables-nft
-  fi
+  run_pkg_cmd --title "Installing base system..." pacstrap -K /mnt "${packages[@]}"
 
   run_cmd bash -c 'genfstab -U /mnt > /mnt/etc/fstab'
 

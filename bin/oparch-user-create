@@ -4,6 +4,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../lib/log.sh
 source "${SCRIPT_DIR}/../lib/log.sh"
+# shellcheck source=../lib/validate.sh
+source "${SCRIPT_DIR}/../lib/validate.sh"
 
 usage() {
   cat <<'USAGE_EOF'
@@ -17,11 +19,11 @@ Create a login user with OpinionatedArch baseline policy:
 USAGE_EOF
 }
 
-validate_username() {
+require_valid_username() {
   local username="$1"
 
   [[ "${username}" != "system" ]] || die "Username 'system' is reserved."
-  [[ "${username}" =~ ^[a-z_][a-z0-9_-]*$ ]] || die "Invalid username format: ${username}"
+  validate_unbounded_username "${username}" || die "Invalid username format: ${username}"
 }
 
 create_home_subvolume() {
@@ -114,10 +116,9 @@ main() {
   username="$(parse_args "$@")"
 
   require_root_or_warn_exit "This command must run as root."
-  validate_username "${username}"
+  require_valid_username "${username}"
 
-  source_dev="$(findmnt -n -o SOURCE /)"
-  source_dev="${source_dev%%[*}"
+  source_dev="$(get_root_source_device)"
 
   create_home_subvolume "${username}" "${source_dev}"
   ensure_fstab_entry "${username}" "${source_dev}"

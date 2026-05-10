@@ -5,7 +5,7 @@
 This document is the centralized list of:
 
 - installer prompts
-- bootstrap package list by installation phase
+- bootstrap package list
 - minimum services enabled in chroot
 
 ### Installer Prompts
@@ -39,28 +39,27 @@ The installer asks for:
 
 ### Bootstrap Package List
 
-Pre-chroot (`pacstrap`):
+Installed with `pacstrap`:
 
 - `base`
 - `linux`
 - `linux-headers`
 - `linux-firmware`
-- `intel-ucode` (if CPU vendor is `Intel`)
-- `amd-ucode` (if CPU vendor is `AMD`)
-- no microcode package (if CPU vendor is `other`)
-
-Post-chroot (`pacman -S`):
-
 - `mkinitcpio`
+- `iptables-nft`
 - `btrfs-progs`
 - `cryptsetup`
 - `grub`
 - `efibootmgr`
+- `gum`
+- `fzf`
 - `plymouth`
 - `sudo`
 - `networkmanager`
 - `snapper`
 - `snap-pac`
+- `intel-ucode` (if CPU vendor is `Intel`)
+- `amd-ucode` (if CPU vendor is `AMD`)
 
 ### Minimum Services Enabled in Chroot
 
@@ -71,7 +70,7 @@ Post-chroot (`pacman -S`):
 ## Why
 
 - A centralized list is required because installer prompt, package, and service definitions are cross-cutting and easy to duplicate; if this list is not centralized, documentation and script behavior drift.
-- Splitting package installation into pre-chroot and post-chroot phases is required because kernel/base bootstrap must exist before chroot, while policy/system packages are configured inside target context; if phases are mixed without structure, debugging and failure isolation are harder.
+- Installing the baseline package set with `pacstrap` is required because package provisioning and target configuration are separate responsibilities; if chroot configuration also installs baseline packages, the package baseline has two sources of truth, and installation performs two package download operations instead of one.
 - CPU-vendor microcode selection is required because early microcode package is vendor-specific for Intel/AMD and intentionally absent for `other`; if this mapping is not explicit, package selection can be incorrect.
 - Explicit service baseline is required because “installed” is not equivalent to “enabled”; if services are not listed explicitly, first-boot behavior is inconsistent.
 - `/tmp/oparch` in live installer is required because transient installation files need deterministic staging before files are copied into the target system; if omitted, installer temp-file flow becomes scattered and harder to reason about.
@@ -82,8 +81,8 @@ Post-chroot (`pacman -S`):
 
 1. Keep this file as the authoritative bootstrap checklist.
 2. Validate that installer prompts map one-to-one to script input questions.
-3. Install pre-chroot package set with `pacstrap`.
-4. Install post-chroot package set with `pacman -S` in target context.
+3. Install the full baseline package set with `pacstrap`.
+4. Configure installed packages and services in target context.
 5. Enable the minimum service baseline in chroot before first reboot.
 6. Stage transient installer files in `/tmp/oparch` during live installation.
 7. Copy required transient files from `/tmp/oparch` to `/usr/opinionatedarch/tmp` in target before chroot setup steps that consume them.

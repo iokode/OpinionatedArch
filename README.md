@@ -7,6 +7,7 @@ Its documentation explains the reason behind each design decision.
 ## Main opinions
 
 - the system is designed for one physical person, with multiple login accounts used as separate work contexts
+- minimal usage components like audio or network are installed
 - the system includes a pre-boot ownership and return message
 - the storage model is fixed around `btrfs`, using the full disk without multiple partitions for other operating systems; other OS could be installed in other disks
 - the storage model includes one home subvolume per login account
