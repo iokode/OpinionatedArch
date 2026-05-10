@@ -1,0 +1,9 @@
+[Plymouth Theme]
+Name=OpinionatedArch
+Description=OpinionatedArch pre-boot return message
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/opinionatedarch
+ScriptFile=/usr/share/plymouth/themes/opinionatedarch/opinionatedarch.script
+Font=Open Sans 14

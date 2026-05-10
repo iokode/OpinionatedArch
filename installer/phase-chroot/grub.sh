@@ -12,49 +12,6 @@ chroot_set_or_replace_config_key() {
   fi
 }
 
-chroot_configure_swap_encryption() {
-  if [[ -z "${SWAP_PART_UUID}" ]]; then
-    return 0
-  fi
-
-  cat > /etc/crypttab <<CRYPTTAB_EOF
-cryptswap UUID=${SWAP_PART_UUID} /dev/urandom swap,cipher=aes-xts-plain64,size=256
-CRYPTTAB_EOF
-
-  printf '/dev/mapper/cryptswap none swap defaults 0 0\n' >> /etc/fstab
-}
-
-chroot_configure_plymouth_defaults() {
-  if [[ "${INCLUDE_RETURN_MESSAGE}" != "yes" ]]; then
-    return 0
-  fi
-
-  install -d -m 755 /etc/opinionatedarch
-  cat > /etc/opinionatedarch/ownership.env <<OWNERSHIP_EOF
-OWNER_NAME=${OWNER_NAME}
-OWNER_PHONE=${OWNER_PHONE}
-OWNER_EMAIL=${OWNER_EMAIL}
-OWNER_RETURN_ADDRESS=${OWNER_RETURN_ADDRESS}
-INCLUDE_LOGO=${INCLUDE_LOGO}
-OWNERSHIP_EOF
-
-  if [[ "${INCLUDE_LOGO}" == "yes" ]]; then
-    install -d -m 755 /usr/share/plymouth/themes/opinionatedarch
-    cp /usr/opinionatedarch/tmp/logo.png /usr/share/plymouth/themes/opinionatedarch/logo.png
-  fi
-
-  plymouth-set-default-theme bgrt
-}
-
-chroot_configure_initramfs() {
-  if [[ "${INCLUDE_RETURN_MESSAGE}" == "yes" ]]; then
-    sed -i 's/^HOOKS=.*/HOOKS=(base udev autodetect microcode kms keyboard keymap block plymouth encrypt filesystems)/' /etc/mkinitcpio.conf
-  else
-    sed -i 's/^HOOKS=.*/HOOKS=(base udev autodetect microcode kms keyboard keymap block encrypt filesystems)/' /etc/mkinitcpio.conf
-  fi
-  mkinitcpio -P
-}
-
 chroot_configure_grub() {
   local timeout_style="hidden"
   local timeout_value="1"

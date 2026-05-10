@@ -28,7 +28,9 @@ stage_install_repo() {
 
 write_install_state() {
   local login_users_csv
+  local return_languages_csv
   login_users_csv="$(join_by ',' "${LOGIN_USERS[@]}")"
+  return_languages_csv="$(join_by ',' "${RETURN_MESSAGE_LANGUAGES[@]}")"
 
   {
     printf 'STARTUP_POLICY=%q\n' "${STARTUP_POLICY}"
@@ -42,6 +44,7 @@ write_install_state() {
     printf 'TIMEZONE=%q\n' "${TIMEZONE}"
     printf 'HOSTNAME_VALUE=%q\n' "${HOSTNAME_VALUE}"
     printf 'INCLUDE_RETURN_MESSAGE=%q\n' "${INCLUDE_RETURN_MESSAGE}"
+    printf 'RETURN_MESSAGE_LANGUAGES_CSV=%q\n' "${return_languages_csv}"
     printf 'OWNER_NAME=%q\n' "${OWNER_NAME}"
     printf 'OWNER_PHONE=%q\n' "${OWNER_PHONE}"
     printf 'OWNER_EMAIL=%q\n' "${OWNER_EMAIL}"
@@ -85,7 +88,7 @@ bootstrap_base_system() {
   fi
 
   if [[ "${INCLUDE_RETURN_MESSAGE}" == "yes" ]]; then
-    packages+=(plymouth)
+    packages+=(plymouth ttf-dejavu)
   fi
 
   run_pkg_cmd --title "Installing base system..." pacstrap -K /mnt "${packages[@]}"

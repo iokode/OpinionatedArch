@@ -1,0 +1,12 @@
+#!/bin/bash
+
+build() {
+  add_runscript
+  add_file '/usr/lib/locale/locale-archive'
+}
+
+help() {
+  cat <<HELPEOF
+Sets UTF-8 locale variables before Plymouth starts in initramfs.
+HELPEOF
+}

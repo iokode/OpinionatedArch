@@ -30,8 +30,9 @@ The installer asks for:
     - phone
     - email
     - return address
-15. if return message is enabled: logo inclusion (`yes/no`)
-16. if logo is enabled: `logo_url` (retry or explicit continue-without-logo on download failure)
+15. if return message is enabled: return-message languages, selecting 1 to 4 templates
+16. if return message is enabled: logo inclusion (`yes/no`)
+17. if logo is enabled: `logo_url` (retry or explicit continue-without-logo on download failure)
 
 ### Temporary Paths for Installer Staging
 
@@ -64,6 +65,7 @@ Installed with `pacstrap`:
 - `nvidia` (if GPU driver is `nvidia`)
 - `nvidia-open` (if GPU driver is `nvidia-open`)
 - `plymouth` (if pre-boot return message is enabled)
+- `ttf-dejavu` (if pre-boot return message is enabled)
 
 ### Minimum Services Enabled in Chroot
 
@@ -77,6 +79,8 @@ Installed with `pacstrap`:
 - Installing the baseline package set with `pacstrap` is required because package provisioning and target configuration are separate responsibilities; if chroot configuration also installs baseline packages, the package baseline has two sources of truth, and installation performs two package download operations instead of one.
 - Ucode package selection is required because CPU microcode must be installed before reboot when the target hardware needs it; if deferred until after first boot, the first run can start without the CPU fixes expected for correct hardware operation.
 - GPU driver selection is required because the target graphics driver must be installed before reboot when the hardware needs it; if deferred until after first boot, the first run can start with missing or incorrect graphics support.
+- Return-message language selection is required because the target audience for a lost-device message depends on where the machine is expected to travel; if language choice is hardcoded, installations either show irrelevant text or require script edits.
+- Installing a proportional font with the return-message theme is required because localized text needs Latin glyph coverage and should not depend on a monospace fallback; if omitted, accented characters or the preferred font style can fail during early boot.
 - Explicit service baseline is required because “installed” is not equivalent to “enabled”; if services are not listed explicitly, first-boot behavior is inconsistent.
 - `/tmp/oparch` in live installer is required because transient installation files need deterministic staging before files are copied into the target system; if omitted, installer temp-file flow becomes scattered and harder to reason about.
 - `/usr/opinionatedarch/tmp` in target chroot is required because `/tmp` may be cleaned by package hooks before later setup steps run; if `/tmp` is used as the only target staging path, transient files can disappear mid-install.

@@ -12,6 +12,7 @@ declare CONSOLE_KEYMAP=""
 declare TIMEZONE=""
 declare HOSTNAME_VALUE=""
 declare INCLUDE_RETURN_MESSAGE="no"
+declare -ag RETURN_MESSAGE_LANGUAGES=()
 declare OWNER_NAME=""
 declare OWNER_PHONE=""
 declare OWNER_EMAIL=""
@@ -58,6 +59,34 @@ parse_login_users_csv() {
   fi
 
   return 0
+}
+
+parse_return_message_languages_csv() {
+  local raw_languages="$1"
+  local -a parsed=()
+  local token=""
+  local clean=""
+  local template_path=""
+
+  IFS=',' read -r -a parsed <<< "${raw_languages}"
+  RETURN_MESSAGE_LANGUAGES=()
+
+  for token in "${parsed[@]}"; do
+    clean="$(trim "${token}")"
+    [[ -z "${clean}" ]] && continue
+
+    [[ "${clean}" =~ ^[a-z][a-z]$ ]] || die "Invalid return-message language code: ${clean}"
+    template_path="${OPARCH_REPO_ROOT}/assets/returning-templates/${clean}.tpl"
+    [[ -f "${template_path}" ]] || die "Return-message template not found: ${template_path}"
+
+    if [[ " ${RETURN_MESSAGE_LANGUAGES[*]} " != *" ${clean} "* ]]; then
+      RETURN_MESSAGE_LANGUAGES+=("${clean}")
+    fi
+  done
+
+  if (( ${#RETURN_MESSAGE_LANGUAGES[@]} == 0 || ${#RETURN_MESSAGE_LANGUAGES[@]} > 4 )); then
+    die "RETURN_MESSAGE_LANGUAGES_CSV must include between 1 and 4 languages."
+  fi
 }
 
 authenticated_logo_download() {
@@ -109,6 +138,7 @@ load_inputs_from_config_file() {
       TIMEZONE) TIMEZONE="${value}" ;;
       HOSTNAME_VALUE) HOSTNAME_VALUE="${value}" ;;
       INCLUDE_RETURN_MESSAGE) INCLUDE_RETURN_MESSAGE="${value}" ;;
+      RETURN_MESSAGE_LANGUAGES_CSV) RETURN_MESSAGE_LANGUAGES_CSV="${value}" ;;
       OWNER_NAME) OWNER_NAME="${value}" ;;
       OWNER_PHONE) OWNER_PHONE="${value}" ;;
       OWNER_EMAIL) OWNER_EMAIL="${value}" ;;
@@ -131,6 +161,7 @@ normalize_config_inputs() {
   TIMEZONE="${TIMEZONE:-}"
   HOSTNAME_VALUE="${HOSTNAME_VALUE:-}"
   INCLUDE_RETURN_MESSAGE="${INCLUDE_RETURN_MESSAGE:-no}"
+  RETURN_MESSAGE_LANGUAGES_CSV="${RETURN_MESSAGE_LANGUAGES_CSV:-}"
   OWNER_NAME="${OWNER_NAME:-}"
   OWNER_PHONE="${OWNER_PHONE:-}"
   OWNER_EMAIL="${OWNER_EMAIL:-}"
@@ -165,6 +196,9 @@ validate_install_inputs() {
     [[ -n "${OWNER_PHONE}" ]] || die "OWNER_PHONE cannot be empty."
     [[ -n "${OWNER_EMAIL}" ]] || die "OWNER_EMAIL cannot be empty."
     [[ -n "${OWNER_RETURN_ADDRESS}" ]] || die "OWNER_RETURN_ADDRESS cannot be empty."
+    parse_return_message_languages_csv "${RETURN_MESSAGE_LANGUAGES_CSV:-}"
+  else
+    RETURN_MESSAGE_LANGUAGES=()
   fi
 
   case "${INCLUDE_LOGO}" in
@@ -200,6 +234,27 @@ collect_login_users() {
     raw_users="$(ask_non_empty "Login usernames (comma-separated): ")"
     parse_login_users_csv "${raw_users}" && return 0
   done
+}
+
+collect_return_message_languages() {
+  local -a template_codes=()
+  local template_path=""
+  local selected=""
+  local language=""
+
+  while IFS= read -r template_path; do
+    [[ -n "${template_path}" ]] || continue
+    template_codes+=("$(basename "${template_path}" .tpl)")
+  done < <(find "${OPARCH_REPO_ROOT}/assets/returning-templates" -maxdepth 1 -type f -name '*.tpl' | sort)
+
+  [[ "${#template_codes[@]}" -gt 0 ]] || die "No return-message templates found."
+
+  selected="$(printf '%s\n' "${template_codes[@]}" | prompt_choose_up_to "Return-message languages:" 4)"
+  RETURN_MESSAGE_LANGUAGES=()
+  while IFS= read -r language; do
+    [[ -n "${language}" ]] || continue
+    RETURN_MESSAGE_LANGUAGES+=("${language}")
+  done <<< "${selected}"
 }
 
 collect_install_inputs() {
@@ -301,6 +356,7 @@ collect_install_inputs() {
     OWNER_PHONE="$(ask_non_empty "Owner phone for pre-boot message: ")"
     OWNER_EMAIL="$(ask_non_empty "Owner email for pre-boot message: ")"
     OWNER_RETURN_ADDRESS="$(ask_non_empty "Owner return address for pre-boot message: ")"
+    collect_return_message_languages
 
     INCLUDE_LOGO="$(printf 'yes\nno\n' | prompt_choose "Include company logo in pre-boot message?")"
     if [[ "${INCLUDE_LOGO}" == "yes" ]]; then
@@ -322,6 +378,7 @@ collect_install_inputs() {
       done
     fi
   else
+    RETURN_MESSAGE_LANGUAGES=()
     INCLUDE_LOGO="no"
     LOGO_URL=""
   fi
@@ -340,7 +397,9 @@ confirm_destructive_install() {
 
 summarize_install_plan() {
   local login_user_csv
+  local return_language_csv
   login_user_csv="$(join_by ', ' "${LOGIN_USERS[@]}")"
+  return_language_csv="$(join_by ', ' "${RETURN_MESSAGE_LANGUAGES[@]}")"
 
   printf 'Installation summary:\n' >&3
   printf '  target disk: %s\n' "${TARGET_DISK}" >&3
@@ -354,6 +413,9 @@ summarize_install_plan() {
   printf '  timezone: %s\n' "${TIMEZONE}" >&3
   printf '  hostname: %s\n' "${HOSTNAME_VALUE}" >&3
   printf '  include return message: %s\n' "${INCLUDE_RETURN_MESSAGE}" >&3
+  if [[ "${INCLUDE_RETURN_MESSAGE}" == "yes" ]]; then
+    printf '  return-message languages: %s\n' "${return_language_csv}" >&3
+  fi
   printf '  include logo: %s\n' "${INCLUDE_LOGO}" >&3
 
   if [[ "${PROCEED_INSTALL}" == "yes" ]]; then

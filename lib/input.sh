@@ -23,6 +23,13 @@ prompt_choose() {
   gum choose
 }
 
+prompt_choose_up_to() {
+  local prompt="$1"
+  local max_count="$2"
+
+  gum choose --limit "${max_count}" --header "${prompt}"
+}
+
 prompt_filter() {
   local prompt="$1"
 

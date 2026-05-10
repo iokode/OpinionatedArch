@@ -9,7 +9,10 @@ source /usr/opinionatedarch/installer/phase-chroot/identity.sh
 source /usr/opinionatedarch/installer/phase-chroot/users.sh
 source /usr/opinionatedarch/installer/phase-chroot/network.sh
 source /usr/opinionatedarch/installer/phase-chroot/snapshots.sh
-source /usr/opinionatedarch/installer/phase-chroot/boot.sh
+source /usr/opinionatedarch/installer/phase-chroot/swap.sh
+source /usr/opinionatedarch/installer/phase-chroot/plymouth.sh
+source /usr/opinionatedarch/installer/phase-chroot/initramfs.sh
+source /usr/opinionatedarch/installer/phase-chroot/grub.sh
 
 chroot_configure_locale_and_time
 chroot_configure_identity
