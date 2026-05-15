@@ -5,21 +5,23 @@
 Snapshot policy is split by scope:
 
 - System scope (`@`): snapshot at boot start, on each package installation/update transaction, and on explicit manual request.
-- User scope (`/home/<login-user>` subvolume): snapshot at login start for that specific user and on explicit manual request.
+- User scope (`home/@<login-user>` subvolume): snapshot at login start for that specific user and on explicit manual request.
 
 Home snapshots are per-user because rollback scope must be isolated per login user. Because Btrfs snapshots are created at subvolume level, each login user home is a dedicated subvolume.
 All snapshots are stored in a single `@snapshots` subvolume mounted at `/snapshots` with structured paths:
 
-- `/snapshots/system`
-- `/snapshots/<login-user>`
+- `/snapshots/system/automatic`
+- `/snapshots/system/manual`
+- `/snapshots/home/<login-user>/automatic`
+- `/snapshots/home/<login-user>/manual`
 
 Snapshot strategy is restore-only. Snapshots are not boot targets in GRUB.
 
 ### Snapshot Retention Policy
 
 - `@`: keep the last 60 automatic snapshots.
-- `@home-<login-user>`: keep the last 60 automatic snapshots per user.
-- Manual snapshots are never auto-purged for either `@` or `@home-<login-user>`.
+- `home/@<login-user>`: keep the last 60 automatic snapshots per user.
+- Manual snapshots are never auto-purged for either `@` or `home/@<login-user>`.
 - Every manual snapshot must include a human-readable justification in its name or label.
 - Manual snapshot cleanup is explicitly manual when justification is no longer valid.
 
@@ -32,7 +34,7 @@ Snapshot strategy is restore-only. Snapshots are not boot targets in GRUB.
 - Manual per-user home snapshots are used because some user operations are intentionally high-risk (for example bulk moves or destructive cleanup); if omitted, those operations have no explicit pre-change recovery anchor.
 - Dedicated home subvolumes are required because Btrfs can snapshot only at subvolume boundaries; if homes are not split per user subvolume, isolated per-user rollback cannot be implemented.
 - A single snapshot storage subvolume (`@snapshots`) is required because this model centralizes snapshot data while keeping a simple mount layout; if omitted, storage layout drifts from the chosen single-container policy.
-- Structured paths (`system`, `<login-user>`) inside `/snapshots` are required because system and per-user histories must remain targetable independently; if omitted, create/restore operations are easier to misapply.
+- Structured paths (`system`, `home/<login-user>`, `automatic`, and `manual`) inside `/snapshots` are required because system and per-user histories must remain targetable independently without reserving login usernames; if omitted, create/restore operations are easier to misapply.
 - Keeping 60 automatic snapshots in `@` and 60 per-user home snapshots is used because recovery history must be long enough to be useful but still bounded; if too low, useful rollback points disappear too quickly, and if unbounded, disk usage grows without control.
 - Never auto-purging manual snapshots is used because manual snapshots are deliberate operator checkpoints; if auto-purged, explicitly chosen recovery anchors can disappear without operator intent.
 - Requiring a human-readable justification in manual snapshot name/label is used because indefinite retention requires future audit and cleanup decisions; if unlabeled, old manual snapshots become hard to evaluate and safe cleanup becomes guesswork.
@@ -44,7 +46,7 @@ Snapshot strategy is restore-only. Snapshots are not boot targets in GRUB.
 2. Expose a manual command/script for on-demand root snapshots.
 3. Trigger a user-home snapshot when a login session starts.
 4. Expose a manual command/script for on-demand per-user home snapshots.
-5. Configure snapshot paths so system snapshots target `/snapshots/system` and user snapshots target `/snapshots/<login-user>`.
+5. Configure snapshot paths so system snapshots target `/snapshots/system/{automatic,manual}` and user snapshots target `/snapshots/home/<login-user>/{automatic,manual}`.
 6. Ensure user-provisioning flow registers new login users for login-time and manual home snapshots.
 7. Implement dedicated create/restore scripts for this path-based snapshot layout in a later scripting phase.
 
@@ -54,9 +56,9 @@ Snapshot strategy is restore-only. Snapshots are not boot targets in GRUB.
 - Boot snapshots should not prevent the system from starting if snapshot creation fails.
 - Login snapshots should not block login if snapshot creation fails.
 - Snapshot naming should make session boundaries easy to identify.
-- Snapshot storage must remain separated by domain inside `/snapshots`: `system` for system snapshots and `<login-user>` per user.
+- Snapshot storage must remain separated by domain inside `/snapshots`: `system` for system snapshots and `home/<login-user>` per user.
 - Since `/boot` is outside Btrfs, snapshot rollback does not cover boot artifacts.
-- Severe recovery path is: boot live/netboot, chroot, then execute snapshot restore.
+- Severe recovery path is: boot `Recovery`, chroot, then execute snapshot restore.
 
 ## Restore Procedure (Reference)
 

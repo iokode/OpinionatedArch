@@ -1,4 +1,4 @@
-# 013: mkinitcpio Hooks Policy
+# 012: mkinitcpio Hooks Policy
 
 ## Context and Decision
 

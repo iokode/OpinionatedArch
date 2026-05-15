@@ -1,4 +1,4 @@
-# 011: Pre-Boot Ownership Message
+# 010: Pre-Boot Ownership Message
 
 ## Context and Decision
 

@@ -16,7 +16,7 @@ The selected strategy is single-kernel: install and maintain only `linux`.
 
 1. Install only `linux` and `linux-headers`.
 2. Do not install `linux-lts`, `linux-zen`, or `linux-hardened` by default.
-3. Keep GRUB entries aligned with `012-grub-boot-policy.md` for the single-kernel setup.
+3. Keep GRUB entries aligned with `011-grub-boot-policy.md` for the single-kernel setup.
 4. Ensure package/update flow only tracks one kernel branch. 
 
 ## Considerations

@@ -1,4 +1,4 @@
-# 015: Network Stack Policy
+# 013: Network Stack Policy
 
 ## Context and Decision
 
@@ -29,4 +29,3 @@ Advanced per-machine DNS/routing policy is intentionally post-install.
 
 - Running both `NetworkManager` and `systemd-resolved` is intentional in this policy.
 - Do not enable competing network managers in parallel for the same interfaces.
-

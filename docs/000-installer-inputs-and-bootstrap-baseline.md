@@ -18,7 +18,7 @@ The installer asks for:
 4. ucode package (`intel-ucode`, `amd-ucode`, or `none`)
 5. GPU driver (`nvidia`, `nvidia-open`, `nouveau`, or `none`)
 6. zram swap size in GB
-7. disk swap partition size in GB
+7. disk swapfile size in GB (if 0, do not create any swapfile)
 8. login usernames list
 9. shared secret (used for root LUKS unlock and login-user password)
 10. console keymap
