@@ -1,59 +1,39 @@
 # 016: Oparch Tools
 
-This document defines operational tools provided by OpinionatedArch. Each tool has a single purpose and is designed to keep recurring system tasks consistent.
+## Context and Decision
 
-## Tool: `oparch-user-create`
+OpinionatedArch operational tools are small commands for recurring system operations. This document defines the common policy for those tools; it does not enumerate the tool inventory.
 
-### What it does
-Creates a new login user with the required baseline policy: account, groups, home subvolume, and initial home directory ownership.
+Tool-specific documents live in `docs/tools/`. Each tool has one Markdown document named after the command: `docs/tools/<tool-name>.md`. That file defines the concrete tool description, reason for existence, input parameters, and interactive usage when applicable.
 
-### Why it is needed
-Creating login users manually is error-prone and can break assumptions used by snapshot and permission policies. A single command ensures new users always match the expected model.
+Tool names use the `oparch-{entity}-{action}` format. The `entity` identifies the system object or operational domain managed by the tool. The `action` identifies the operation performed on that entity.
 
-## Tool: `oparch-user-remove`
+Command-line tools own behavior and perform the actual operation. Interactive tools are interfaces only: they browse choices, filter lists, ask for confirmation, collect input, and then call the matching command-line tool with explicit parameters.
 
-### What it does
-Removes a login user, including account removal, home-subvolume removal, and mount/fstab cleanup. The command asks whether home data should be preserved. If preservation is selected, it asks for a destination login user and copies data to `/home/<target-user>/other-users-home-data/<removed-user>` before removal.
+Interactive tools are composed by combining `fzf` and `gum` unless a specific need requires another approach. Tools are written in `sh` unless a specific need requires another language.
 
-### Why it is needed
-Manual user removal can leave inconsistent state (stale fstab entries, mounted paths, orphaned subvolumes). A dedicated command keeps removal deterministic while offering an explicit and repeatable data-preservation path.
+## Why
 
-## Tool: `oparch-password-rotate`
+- The `oparch-{entity}-{action}` naming format is required so commands remain discoverable and script-friendly; if naming varies by tool, operators must memorize exceptions.
+- Separating command-line behavior from interactive selection is required so every operation remains scriptable and testable; if interactive tools perform actions directly, behavior becomes duplicated and harder to verify.
+- `fzf` and `gum` are used because they combine easily with `sh` and provide a simple way to create interactive interfaces in `sh`.
+- Defaulting tools to `sh` is required to keep runtime dependencies minimal in the installed system.
 
-### What it does
-Rotates the shared secret used by disk encryption and login users. It changes the LUKS passphrase on the encrypted root device and updates all members of `login-users` to the same new password. It accepts old and new passwords via parameter for scripting, and when password parameters are omitted it reads them with `read -s`.
+## Implementation Plan
 
-### Why it is needed
-The system model uses one shared secret for both disk unlock and login users. Rotating that secret manually in multiple places is error-prone and can desynchronize boot unlock and account login. A dedicated command keeps both sides synchronized in one operation.
+1. Document each concrete tool in `docs/tools/<tool-name>.md`.
+2. Name tools with the `oparch-{entity}-{action}` format.
+3. Implement operational behavior in command-line tools.
+4. Make command-line tools accept explicit parameters for the operation they execute.
+5. Implement interactive tools only as browsing, filtering, confirmation, and input-collection layers.
+6. Have each interactive tool call the corresponding command-line tool with the selected explicit parameters.
+7. Compose interactive tools from `fzf` and `gum` unless a specific tool requirement justifies another approach.
+8. Write tools in `sh` unless a specific tool requirement justifies another language.
 
-## Tool: `oparch-dotfiles-link`
+## Considerations
 
-### What it does
-Creates and refreshes links from the shared dotfiles source into target user/system paths.
-
-### Why it is needed
-Manual linking drifts over time and is hard to audit. A dedicated command keeps linking behavior repeatable and prevents per-user divergence.
-
-## Tool: `oparch-snapshot-system-create`
-
-### What it does
-Creates a manual system-scope snapshot under `/snapshots/system/manual` and requires a human-readable justification in the snapshot name or label.
-
-### Why it is needed
-System-level manual checkpoints are required before risky non-package changes. Mandatory justification keeps long-lived manual snapshots understandable later.
-
-## Tool: `oparch-snapshot-user-create`
-
-### What it does
-Creates a manual user-scope snapshot under `/snapshots/home/<login-user>/manual` for a selected login user.
-
-### Why it is needed
-User data operations can be destructive and are often user-specific. A per-user command makes rollback anchors precise and avoids cross-user ambiguity.
-
-## Tool: `oparch-snapshot-restore`
-
-### What it does
-Restores snapshots for both scopes (`system` and `home/<login-user>`) using the single `@snapshots` path layout. User-scope restore can run on the installed system with controlled session state. System-scope restore must run offline from an external environment (for example live media + chroot).
-
-### Why it is needed
-Recovery must be deterministic during incidents, and restore safety differs by scope. A single restore interface with explicit online/offline rules avoids ad-hoc procedures, reduces operator mistakes, and prevents fragile system-root rollback while the system is running.
+- Do not duplicate the concrete tool inventory in this document.
+- Do not put filesystem changes, account changes, snapshot operations, or other system mutations in interactive tools.
+- Do not introduce a different interactive stack unless the tool requirement cannot be met with `fzf` and `gum`.
+- Do not introduce a different implementation language unless the tool requirement cannot be met with `sh`.
+- Keep exceptions explicit in the affected tool document.
