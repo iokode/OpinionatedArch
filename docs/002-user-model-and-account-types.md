@@ -15,19 +15,17 @@ As specified in `004-disk-layout.md`, each login user home is a dedicated subvol
 
 Authentication is unified: the installer asks one password and uses it both for disk encryption and for all login users.
 
-Post-boot login behavior is conditional: if the selected session manager supports username-only login after disk unlock, that mode is used. If it does not support that flow, post-boot login remains username plus password until a compatible session manager is available. All login users share the same password value.
+Login users have passwordless sudo.
 
 The `root` account has no password set and is not intended for interactive login.
 
 ## Why
 
-- Two account types (`logical` and `login`) are required because service accounts must run background processes with restricted privileges and must not appear as human login identities.
-- The installer asks for the full login-user list because login identities are machine-specific operational choices and cannot be inferred safely from baseline defaults.
-- `dotfiles` and `login-users` are separate groups because a service account may need to read configuration from `/dotfiles` (for example, a keymapper service reading its config file) without being an interactive login account.
-- Per-user rollback scope is required in this user model; as specified in `004-disk-layout.md`, this is implemented with one home subvolume per login user.
-- A unified password for disk encryption and login users is used because the operator explicitly prioritizes one strong memorized secret over multiple secrets that would likely be written down.
-- Conditional post-boot login behavior is required because some session managers do not support username-only login mode safely or natively.
-- Root is passwordless and non-interactive because privileged operations are intended to be executed through sudo from login users, and direct root login is intentionally excluded from normal operation.
+- Two account types (`logical` and `login`) are required because service accounts need restricted execution identities that are not interactive human login accounts.
+- `dotfiles` and `login-users` are separate groups because dotfiles access and interactive login identity are different permissions. For example, a keymapper service may need to read configuration from `/dotfiles` without being an interactive login account.
+- A unified password for disk encryption and login users is used because the system is operated by one person, so multiple login passwords are unnecessary.
+- Root is passwordless and non-interactive because privileged operations are performed through sudo from login users.
+- Passwordless sudo is used because the user has already unlocked the disk and logged in, and this model has one physical operator who owns administrative privileges.
 
 ## Implementation Plan
 
@@ -36,17 +34,16 @@ The `root` account has no password set and is not intended for interactive login
 3. Create all requested login users and add them to `login-users` and `dotfiles`.
 4. Always create baseline logical users.
 5. Prompt once for a shared secret and apply it to disk encryption and all login users.
-6. Configure login flow according to session-manager capability: username-only when supported, otherwise username plus password.
+6. Configure passwordless sudo for login users.
 7. Leave `root` without password and disable interactive root login.
-9. Ensure each login user is provisioned according to `004-disk-layout.md` (one home subvolume per login user).
-10. Provide a standard user-provisioning command/script for post-install user creation so home-subvolume and user creation remain coupled.
+8. Ensure each login user is provisioned according to `004-disk-layout.md` (one home subvolume per login user).
+9. Provide a standard user-provisioning command/script for post-install user creation so home-subvolume and user creation remain coupled.
 
 ## Considerations
 
 - The shared login password and disk-encryption password are the same by design.
-- Post-boot login is username-only only when supported by the selected session manager.
-- When username-only is not supported, post-boot login must require password.
 - `dotfiles` and `login-users` groups must be kept explicit and consistent for every login user.
+- Login users have passwordless sudo by design.
 - Root remains non-interactive and passwordless by design.
 - Root recovery procedures must be documented and available.
 - Login usernames should be validated before creation.

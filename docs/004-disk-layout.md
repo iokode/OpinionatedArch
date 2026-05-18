@@ -108,35 +108,38 @@ Mount policy:
 
 Btrfs mount options are not customized in this phase. The installer uses Btrfs default mount behavior and does not set explicit tuning options such as `compress`, `noatime`, `ssd`, or per-subvolume mount overrides.
 
-The installer supports only a destructive `wipe-all` mode for now. A partial reinstall mode that keeps existing home subvolumes (`keep-homes`) is explicitly deferred.
+The installer supports two install modes: `wipe-all` and `keep-homes`.
+
+In `wipe-all` mode, the selected disk is repartitioned and all previous data on that disk is destroyed.
+
+In `keep-homes` mode, the system is reinstalled while preserving selected existing `home/@<login-user>` subvolumes. The installer asks which existing home users to preserve, creates those users with their preserved homes, and also creates any additional users provided in the login usernames step.
 
 ## Why
 
-- Full-disk deterministic partitioning is used because this installer prioritizes predictable behavior over partition-layout flexibility; if multiple layout branches are supported early, validation and failure handling become harder to trust.
-- EFI plus one encrypted Btrfs partition is used because the boot artifacts that must remain available to firmware stay on the EFI system partition, while operating-system state, user data, snapshots, dotfiles, logs, package cache, and persistent swap remain inside one encrypted filesystem.
-- Omitting a swap partition keeps the partition table fixed and avoids repartitioning for persistent swap changes; if disk swap is a partition, changing its size later requires a more invasive storage operation than changing swapfiles.
+- Full-disk deterministic partitioning is used because it is the easiest way to force the GPT layout and create the partitions required by the installer. Writing an installer that reuses existing partitions while maintaining invariants is not trivial.
+- `keep-homes` is used because system reinstall can preserve selected user home data while rebuilding the rest of the system.
+- EFI plus one encrypted Btrfs partition is used because the boot artifacts that must remain available to firmware stay on the EFI system partition, while operating-system state, user data, snapshots, dotfiles, logs, package cache, and swap remain inside one encrypted filesystem.
+- There is no relevant swap performance difference between swapfiles and swap partitions on modern SSDs, so using swapfiles is simpler than creating a swap partition.
 - The EFI layout keeps project-owned boot artifacts under `EFI/OpinionatedArch` and `OpinionatedArch` so they do not mix with third-party or vendor-owned EFI directories.
-- `@` keeps normal operating-system root state in one rollback domain.
-- `@recovery` provides a separate recovery root-state domain instead of mixing recovery state with normal boot state.
+- `@` is isolated because system rollback needs a root-state boundary that excludes recovery state, user homes, snapshots, logs, package cache, dotfiles, and swap.
+- `@recovery` is isolated because it is its own root and bootable system, and recovery must remain available independently from normal root rollback or normal root failure.
 - `home/@<login-user>` isolates login-user data and allows per-user rollback without touching other users; if omitted, one rollback operation can revert unrelated user data.
-- `@snapshots` stores all snapshot data in one dedicated container while separating system snapshots from home snapshots; if omitted, snapshot storage layout becomes fragmented or ambiguous.
+- `@snapshots` is a dedicated container because all snapshot data must live under one mounted path while preserving separate system and home snapshot scopes.
 - `@log` keeps logs out of root-state rollback scope because logs are high-churn operational data; if logs stay in `@`, snapshot diffs and retention are dominated by log noise instead of meaningful system-state changes.
 - `@pkg` keeps package cache out of root-state rollback scope because cache lifecycle is not configuration state; if cache is inside `@`, snapshots capture irrelevant cache churn and waste snapshot space/history.
-- `@dotfiles` gives shared dotfiles their own rollback and mount boundary; if dotfiles are kept inside `@`, system rollback and dotfile rollback cannot be controlled independently.
-- `@swap` keeps persistent swapfiles outside root snapshots; if swapfiles are inside `@`, snapshots and rollback can interact with swapfile storage in undesirable ways.
-- Using Btrfs mount defaults is required because no concrete issue requires tuning overrides yet; if custom options are introduced without a real problem to solve, policy becomes arbitrary and adds maintenance/debug surface without proven benefit.
-- `keep-homes` is deferred because preserving existing homes requires complex discovery and safety logic; if implemented now, complexity and error surface would rise sharply and conflict with the project's simplicity goal.
+- `@dotfiles` has its own subvolume so dotfiles are not affected by system snapshots. Restore is managed directly through Git because this subvolume is also a Git repository.
+- `@swap` is separate because persistent swapfiles must stay outside root snapshots and must be mounted with specific properties.
 
 ## Implementation Plan
 
-1. Ask for target disk and require explicit destructive confirmation.
-2. Wipe the partition table on the selected disk.
-3. Create GPT with a 1 GiB FAT32 EFI system partition and a remaining-space LUKS2 partition.
-4. Open the LUKS2 container as `OpinionatedArch` and format it as Btrfs.
-5. Create the selected Btrfs subvolumes.
-6. Mount the EFI system partition and Btrfs subvolumes to their target mount points without custom Btrfs tuning flags.
-7. Persist mount configuration in fstab.
-8. Provision login-user home subvolumes under `home/@<login-user>` and initialize snapshot paths under `/snapshots/system` and `/snapshots/home/<login-user>`.
+1. Ask for target disk and install mode.
+2. In `wipe-all` mode, require explicit destructive confirmation, wipe the partition table on the selected disk, create GPT with a 1 GiB FAT32 EFI system partition and a remaining-space LUKS2 partition, open the LUKS2 container as `OpinionatedArch`, and format it as Btrfs.
+3. In `keep-homes` mode, preserve the selected existing `home/@<login-user>` subvolumes.
+4. Create the selected Btrfs subvolumes that are not preserved by `keep-homes`.
+5. Mount the EFI system partition and Btrfs subvolumes to their target mount points without custom Btrfs tuning flags.
+6. Persist mount configuration in fstab.
+7. Provision preserved-home users using their existing `home/@<login-user>` subvolumes.
+8. Provision additional login-user home subvolumes under `home/@<login-user>` and initialize snapshot paths under `/snapshots/system` and `/snapshots/home/<login-user>`.
 
 ## Considerations
 
@@ -144,5 +147,5 @@ The installer supports only a destructive `wipe-all` mode for now. A partial rei
 - There is no swap partition. Persistent disk swap lives inside the Btrfs `@swap` subvolume as zero or more swapfiles, as defined in `006-swap-strategy.md`.
 - Snapshot policy must remain compatible with the selected mount layout.
 - User provisioning must include home-subvolume creation and per-user snapshot-path creation for install-time and post-install users.
-- Any data preservation requirement must be handled as backup/restore outside the current installer mode.
+- `keep-homes` preserves only the selected existing login-user home subvolumes.
 - Future Btrfs tuning remains possible only after a concrete performance or reliability issue is identified.

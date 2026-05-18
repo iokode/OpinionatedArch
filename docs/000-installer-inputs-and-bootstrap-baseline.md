@@ -13,26 +13,30 @@ This document is the centralized list of:
 The installer asks for:
 
 1. target disk
-2. destructive confirmation (`wipe-all`)
-3. startup policy (`manual` or `automatic`)
-4. ucode package (`intel-ucode`, `amd-ucode`, or `none`)
-5. GPU driver (`nvidia`, `nvidia-open`, `nouveau`, or `none`)
-6. zram swap size in GB
-7. disk swapfile size in GB (if 0, do not create any swapfile)
-8. login usernames list
-9. shared secret (used for root LUKS unlock and login-user password)
-10. console keymap
-11. timezone
-12. hostname
-13. pre-boot return message inclusion (`yes/no`)
-14. if return message is enabled: pre-boot ownership fields:
+2. install mode (`wipe-all` or `keep-homes`)
+3. if install mode is `wipe-all`: destructive confirmation
+4. if install mode is `keep-homes`: existing home users to preserve, selected with a `gum` multi-select
+5. startup policy (`manual` or `automatic`)
+6. ucode package (`intel-ucode`, `amd-ucode`, or `none`)
+7. GPU driver (`nvidia`, `nvidia-open`, `nouveau`, or `none`)
+8. zram swap size in GB
+9. disk swapfile size in GB (if 0, do not create any swapfile)
+10. login usernames list (in `keep-homes`, this creates additional users beyond the preserved-home users)
+11. shared secret (used for root LUKS unlock and login-user password)
+12. console keymap
+13. timezone
+14. hostname
+15. public dotfiles repository clone (`yes/no`)
+16. if public dotfiles repository clone is enabled: dotfiles repository URL
+17. pre-boot return message inclusion (`yes/no`)
+18. if return message is enabled: pre-boot ownership fields:
     - owner name
     - phone
     - email
     - return address
-15. if return message is enabled: return-message languages, selecting 1 to 4 templates
-16. if return message is enabled: logo inclusion (`yes/no`)
-17. if logo is enabled: `logo_url` (retry or explicit continue-without-logo on download failure)
+19. if return message is enabled: return-message languages, selecting 1 to 4 templates
+20. if return message is enabled: logo inclusion (`yes/no`)
+21. if logo is enabled: `logo_url` (retry or explicit continue-without-logo on download failure)
 
 ### Temporary Paths for Installer Staging
 
@@ -58,33 +62,28 @@ Installed with `pacstrap`:
 - `fzf`
 - `sudo`
 - `networkmanager`
-- `snapper`
-- `snap-pac`
 - `intel-ucode` (if selected as the ucode package)
 - `amd-ucode` (if selected as the ucode package)
 - `nvidia` (if GPU driver is `nvidia`)
 - `nvidia-open` (if GPU driver is `nvidia-open`)
 - `plymouth` (if pre-boot return message is enabled)
-- `ttf-dejavu` (if pre-boot return message is enabled)
 
 ### Minimum Services Enabled in Chroot
 
 - `NetworkManager.service`
 - `systemd-resolved.service`
-- `snapper-cleanup.timer`
+
+These services must be enabled in the target system before first boot, not only installed.
 
 ## Why
 
-- A centralized list is required because installer prompt, package, and service definitions are cross-cutting and easy to duplicate; if this list is not centralized, documentation and script behavior drift.
-- Installing the baseline package set with `pacstrap` is required because package provisioning and target configuration are separate responsibilities; if chroot configuration also installs baseline packages, the package baseline has two sources of truth, and installation performs two package download operations instead of one.
+- Installing the baseline package set with `pacstrap` is required so installation scripts have one package source of truth and avoid running two package installation operations.
+- The preserved-home user selection uses a `gum` multi-select because `keep-homes` can preserve any subset of existing user homes.
 - Ucode package selection is required because CPU microcode must be installed before reboot when the target hardware needs it; if deferred until after first boot, the first run can start without the CPU fixes expected for correct hardware operation.
 - GPU driver selection is required because the target graphics driver must be installed before reboot when the hardware needs it; if deferred until after first boot, the first run can start with missing or incorrect graphics support.
-- Return-message language selection is required because the target audience for a lost-device message depends on where the machine is expected to travel; if language choice is hardcoded, installations either show irrelevant text or require script edits.
-- Installing a proportional font with the return-message theme is required because localized text needs Latin glyph coverage and should not depend on a monospace fallback; if omitted, accented characters or the preferred font style can fail during early boot.
-- Explicit service baseline is required because “installed” is not equivalent to “enabled”; if services are not listed explicitly, first-boot behavior is inconsistent.
-- `/tmp/oparch` in live installer is required because transient installation files need deterministic staging before files are copied into the target system; if omitted, installer temp-file flow becomes scattered and harder to reason about.
-- `/usr/opinionatedarch/tmp` in target chroot is required because `/tmp` may be cleaned by package hooks before later setup steps run; if `/tmp` is used as the only target staging path, transient files can disappear mid-install.
-- Removing `/usr/opinionatedarch/tmp` at the end is required because those assets are transient installer inputs only; if retained, stale artifacts remain after installation.
+- Public dotfiles repository clone is requested during installation so public dotfiles can be cloned into `/dotfiles` and synchronized before first boot.
+- Return-message language selection is requested during installation so the pre-boot return message is available on first boot instead of requiring post-install setup.
+- The minimum service baseline is enabled before first boot so baseline system functionality is available immediately.
 
 ## Implementation Plan
 
@@ -93,9 +92,15 @@ Installed with `pacstrap`:
 3. Install the full baseline package set with `pacstrap`.
 4. Configure installed packages and services in target context.
 5. Enable the minimum service baseline in chroot before first reboot.
-6. Stage transient installer files in `/tmp/oparch` during live installation.
-7. Copy required transient files from `/tmp/oparch` to `/usr/opinionatedarch/tmp` in target before chroot setup steps that consume them.
-8. Remove `/usr/opinionatedarch/tmp` at the end of the installer script.
+6. In `wipe-all` mode, require destructive confirmation before wiping the target disk.
+7. In `keep-homes` mode, ask which existing home users to preserve with a `gum` multi-select.
+8. In `keep-homes` mode, create the preserved-home users using their existing home subvolumes.
+9. Create any additional login users provided in the login usernames step.
+10. Stage transient installer files in `/tmp/oparch` during live installation.
+11. Copy required transient files from `/tmp/oparch` to `/usr/opinionatedarch/tmp` in target before chroot setup steps that consume them.
+12. If public dotfiles repository clone is enabled, clone the repository into `/dotfiles`.
+13. If public dotfiles repository clone is enabled, run `oparch-dotfiles-link` after cloning the repository.
+14. Remove `/usr/opinionatedarch/tmp` at the end of the installer script.
 
 ## Considerations
 
