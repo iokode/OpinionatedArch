@@ -37,7 +37,7 @@ Snapshot strategy is restore-only. Snapshots are not boot targets in GRUB.
 - Structured paths (`system`, `home/<login-user>`, `automatic`, and `manual`) inside `/snapshots` are required because system and per-user histories must remain targetable independently without reserving login usernames; if omitted, create/restore operations are easier to misapply.
 - Keeping 60 automatic snapshots in `@` and 60 per-user home snapshots is used because recovery history must be long enough to be useful but still bounded; if too low, useful rollback points disappear too quickly, and if unbounded, disk usage grows without control.
 - Never auto-purging manual snapshots is used because manual snapshots are deliberate operator checkpoints; if auto-purged, explicitly chosen recovery anchors can disappear without operator intent.
-- Requiring a human-readable justification in manual snapshot name/label is used because indefinite retention requires future audit and cleanup decisions; if unlabeled, old manual snapshots become hard to evaluate and safe cleanup becomes guesswork.
+- Requiring a human-readable justification in manual snapshot name/label is used because indefinitely retained snapshots need future cleanup decisions; if unlabeled, old manual snapshots become hard to evaluate and safe cleanup becomes guesswork.
 - Restore-only snapshot policy is required because GRUB snapshot boot entries add complexity and do not align well with `/boot` outside snapshot scope; if snapshot boot is enabled, recovery semantics become less predictable.
 
 ## Implementation Plan

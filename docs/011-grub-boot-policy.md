@@ -55,7 +55,6 @@ Entry order:
 - `EFI firmware settings`, `Reboot`, and `Shutdown` entries are required because firmware access, restart, and safe power-off should be available without booting Linux; if missing, those operations become less direct.
 - Dotfiles-provided `grub/` synchronization is required so machine/project custom GRUB additions have one managed source; if copied manually, `/boot` can drift from the dotfiles state.
 - Optional `custom.cfg` inclusion is required because local GRUB extensions must remain possible without editing the static base assets; if omitted, every local addition requires modifying the base `grub.cfg` source.
-- `startup_policy` controls menu visibility and wait behavior only; it does not define machine type or external OS presence.
 - Snapshot recovery is intentionally restore-based (not snapshot boot entries) because booting snapshots adds boot-menu complexity and interacts poorly with `/boot` being outside `@`; if snapshot boot entries are enabled, recovery expectations and boot behavior become harder to reason about.
 
 ## Implementation Plan

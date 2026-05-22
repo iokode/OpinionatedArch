@@ -17,7 +17,6 @@ The EFI partition remains unencrypted.
 - One shared secret for root LUKS unlock and login users is used because the operator explicitly prioritizes one strong memorized secret over multiple secrets likely to be externalized; if split into many secrets in this model, practical secret-handling risk increases.
 - EFI stays unencrypted because the UEFI boot flow must read boot artifacts before root decryption; if EFI encryption is forced in this design, boot reliability and implementation complexity increase sharply.
 - Swapfiles are protected by the existing Btrfs-on-LUKS2 encryption boundary because persistent swap is stored inside the encrypted filesystem; if a second swap-specific encryption layer is added, the design gains redundant encryption and extra failure surface without improving the selected at-rest boundary.
-- Hibernation is disabled because no resume flow is defined for this swapfile model in this phase; if hibernation is enabled without a defined resume design, resume behavior is undefined.
 
 ## Implementation Plan
 
