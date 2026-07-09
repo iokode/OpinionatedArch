@@ -1,2 +1,8 @@
 .codex
 vm-config.txt
+
+src/*/bin/
+src/*/obj/
+.idea/
+artifacts/
+*.DotSettings.user
