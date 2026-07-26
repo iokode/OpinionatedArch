@@ -99,7 +99,7 @@ These services must be enabled in the target system before first boot, not only 
 10. Stage transient installer files in `/tmp/oparch` during live installation.
 11. Copy required transient files from `/tmp/oparch` to `/usr/opinionatedarch/tmp` in target before chroot setup steps that consume them.
 12. If public dotfiles repository clone is enabled, clone the repository into `/dotfiles`.
-13. If public dotfiles repository clone is enabled, run `oparch-dotfiles-link` after cloning the repository.
+13. If public dotfiles repository clone is enabled, run `oparch-dotfiles-sync` after cloning the repository.
 14. Remove `/usr/opinionatedarch/tmp` at the end of the installer script.
 
 ## Considerations

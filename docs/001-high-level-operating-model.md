@@ -14,7 +14,7 @@ The operating model is single-person, multi-account. Login users can represent s
 ## Implementation Plan
 
 1. Keep high-level policy decisions in `docs/`.
-2. Keep shared-dotfiles implementation in `003-shared-dotfiles-model.md`.
+2. Keep shared-dotfiles implementation in `003-dotfiles-sync.md`.
 
 ## Considerations
 
