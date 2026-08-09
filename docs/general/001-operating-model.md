@@ -23,7 +23,7 @@ Active shared configuration lives at `/dotfiles`, outside every login user's hom
 
 Because the map is evaluated per user and per host, one source can produce different results per work context and per machine without duplicating the source.
 
-See [Dotfiles Sync](../specs/000-dotfiles-sync.md).
+See [Dotfiles Map Format](../tools/oparch-dotfiles-sync/001-map-format.md).
 
 ## Storage
 

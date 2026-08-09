@@ -18,9 +18,8 @@ Terms used across the OpinionatedArch documentation.
 
 ## Boot
 
-- **Startup policy** — `automatic` hides the GRUB menu and boots the default entry; `manual` shows the menu and waits for a selection.
 - **Pre-boot return message** — the optional ownership-and-return text shown on the disk-unlock screen, in up to four languages.
-- **Return template** — a `.tpl` file under `assets/returning-templates` holding one language of the return message.
+- **Return message template package** — a directory holding a manifest and one message file per language, defining the pre-boot return message and the data it needs. Its format is defined in `../tools/oparch-return-message-render/001-template-package-format.md`.
 
 ## Snapshots
 

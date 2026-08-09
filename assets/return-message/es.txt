@@ -1,0 +1,8 @@
+Este dispositivo pertenece a {{owner_name}}.
+
+Si lo encuentra:[[
+llame a {{phone}}]][[
+escriba a {{email}}]][[
+devuélvalo a {{address}}]]
+
+¡Muchas gracias!

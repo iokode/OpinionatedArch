@@ -11,17 +11,18 @@ It is a backlog, not a specification. Nothing listed here is decided.
 - **Default systemd services** — which units are always enabled at install time.
 - **Base security policy** — firewall, SSH (if applicable), sudo policy.
 - **Real session/login strategy** — initial display manager and fallback until custom implementation exists.
-- **Remove the startup policy** — use only automatic.
+- **Return-message theme packages** — whether the rendered message can be decorated by a theme supplied the same way a template is, and what a theme may control: boxes around titles, an icon beside a phone number, colours and typography.
 
 ## Pending Work
 
 - **Recovery system** — a read-only BTRFS subvolume with an Arch installation with tools to chroot the system.
-- Generate archiso with installer, recovery scripts and `gum`.
+- Generate archiso with the installer and the recovery scripts.
 - Pack tools in pacman packages and create the oparch repository.
 - Create the oparchiso image with installer.
 - Remove `snapper` and `snap-pac`; replace by snapshot manager tools.
 - Add a `-r|--reboot` option to the installer script to reboot when installation finishes.
 - Handle long addresses in 4-languages layout and fix presentation in 2-languages and 3-languages layouts. Test 1-language layout.
+- Add `imagemagick` to the ISO and to the installed system: `oparch-return-message-render` composes the message image with it.
 
 ## Tools Pending Specification
 

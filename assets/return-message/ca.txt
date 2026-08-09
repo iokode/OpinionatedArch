@@ -1,0 +1,8 @@
+Aquest dispositiu pertany a {{owner_name}}.
+
+Si el trobeu:[[
+truqueu al {{phone}}]][[
+envieu un correu a {{email}}]][[
+retorneu-lo a {{address}}]]
+
+Moltes gràcies!

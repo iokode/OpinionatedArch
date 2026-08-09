@@ -1,0 +1,21 @@
+[package]
+name = "oparch-installer"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "oparch-installer"
+path = "src/main.rs"
+
+[dependencies]
+baml_sdk = { path = "baml_sdk" }
+baml_bridge = "=0.15.1-nightly.20260731.a"
+crossterm = "0.29"
+ratatui = "0.29"
+tokio = { version = "1", features = ["full"] }
+libc = "0.2"
+
+# baml_sdk is generated as its own workspace root; consume it as a path
+# dependency and keep it out of this one.
+[workspace]
+exclude = ["baml_sdk"]
