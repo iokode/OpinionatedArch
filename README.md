@@ -10,17 +10,11 @@ OpinionatedArch is in a very early stage. The repository defines the operating m
 
 ## Operating Model
 
-- the system is designed for one physical person, with multiple login accounts used as separate work contexts
-- shared configuration lives at `/dotfiles`, outside every login user's home directory
-- the system is designed for whole-disk installation, not installation beside another operating system on the same disk
-- system snapshots are created at boot and on package install/update operations, and home snapshots are created at login
-- snapshot recovery is restore-based rather than snapshot-boot-based, with recovery tooling planned around explicit restore flows
-- encryption is mandatory
-- the system can include a pre-boot ownership and return message on the disk-unlock screen
-- the baseline kernel is `linux` only, no other kernels are supported
-- the system language is fixed to English, except for the pre-boot ownership message, which may be multilingual
+Login accounts are work contexts for the same person, not different people. Shared configuration lives at `/dotfiles`, outside every home directory. Encryption is mandatory, snapshots are automatic, and recovery is restore-based.
 
 OpinionatedArch is opinionated about the operating model, disk layout, encryption, snapshots, recovery, dotfiles, and maintenance invariants. It does not try to decide the desktop environment, window manager, shell workflow, or day-to-day user interface.
+
+See [Operating Model](docs/general/001-operating-model.md) for the full description.
 
 ## Installation
 
@@ -33,6 +27,8 @@ OpinionatedArch is opinionated about the operating model, disk layout, encryptio
 ```
 
 4. Answer the interactive prompts.
+
+See [Installation Overview](docs/general/002-installation-overview.md) for what the installer asks and what it does.
 
 ## Repository layout
 
@@ -48,9 +44,13 @@ OpinionatedArch is opinionated about the operating model, disk layout, encryptio
 - `installer/`: installation logic
 - `lib/`: shared shell library code
 - `assets/`: managed project assets
-- `docs/`: decision documents that define the operating model
+- `docs/`: project documentation
 
 ## Documentation
 
-- Decision documents live in `docs/`.
-- Documentation conventions for those decision documents live in [`docs/README.md`](docs/README.md).
+Documentation lives in [`docs/`](docs/README.md), organized by type:
+
+- [General](docs/general/) — what OpinionatedArch is and how it works
+- [Decisions](docs/decisions/) — one decision per document, with its reasoning
+- [Specifications](docs/specs/) — normative formats and protocols
+- [Tools](docs/tools/) — one document per `oparch-` command

@@ -1,8 +1,12 @@
-# 010: Pre-Boot Ownership Message
+# Pre-Boot Ownership Message
 
-## Context and Decision
+## Context
 
-The disk-unlock screen shown at boot can display an ownership-and-return message before the operating system starts. The installer asks whether this return message should be included.
+The disk-unlock screen shown at boot can display an ownership-and-return message before the operating system starts.
+
+## Decision
+
+The installer asks whether this return message should be included.
 
 If the return message is disabled, the installer does not ask for ownership fields, logo inclusion, or `logo_url`, and it does not configure Plymouth for the return-message screen.
 
@@ -66,22 +70,6 @@ Implementation target is a custom Plymouth theme used during LUKS unlock.
 - Logo download failure must trigger explicit operator choice (retry URL or continue without logo) because URL typos are common and silent fallback hides configuration mistakes; if failure is silent, intended branding is lost without user awareness.
 - Using a custom Plymouth theme is required when the return message is enabled because default cryptsetup prompts do not provide the needed multilingual visual customization; if default prompt is kept, this message cannot be presented as designed.
 
-## Implementation Plan
-
-1. Prompt whether to include the pre-boot return message (`yes/no`).
-2. If `no`, skip ownership fields, logo prompts, and Plymouth return-message configuration.
-3. If `yes`, generate a Plymouth theme in the target system for pre-boot unlock.
-4. Prompt for owner name, phone, email, and return address values.
-5. Prompt for 1 to 4 return-message language templates.
-6. Render selected templates with owner/contact placeholders replaced from installer input.
-7. Arrange the selected language blocks into the slot layout for the selected language count.
-8. Prompt whether to include a logo (`yes/no`).
-9. If `yes`, prompt for `logo_url` and attempt download during installation.
-10. If download fails, prompt for explicit choice: retry with a new URL or continue without logo.
-11. If logo download succeeds, copy it into Plymouth theme assets used for initramfs generation.
-12. Configure initramfs and boot flow to use Plymouth during disk unlock.
-13. Validate readability on real display resolutions used by the target machines.
-
 ## Considerations
 
 - Contact data is intentionally public on the pre-boot screen by design decision.
@@ -91,3 +79,4 @@ Implementation target is a custom Plymouth theme used during LUKS unlock.
 - `logo_url` is requested only after explicit logo opt-in.
 - Logo download failures must never be silent; operator must explicitly choose retry or continue without logo.
 - Runtime unlock must never fetch remote assets; all Plymouth assets must be local before initramfs is built.
+- Return-message readability must be validated on the real display resolutions used by the target machines.

@@ -1,6 +1,12 @@
-# 000: Installer Inputs and Bootstrap Baseline
+# Installer Inputs and Bootstrap Baseline
 
-## Context and Decision
+## Context
+
+Installer prompts, the bootstrap package set, and the services enabled before first boot are each consumed by separate parts of the installer and referenced by several other decision documents.
+
+## Decision
+
+The installer flow assumes the known baseline state from a clean Arch live environment. It must not add defensive pre-existence handling for install paths that are impossible in that baseline.
 
 This document is the centralized list of:
 
@@ -30,7 +36,7 @@ The installer asks for:
 16. if public dotfiles repository clone is enabled: dotfiles repository URL
 17. pre-boot return message inclusion (`yes/no`)
 18. if return message is enabled: pre-boot ownership fields:
-    - owner name
+  - owner name
     - phone
     - email
     - return address
@@ -42,7 +48,12 @@ The installer asks for:
 
 - Live installer temporary path for transient installation files: `/tmp/oparch`.
 - Target chroot temporary path for transient installation files: `/usr/opinionatedarch/tmp`.
+- Transient files needed inside the target are copied from `/tmp/oparch` to `/usr/opinionatedarch/tmp` before the chroot steps that consume them.
 - Remove `/usr/opinionatedarch/tmp` at the end of the installer script.
+
+### Public Dotfiles Repository Clone
+
+When the public dotfiles repository clone is enabled, the installer clones the given repository into `/dotfiles` and then runs `oparch-dotfiles-sync`.
 
 ### Bootstrap Package List
 
@@ -58,8 +69,6 @@ Installed with `pacstrap`:
 - `cryptsetup`
 - `grub`
 - `efibootmgr`
-- `gum`
-- `fzf`
 - `sudo`
 - `networkmanager`
 - `intel-ucode` (if selected as the ucode package)
@@ -77,6 +86,7 @@ These services must be enabled in the target system before first boot, not only 
 
 ## Why
 
+- Avoiding defensive pre-existence handling is required because the installer always starts from the same clean-live baseline; if impossible-state guards are added anyway, script size and branching grow without adding real reliability, which increases maintenance cost and failure surface.
 - Installing the baseline package set with `pacstrap` is required so installation scripts have one package source of truth and avoid running two package installation operations.
 - The preserved-home user selection uses a `gum` multi-select because `keep-homes` can preserve any subset of existing user homes.
 - Ucode package selection is required because CPU microcode must be installed before reboot when the target hardware needs it; if deferred until after first boot, the first run can start without the CPU fixes expected for correct hardware operation.
@@ -85,25 +95,9 @@ These services must be enabled in the target system before first boot, not only 
 - Return-message language selection is requested during installation so the pre-boot return message is available on first boot instead of requiring post-install setup.
 - The minimum service baseline is enabled before first boot so baseline system functionality is available immediately.
 
-## Implementation Plan
-
-1. Keep this file as the authoritative bootstrap checklist.
-2. Validate that installer prompts map one-to-one to script input questions.
-3. Install the full baseline package set with `pacstrap`.
-4. Configure installed packages and services in target context.
-5. Enable the minimum service baseline in chroot before first reboot.
-6. In `wipe-all` mode, require destructive confirmation before wiping the target disk.
-7. In `keep-homes` mode, ask which existing home users to preserve with a `gum` multi-select.
-8. In `keep-homes` mode, create the preserved-home users using their existing home subvolumes.
-9. Create any additional login users provided in the login usernames step.
-10. Stage transient installer files in `/tmp/oparch` during live installation.
-11. Copy required transient files from `/tmp/oparch` to `/usr/opinionatedarch/tmp` in target before chroot setup steps that consume them.
-12. If public dotfiles repository clone is enabled, clone the repository into `/dotfiles`.
-13. If public dotfiles repository clone is enabled, run `oparch-dotfiles-sync` after cloning the repository.
-14. Remove `/usr/opinionatedarch/tmp` at the end of the installer script.
-
 ## Considerations
 
 - Conditional prompts must remain explicit (for example logo URL only when logo is enabled).
 - Any new mandatory prompt, bootstrap package, or baseline service must be added here first.
 - Optional package groups are intentionally outside this baseline and are handled in later decision documents.
+

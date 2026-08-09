@@ -1,13 +1,17 @@
-# 004: Disk Layout
+# Disk Layout
 
-## Context and Decision
+## Context
 
-The installer uses the full target disk with a deterministic layout. Manual partitioning is out of scope for this project phase.
+Manual partitioning is out of scope for this project phase.
 
-The partition layout is:
+## Decision
+
+The installer uses the full target disk with a deterministic layout.
+
+The disk uses a GPT partition table. The partition layout is:
 
 - 1 GiB FAT32 EFI system partition labeled `EFI`.
-- Remaining disk space as one LUKS2 encrypted container named `OpinionatedArch`, containing one Btrfs filesystem.
+- Remaining disk space as one LUKS2 encrypted container labeled `OpinionatedArch`, containing one Btrfs filesystem.
 
 The EFI system partition contains project-owned boot artifacts plus any unrelated third-party EFI artifacts that already exist or are installed by other operating systems. OpinionatedArch owns only these paths:
 
@@ -106,6 +110,8 @@ Mount policy:
 - `@dotfiles` is mounted at `/dotfiles`.
 - `@swap` is mounted at `/swap`.
 
+Mount configuration is persisted in fstab.
+
 Btrfs mount options are not customized in this phase. The installer uses Btrfs default mount behavior and does not set explicit tuning options such as `compress`, `noatime`, `ssd`, or per-subvolume mount overrides.
 
 The installer supports two install modes: `wipe-all` and `keep-homes`.
@@ -113,6 +119,8 @@ The installer supports two install modes: `wipe-all` and `keep-homes`.
 In `wipe-all` mode, the selected disk is repartitioned and all previous data on that disk is destroyed.
 
 In `keep-homes` mode, the system is reinstalled while preserving selected existing `home/@<login-user>` subvolumes. The installer asks which existing home users to preserve, creates those users with their preserved homes, and also creates any additional users provided in the login usernames step.
+
+Snapshot paths under `/snapshots/system` and `/snapshots/home/<login-user>` are initialized when the corresponding subvolumes are provisioned.
 
 ## Why
 
@@ -130,21 +138,10 @@ In `keep-homes` mode, the system is reinstalled while preserving selected existi
 - `@dotfiles` has its own subvolume so dotfiles are not affected by system snapshots. Restore is managed directly through Git because this subvolume is also a Git repository.
 - `@swap` is separate because persistent swapfiles must stay outside root snapshots and must be mounted with specific properties.
 
-## Implementation Plan
-
-1. Ask for target disk and install mode.
-2. In `wipe-all` mode, require explicit destructive confirmation, wipe the partition table on the selected disk, create GPT with a 1 GiB FAT32 EFI system partition and a remaining-space LUKS2 partition, open the LUKS2 container as `OpinionatedArch`, and format it as Btrfs.
-3. In `keep-homes` mode, preserve the selected existing `home/@<login-user>` subvolumes.
-4. Create the selected Btrfs subvolumes that are not preserved by `keep-homes`.
-5. Mount the EFI system partition and Btrfs subvolumes to their target mount points without custom Btrfs tuning flags.
-6. Persist mount configuration in fstab.
-7. Provision preserved-home users using their existing `home/@<login-user>` subvolumes.
-8. Provision additional login-user home subvolumes under `home/@<login-user>` and initialize snapshot paths under `/snapshots/system` and `/snapshots/home/<login-user>`.
-
 ## Considerations
 
 - Do not add extra partitions or subvolumes
-- There is no swap partition. Persistent disk swap lives inside the Btrfs `@swap` subvolume as zero or more swapfiles, as defined in `006-swap-strategy.md`.
+- There is no swap partition. Persistent disk swap lives inside the Btrfs `@swap` subvolume as zero or more swapfiles, as defined in `003-swap-strategy.md`.
 - Snapshot policy must remain compatible with the selected mount layout.
 - User provisioning must include home-subvolume creation and per-user snapshot-path creation for install-time and post-install users.
 - `keep-homes` preserves only the selected existing login-user home subvolumes.

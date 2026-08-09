@@ -1,16 +1,20 @@
-# 011: GRUB Boot Policy
+# GRUB Boot Policy
 
-## Context and Decision
-
-GRUB behavior is controlled by `startup_policy`.
+## Context
 
 `/boot` is located on the EFI system partition and remains unencrypted.
 
-Because of that boot layout, Btrfs snapshots of `@` do not include kernel/initramfs artifacts stored in `/boot`. This trade-off is accepted.
+Because of that boot layout, Btrfs snapshots of `@` do not include kernel/initramfs artifacts stored in `/boot`.
+
+## Decision
+
+That trade-off is accepted.
+
+GRUB behavior is controlled by `startup_policy`.
 
 `grub-mkconfig` is not used.
 
-The installer uses two static `grub.cfg` versions stored under `assets/`: one for `startup_policy=automatic` and one for `startup_policy=manual`. Both versions define the same entries. The only difference is menu visibility and startup behavior.
+The installer uses two static `grub.cfg` versions stored under `assets/`: one for `startup_policy=automatic` and one for `startup_policy=manual`. Both versions define the same entries. The only difference is menu visibility and startup behavior. The selected version is installed as `/boot/grub/grub.cfg`.
 
 If the shared dotfiles contain a `grub/` directory, the dotfiles synchronization tool copies that directory to `/boot`.
 
@@ -56,15 +60,6 @@ Entry order:
 - Dotfiles-provided `grub/` synchronization is required so machine/project custom GRUB additions have one managed source; if copied manually, `/boot` can drift from the dotfiles state.
 - Optional `custom.cfg` inclusion is required because local GRUB extensions must remain possible without editing the static base assets; if omitted, every local addition requires modifying the base `grub.cfg` source.
 - Snapshot recovery is intentionally restore-based (not snapshot boot entries) because booting snapshots adds boot-menu complexity and interacts poorly with `/boot` being outside `@`; if snapshot boot entries are enabled, recovery expectations and boot behavior become harder to reason about.
-
-## Implementation Plan
-
-1. Select the static `assets/` `grub.cfg` variant from `startup_policy` (`manual` or `automatic`).
-2. Copy the selected `grub.cfg` to `/boot/grub/grub.cfg`.
-3. Do not run `grub-mkconfig`.
-4. If dotfiles contain a `grub/` directory, copy that directory to `/boot` through the dotfiles synchronization tool.
-5. Include `custom.cfg` when it exists after dotfiles synchronization.
-6. Validate final menu order, visibility, Shift interruption, and timeout behavior.
 
 ## Considerations
 

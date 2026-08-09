@@ -1,6 +1,10 @@
-# 008: Snapshot Strategy
+# Snapshot Strategy
 
-## Context and Decision
+## Context
+
+System state and per-user home data change independently and have different rollback scopes.
+
+## Decision
 
 Snapshot policy is split by scope:
 
@@ -40,16 +44,6 @@ Snapshot strategy is restore-only. Snapshots are not boot targets in GRUB.
 - Requiring a human-readable justification in manual snapshot name/label is used because indefinitely retained snapshots need future cleanup decisions; if unlabeled, old manual snapshots become hard to evaluate and safe cleanup becomes guesswork.
 - Restore-only snapshot policy is required because GRUB snapshot boot entries add complexity and do not align well with `/boot` outside snapshot scope; if snapshot boot is enabled, recovery semantics become less predictable.
 
-## Implementation Plan
-
-1. Configure root snapshot automation for boot start and package install/update operations.
-2. Expose a manual command/script for on-demand root snapshots.
-3. Trigger a user-home snapshot when a login session starts.
-4. Expose a manual command/script for on-demand per-user home snapshots.
-5. Configure snapshot paths so system snapshots target `/snapshots/system/{automatic,manual}` and user snapshots target `/snapshots/home/<login-user>/{automatic,manual}`.
-6. Ensure user-provisioning flow registers new login users for login-time and manual home snapshots.
-7. Implement dedicated create/restore scripts for this path-based snapshot layout in a later scripting phase.
-
 ## Considerations
 
 - Root and home snapshot flows should remain independent.
@@ -67,6 +61,6 @@ Create/restore command interface for this single-`@snapshots` path model is inte
 ## Critical Notes With Replies (Copy of Discussion)
 
 1. Assistant critique: snapshotting a single `@home` subvolume at login can cause rollback side effects across users.
-   Decision response: switch to per-user home subvolumes so rollback scope stays isolated per login user.
+   Reply: switch to per-user home subvolumes so rollback scope stays isolated per login user.
 2. Assistant critique: per-user home subvolumes add lifecycle complexity when creating users after installation.
-   Decision response: handle user creation through a dedicated provisioning command/script that always creates the user home subvolume.
+   Reply: handle user creation through a dedicated provisioning command/script that always creates the user home subvolume.

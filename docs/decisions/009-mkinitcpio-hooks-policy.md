@@ -1,8 +1,14 @@
-# 012: mkinitcpio Hooks Policy
+# mkinitcpio Hooks Policy
 
-## Context and Decision
+## Context
+
+The initramfs must unlock the LUKS2 root container at boot and, when the pre-boot return message is enabled, render that message before unlock.
+
+## Decision
 
 Initramfs uses the busybox-based flow for this project phase.
+
+The `HOOKS` line is set in `/etc/mkinitcpio.conf`, and images are generated with `mkinitcpio -P`.
 
 When the pre-boot return message is enabled, the configured hooks are:
 
@@ -22,7 +28,7 @@ Plymouth must be installed in the target system before generating initramfs only
 
 The `opinionatedarch-plymouth-locale` hook exports `LANG=C.UTF-8` and `LC_CTYPE=C.UTF-8` before Plymouth starts.
 
-Keyboard layout for unlock is provided by installer input and applied through `keymap`.
+Keyboard layout for unlock is provided by installer input, written to `/etc/vconsole.conf`, and applied through `keymap`.
 
 ## Why
 
@@ -40,15 +46,6 @@ Keyboard layout for unlock is provided by installer input and applied through `k
 - `modconf` is excluded because no early-boot module option override is currently required; if added without need, policy becomes noisier.
 - `btrfs` hook is excluded because root mount in this layout is handled through `filesystems` without extra btrfs runtime requirements; if added now, it is extra surface without current need.
 - `fsck` is excluded because Btrfs does not use the same boot-time fsck flow as ext filesystems; if included, it adds no useful recovery path for this design.
-
-## Implementation Plan
-
-1. Install required packages in target system before initramfs generation (`mkinitcpio`, kernel package, and `plymouth` only when the return message is enabled).
-2. Write installer-selected keyboard layout to `/etc/vconsole.conf`.
-3. When the return message is enabled, write the `opinionatedarch-plymouth-locale` runtime and install hooks.
-4. Set the `HOOKS` line in `/etc/mkinitcpio.conf` to the decided list.
-5. Generate images with `mkinitcpio -P`.
-6. Validate that root unlock succeeds, and when the return message is enabled, validate that the unlock prompt is rendered by Plymouth.
 
 ## Considerations
 

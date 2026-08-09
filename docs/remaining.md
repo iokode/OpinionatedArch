@@ -1,0 +1,36 @@
+# Remaining
+
+This file lists what is not documented yet: topics that still need their own document under `docs/`, and tools that have no specification.
+
+It is a backlog, not a specification. Nothing listed here is decided.
+
+## Pending Decisions
+
+- **Package baseline** — what is always installed (`base` dev tools, firmware, core tools) and what remains optional.
+- **AUR policy** — whether to use `paru`, how to install it, and which build user to use.
+- **Default systemd services** — which units are always enabled at install time.
+- **Base security policy** — firewall, SSH (if applicable), sudo policy.
+- **Real session/login strategy** — initial display manager and fallback until custom implementation exists.
+- **Remove the startup policy** — use only automatic.
+
+## Pending Work
+
+- **Recovery system** — a read-only BTRFS subvolume with an Arch installation with tools to chroot the system.
+- Generate archiso with installer, recovery scripts and `gum`.
+- Pack tools in pacman packages and create the oparch repository.
+- Create the oparchiso image with installer.
+- Remove `snapper` and `snap-pac`; replace by snapshot manager tools.
+- Add a `-r|--reboot` option to the installer script to reboot when installation finishes.
+- Handle long addresses in 4-languages layout and fix presentation in 2-languages and 3-languages layouts. Test 1-language layout.
+
+## Tools Pending Specification
+
+- **`oparch-network-manager`** — wifi and wired network manager.
+- **`oparch-pacman`** — browser across pacman repositories and package installer.
+- **`oparch-aur`** (with PKGBUILD analytics) — browser across AUR repository, PKGBUILD inspector (LLM-based) and package installer, using `paru`.
+
+## Recovery Tools Pending Specification
+
+- **`oparch-chroot`** — select disk where oparch is installed, mount it and chroot it.
+- **`oparch-snapshot`** — snapshot browser and restorer.
+
