@@ -1,6 +1,10 @@
-# 014: Localization and Time Policy
+# Localization and Time Policy
 
-## Context and Decision
+## Context
+
+Project tooling and maintenance are single-language, while keyboard layout and machine location differ per installation.
+
+## Decision
 
 System language is fixed to English and is not configurable in the installer.
 
@@ -20,15 +24,6 @@ Clock policy is fixed: hardware clock (RTC) uses UTC.
 - Asking for keymap is required because keyboard layout depends on the physical keyboard used by each machine; if keymap is hardcoded, installations on different layouts (for example AZERTY vs QWERTY variants) will produce wrong key mapping and problematic unlock/input behavior.
 - Asking for timezone is required because correct local time display and logs depend on machine location/use context; if timezone is wrong, timestamps become misleading.
 - Fixing RTC to UTC is required because it is the standard Linux clock policy and avoids ambiguous local-time hardware clock behavior; if RTC is kept in local time, cross-environment clock drift/conflicts are more likely.
-
-## Implementation Plan
-
-1. Generate locale configuration with English defaults only.
-2. Do not expose locale language selection in installer prompts.
-3. Prompt for console keymap and write it to runtime and initramfs-relevant configuration.
-4. Prompt for timezone and apply it in system time configuration.
-5. Configure timedate policy so RTC is set to UTC.
-6. Keep multilingual content restricted to Plymouth ownership message configuration.
 
 ## Considerations
 

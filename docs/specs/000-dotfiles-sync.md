@@ -1,8 +1,10 @@
-# 003: Dotfiles Sync
+# Dotfiles Sync
 
-## Context and Decision
+## Context
 
 The `/dotfiles` directory is the shared source of configuration for all intended login users.
+
+## Specification
 
 `/dotfiles` is intended to be kept under version control, but no specific system is required and version control is not mandatory. Neither the map format nor `oparch-dotfiles-sync` inspects, requires, or depends on version control metadata.
 
@@ -513,28 +515,9 @@ There is no interactive synchronization mode because behavior is declared by the
 - Managed filesystem targets are applied before package installation because a pacman configuration managed through the map must be in place before pacman resolves packages; this is how version pinning is expressed without a version-constraint syntax in the map.
 - Arbitrary commands are forbidden because allowing the map to execute code would turn declarative configuration data into an installation script and prevent complete static plan validation.
 
-## Implementation Plan
-
-1. Implement the versioned synchronization-map parser.
-2. Implement include expansion with selector inheritance, cycle detection, and source-directory boundary validation.
-3. Provide the operational command `oparch-dotfiles-sync`.
-4. Implement package-section parsing and official repository package installation.
-5. Define the separate AUR execution policy before implementing AUR package application.
-6. Implement user and hostname selector evaluation.
-7. Implement path placeholder expansion for `&USER`, `&HOME`, and `&HOST`.
-8. Implement direct file and recursive directory linking.
-9. Implement managed file and recursive directory copying.
-10. Implement versioned value resolution and secret declaration resolution.
-11. Implement strict template placeholder substitution and ordered textual composition.
-12. Stage and validate all rendered outputs before changing managed targets.
-13. Track links, copies, and rendered files under `/var/lib/oparch/dotfiles-sync/`.
-14. Remove stale managed targets while leaving undeclared packages installed.
-15. Support `--source`, `--map`, and `--dry-run` behavior.
-16. Update installer and tool documentation references after the synchronization tool is implemented.
-
 ## Considerations
 
-- `011-grub-boot-policy.md` already requires copying `grub/` into `/boot`; `copy` makes that behavior explicit in the map instead of retaining a GRUB-specific special case.
+- `../decisions/008-grub-boot-policy.md` already requires copying `grub/` into `/boot`; `copy` makes that behavior explicit in the map instead of retaining a GRUB-specific special case.
 - Rendered targets are generated artifacts. Application edits to them are not versioned and are overwritten during synchronization.
 - Because managed filesystem targets are applied before packages are installed, a package installation failure can leave applied configuration without the packages it configures.
 - A managed target that collides with a file owned by a not-yet-installed package conflicts with that package at install time. Pacman configuration, owned by the already-installed `pacman`, is the reliable pre-install case.
