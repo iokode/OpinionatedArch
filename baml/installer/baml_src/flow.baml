@@ -130,6 +130,8 @@ function run_installer(
     on_choose: (string, string, string[], int) -> int? throws never,
     on_choose_many: (string, string, string[], string[], int, int) -> string[]? throws never,
     on_text: (string, string, string, bool) -> string? throws never,
+    on_pick_package: (string, string, string) -> string? throws never,
+    on_pick_file: (string, string, string) -> string? throws never,
     on_review: (string, string[]) -> bool throws never,
 ) -> InstallSummary {
     install(
@@ -152,6 +154,8 @@ function run_installer(
             on_choose: on_choose,
             on_choose_many: on_choose_many,
             on_text: on_text,
+            on_pick_package: on_pick_package,
+            on_pick_file: on_pick_file,
             on_review: on_review,
         },
         asset_dir,
@@ -271,7 +275,7 @@ function full_message_config_text() -> string {
         + "return_message:\n"
         + "  languages:\n    - \"es\"\n"
         + "  fields:\n    owner_name: \"Ivan\"\n    phone: \"+34 666 555 666\"\n"
-        + "  logo_url: \"https://example.invalid/logo.png\"\n"
+        + "  logo:\n    origin: url\n    location: \"https://example.invalid/logo.png\"\n"
 }
 
 test "a return message adds its phase after swap, and the theme becomes the default" {

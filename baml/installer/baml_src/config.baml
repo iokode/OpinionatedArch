@@ -10,9 +10,8 @@ class SwapConfig {
     swapfile_gb: int,
 }
 
-class DotfilesConfig {
-    repository_url: string,
-}
+//# the dotfiles package is content held elsewhere, like the template package
+//# and the theme, so it is named the same way: an origin and a location
 
 /// What the installer collected for the pre-boot return message: the values
 /// themselves, and where the package and the theme that render them come from.
@@ -22,16 +21,16 @@ class DotfilesConfig {
 /// never reach it: the renderer is handed directories, and resolving an origin
 /// into one is the installer's job.
 class ReturnMessageInput {
-    /// Where the template package comes from. Empty means the project's own.
-    template: string,
-    /// Where the theme comes from. Empty means the project's own.
-    theme: string,
+    template: root.common.Source,
+    theme: root.common.Source,
     values: root.return_message.ReturnMessageConfig,
 }
 
 function empty_return_message_input() -> ReturnMessageInput {
     ReturnMessageInput {
-        template: "", theme: "", values: root.return_message.empty_return_message(),
+        template: root.common.default_source(),
+        theme: root.common.default_source(),
+        values: root.return_message.empty_return_message(),
     }
 }
 
@@ -47,8 +46,8 @@ class InstallConfig {
     console_keymap: string,
     timezone: string,
     hostname: string,
-    /// Absent when no dotfiles repository is cloned.
-    dotfiles: DotfilesConfig?,
+    /// Absent when no dotfiles package is taken.
+    dotfiles: root.common.Source?,
     /// Absent when there is no pre-boot return message.
     return_message: ReturnMessageInput?,
     /// Read from the disk once it is partitioned; not part of the file.
@@ -74,6 +73,14 @@ function empty_config() -> InstallConfig {
     }
 }
 
+/// A source as the review screen shows it: what was chosen, and from where.
+function describe_source(source: root.common.Source) -> string {
+    if (root.common.is_default_source(source)) {
+        return "the project's own";
+    }
+    `${source.origin}: ${source.location}`
+}
+
 /// The review screen, one line per setting.
 function summary_lines(config: InstallConfig) -> string[] {
     let lines = [
@@ -90,20 +97,22 @@ function summary_lines(config: InstallConfig) -> string[] {
         `hostname: ${config.hostname}`,
     ];
 
-    if let dotfiles: DotfilesConfig = config.dotfiles {
-        lines.push(`dotfiles repository: ${dotfiles.repository_url}`);
+    if let dotfiles: root.common.Source = config.dotfiles {
+        lines.push(`dotfiles package: ${describe_source(dotfiles)}`);
     } else {
-        lines.push("dotfiles repository: none");
+        lines.push("dotfiles package: none");
     }
 
     if let message: ReturnMessageInput = config.return_message {
         let values = message.values;
         lines.push(`return message: ${values.languages.join(", ")}`);
+        lines.push(`  template package: ${describe_source(message.template)}`);
+        lines.push(`  theme: ${describe_source(message.theme)}`);
         for (let name in values.fields.keys().sort_by_key((k) -> { k })) {
             lines.push(`  ${name}: ${values.fields.get(name) ?? ""}`);
         }
-        if (values.logo_url != "") {
-            lines.push(`  logo: ${values.logo_url}`);
+        if let logo: root.common.Source = values.logo {
+            lines.push(`  logo: ${describe_source(logo)}`);
         }
     } else {
         lines.push("return message: none");
@@ -117,19 +126,32 @@ test "summary_lines describes an installation without optional sections" {
     let lines = summary_lines(config);
 
     assert.is_true(lines.includes("target disk: /dev/sda"));
-    assert.is_true(lines.includes("dotfiles repository: none"));
+    assert.is_true(lines.includes("dotfiles package: none"));
     assert.is_true(lines.includes("return message: none"))
+}
+
+test "summary_lines says where each source comes from" {
+    let config = empty_config();
+    config.dotfiles = root.common.source_at("git", "https://example.invalid/dotfiles.git");
+    config.return_message = empty_return_message_input();
+
+    let lines = summary_lines(config);
+
+    assert.is_true(lines.includes("dotfiles package: git: https://example.invalid/dotfiles.git"));
+    //# the project's own is named as such, not as an empty location
+    assert.is_true(lines.includes("  template package: the project's own"));
+    assert.is_true(lines.includes("  theme: the project's own"))
 }
 
 test "summary_lines lists the return message fields it was given" {
     let config = empty_config();
     config.return_message = ReturnMessageInput {
-        template: "",
-        theme: "",
+        template: root.common.default_source(),
+        theme: root.common.default_source(),
         values: root.return_message.ReturnMessageConfig {
             languages: ["es", "ca"],
             fields: { "phone": "666 555 666", "owner_name": "Ivan" },
-            logo_url: "",
+            logo: null,
         },
     };
     let lines = summary_lines(config);

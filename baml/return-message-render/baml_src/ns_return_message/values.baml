@@ -18,8 +18,10 @@ class ReturnMessageConfig {
     /// Values for the fields the template declares. The names are the
     /// template's, so no tool knows them in advance.
     fields: map<string, string>,
-    /// Empty when the message carries no logo.
-    logo_url: string,
+    /// Absent when the message carries no logo. It says where the logo was
+    /// taken from, and is not what the renderer reads: the file itself is
+    /// handed to it by whoever resolved this.
+    logo: root.common.Source?,
 }
 
 /// Values, or the first thing wrong with them.
@@ -29,11 +31,11 @@ class ReturnMessageParse {
 }
 
 function empty_return_message() -> ReturnMessageConfig {
-    ReturnMessageConfig { languages: [], fields: {}, logo_url: "" }
+    ReturnMessageConfig { languages: [], fields: {}, logo: null }
 }
 
 function allowed_keys() -> string[] {
-    ["languages", "fields", "logo_url"]
+    ["languages", "fields", "logo"]
 }
 
 /// Two lowercase ASCII letters.
@@ -98,7 +100,8 @@ function parse_return_message(section: map<string, baml.json.json>, prefix: stri
         }
     }
 
-    let logo = root.common.read_text(section, "logo_url", `${prefix}logo_url`);
+    let logo = root.common.read_source(section, "logo", root.common.file_origins(),
+                                       `${prefix}logo`);
     if (logo.error != "") {
         return ReturnMessageParse { message: empty_return_message(), error: logo.error };
     }
@@ -107,7 +110,7 @@ function parse_return_message(section: map<string, baml.json.json>, prefix: stri
         message: ReturnMessageConfig {
             languages: languages,
             fields: values,
-            logo_url: logo.value,
+            logo: if (logo.present) { logo.source } else { null },
         },
         error: "",
     }
@@ -169,8 +172,8 @@ function render_values_file(message: ReturnMessageConfig) -> string {
         }
     }
 
-    if (message.logo_url != "") {
-        out = out + `logo_url: ${quote_value(message.logo_url)}` + "\n";
+    if let logo: root.common.Source = message.logo {
+        out = out + root.common.render_source("logo", logo, "");
     }
     out
 }
@@ -206,12 +209,15 @@ test "parse_values_file reads a whole values file" {
     let parsed = parse_values_file(
         "languages:\n  - \"ca\"\n  - \"es\"\n"
             + "fields:\n  owner_name: \"Ivan\"\n  phone: \"+34 666 555 666\"\n"
-            + "logo_url: \"https://example.invalid/logo.png\"\n");
+            + "logo:\n  origin: \"url\"\n  location: \"https://example.invalid/logo.png\"\n");
 
     assert.equal(parsed.error, "");
     assert.equal(parsed.message.languages, ["ca", "es"]);
     assert.equal(parsed.message.fields.get("phone"), "+34 666 555 666");
-    assert.equal(parsed.message.logo_url, "https://example.invalid/logo.png")
+    if let logo: root.common.Source = parsed.message.logo {
+        assert.equal(logo.origin, "url");
+        assert.equal(logo.location, "https://example.invalid/logo.png")
+    }
 }
 
 test "the renderer names a key without a section prefix, the installer with one" {
@@ -255,12 +261,12 @@ test "render_values_file writes the file the format defines" {
     message.languages = ["ca", "es"];
     let _ = message.fields.set("phone", "+34 666 555 666");
     let _ = message.fields.set("owner_name", "Ivan");
-    message.logo_url = "https://example.invalid/logo.png";
+    message.logo = root.common.source_at("url", "https://example.invalid/logo.png");
 
     assert.equal(render_values_file(message),
                  "languages:\n  - \"ca\"\n  - \"es\"\n"
                      + "fields:\n  owner_name: \"Ivan\"\n  phone: \"+34 666 555 666\"\n"
-                     + "logo_url: \"https://example.invalid/logo.png\"\n")
+                     + "logo:\n  origin: \"url\"\n  location: \"https://example.invalid/logo.png\"\n")
 }
 
 test "render_values_file names no package and no theme, whatever was installed" {
@@ -281,7 +287,7 @@ test "what render_values_file writes is what parse_values_file reads back" {
     let _ = message.fields.set("owner_name", "Ivan \"the finder\" \\ Montilla");
     let _ = message.fields.set("phone", "+34666555666");
     let _ = message.fields.set("address", "Carrer de la Unió\nAndorra");
-    message.logo_url = "https://example.invalid/logo.png";
+    message.logo = root.common.source_at("local", "/media/pen/logo.png");
 
     let read_back = parse_values_file(render_values_file(message));
 
@@ -291,7 +297,10 @@ test "what render_values_file writes is what parse_values_file reads back" {
     assert.equal(read_back.message.fields.get("phone"), "+34666555666");
     assert.equal(read_back.message.fields.get("owner_name"), "Ivan \"the finder\" \\ Montilla");
     assert.equal(read_back.message.fields.get("address"), "Carrer de la Unió\nAndorra");
-    assert.equal(read_back.message.logo_url, message.logo_url)
+    if let logo: root.common.Source = read_back.message.logo {
+        assert.equal(logo.origin, "local");
+        assert.equal(logo.location, "/media/pen/logo.png")
+    }
 }
 
 test "an empty field set is written as an empty mapping, not as nothing" {

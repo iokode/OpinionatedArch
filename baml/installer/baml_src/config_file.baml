@@ -23,10 +23,6 @@ function allowed_swap_keys() -> string[] {
     ["zram_gb", "swapfile_gb"]
 }
 
-function allowed_dotfiles_keys() -> string[] {
-    ["repository_url"]
-}
-
 // ----------------------------------------------------------------- the file
 
 function parse_config_file(text: string) -> ConfigParse {
@@ -184,23 +180,17 @@ function read_users(top: map<string, baml.json.json>, config: InstallConfig) -> 
 
 //# a section that is there turns its feature on; there is no separate flag
 function read_dotfiles(top: map<string, baml.json.json>, config: InstallConfig) -> string {
-    if (top.keys().includes("dotfiles")) {
-        let raw = top.get("dotfiles");
-        let fields = root.common.as_map(raw) ?? root.common.empty_json_map();
-        if (root.common.as_map(raw) == null) {
-            return "dotfiles must be a mapping.";
+    let read = root.common.read_source(top, "dotfiles", root.common.package_origins(), "dotfiles");
+    if (read.error != "") {
+        return read.error;
+    }
+    if (read.present) {
+        //# the project ships no dotfiles, so there is nothing for a default to
+        //# mean here: a section that is there names where its content is
+        if (root.common.is_default_source(read.source)) {
+            return "dotfiles.origin cannot be default: the project carries no dotfiles.";
         }
-        if let unknown: string = root.common.unknown_key(fields, allowed_dotfiles_keys()) {
-            return `Unknown key in config file: dotfiles.${unknown}`;
-        }
-        let url = root.common.read_text(fields, "repository_url", "dotfiles.repository_url");
-        if (url.error != "") {
-            return url.error;
-        }
-        if (url.value == "") {
-            return "dotfiles.repository_url is required.";
-        }
-        config.dotfiles = DotfilesConfig { repository_url: url.value };
+        config.dotfiles = read.source;
     }
     ""
 }
@@ -231,17 +221,21 @@ function read_return_message(top: map<string, baml.json.json>, config: InstallCo
             return parsed.error;
         }
 
-        let template = root.common.read_text(section, "template", "return_message.template");
+        let template = root.common.read_source(section, "template", root.common.package_origins(),
+                                               "return_message.template");
         if (template.error != "") {
             return template.error;
         }
-        let theme = root.common.read_text(section, "theme", "return_message.theme");
+        let theme = root.common.read_source(section, "theme", root.common.package_origins(),
+                                            "return_message.theme");
         if (theme.error != "") {
             return theme.error;
         }
 
+        //# a key that is not there is the project's own, which is what the
+        //# format says an absent origin means
         config.return_message = ReturnMessageInput {
-            template: template.value, theme: theme.value, values: parsed.message,
+            template: template.source, theme: theme.source, values: parsed.message,
         };
     }
     ""
@@ -258,6 +252,14 @@ function one_of(value: string, options: string[]) -> bool {
 /// Returns "" when the config describes something this machine can install.
 function check_config(shell: root.common.Shell, files: root.common.Files,
                       config: InstallConfig, asset_dir: string) -> string {
+    //# everything the file points at is brought here first, before a single
+    //# check has been made: this is the last moment at which a medium is
+    //# certainly still attached and the target disk certainly still intact
+    let brought = bring_every_source(shell, files, config, live_staging_dir());
+    if (brought != "") {
+        return brought;
+    }
+
     if (config.disk == "") {
         return "disk cannot be empty.";
     }
@@ -293,7 +295,9 @@ function check_config(shell: root.common.Shell, files: root.common.Files,
     //# read here so that a message that cannot be drawn is refused before the
     //# disk is touched
     if let message: ReturnMessageInput = config.return_message {
-        let loaded = resolve_package(shell, files, asset_dir, message.template, live_staging_dir());
+        //# already brought here, so both are read from where they landed
+        let loaded = root.return_message.load_package(
+            files, package_directory(asset_dir, message.template));
         if (loaded.error != "") {
             return loaded.error;
         }
@@ -303,7 +307,8 @@ function check_config(shell: root.common.Shell, files: root.common.Files,
             return problem;
         }
 
-        let theme = resolve_theme(shell, files, asset_dir, message.theme, live_staging_dir());
+        let theme = root.return_message.load_theme(
+            shell, files, theme_directory(asset_dir, message.theme));
         if (theme.error != "") {
             return theme.error;
         }
@@ -385,13 +390,14 @@ test "an absent section leaves its feature off" {
 
 test "a section that is present turns its feature on" {
     let text = full_config_text()
-        + "dotfiles:\n  repository_url: https://example.invalid/dotfiles.git\n"
+        + "dotfiles:\n  origin: git\n  location: \"https://example.invalid/dotfiles.git\"\n"
         + "return_message:\n  languages:\n    - es\n  fields:\n    phone: \"666 555 666\"\n";
     let parsed = parse_config_file(text);
 
     assert.equal(parsed.error, "");
-    if let dotfiles: DotfilesConfig = parsed.config.dotfiles {
-        assert.equal(dotfiles.repository_url, "https://example.invalid/dotfiles.git")
+    if let dotfiles: root.common.Source = parsed.config.dotfiles {
+        assert.equal(dotfiles.origin, "git");
+        assert.equal(dotfiles.location, "https://example.invalid/dotfiles.git")
     }
     if let message: ReturnMessageInput = parsed.config.return_message {
         assert.equal(message.values.languages, ["es"]);
@@ -498,7 +504,8 @@ test "a template named by URL is fetched before it is read" {
     files.write("/tmp/oparch/template-package/ca.txt", "Hola {{owner_name}}");
 
     let text = full_config_text()
-        + "return_message:\n  template: \"https://example.invalid/pkg.tar\"\n"
+        + "return_message:\n  template:\n    origin: tar\n"
+        + "    location: \"https://example.invalid/pkg.tar\"\n"
         + "  languages:\n    - \"es\"\n  fields:\n    owner_name: \"Ivan\"\n";
     let parsed = parse_config_file(text);
 
@@ -507,15 +514,20 @@ test "a template named by URL is fetched before it is read" {
     assert.is_true(shell.commands.includes("tar -tf /tmp/oparch/template-package.tar"))
 }
 
-test "check_config refuses a theme that cannot be read" {
+test "check_config refuses a theme that is not where the file says" {
+    let shell = checking_shell();
+    //# neither a directory nor a file, which is what makes it unreachable
+    let _ = shell.exit_codes.set("test -d /nowhere", 1);
+
     let text = full_config_text()
-        + "return_message:\n  theme: \"/nowhere\"\n"
+        + "return_message:\n  theme:\n    origin: local\n    location: \"/nowhere\"\n"
         + "  languages:\n    - \"es\"\n  fields:\n    owner_name: \"Ivan\"\n";
     let parsed = parse_config_file(text);
 
     assert.equal(parsed.error, "");
-    assert.equal(check_config(checking_shell(), packaged_files(), parsed.config, "/assets"),
-                 "The theme has no manifest.yaml: /nowhere/manifest.yaml")
+    //# the location the file named, not the staging path it would have landed in
+    assert.equal(check_config(shell, packaged_files(), parsed.config, "/assets"),
+                 "The theme is not there: /nowhere")
 }
 
 test "check_config refuses a number of languages the theme does not lay out" {
@@ -536,7 +548,8 @@ test "a theme named by URL is fetched into a directory of its own" {
     files.write("/tmp/oparch/theme/manifest.yaml", root.return_message.sample_theme());
 
     let text = full_config_text()
-        + "return_message:\n  theme: \"https://example.invalid/theme.tar\"\n"
+        + "return_message:\n  theme:\n    origin: tar\n"
+        + "    location: \"https://example.invalid/theme.tar\"\n"
         + "  languages:\n    - \"es\"\n  fields:\n    owner_name: \"Ivan\"\n";
     let parsed = parse_config_file(text);
 
@@ -545,13 +558,43 @@ test "a theme named by URL is fetched into a directory of its own" {
         "tar -xf /tmp/oparch/theme.tar -C /tmp/oparch/theme"))
 }
 
+test "everything the file names is brought here before a single check is made" {
+    let shell = checking_shell();
+    let text = full_config_text()
+        + "dotfiles:\n  origin: git\n  location: \"https://example.invalid/dotfiles.git\"\n";
+    let parsed = parse_config_file(text);
+
+    assert.equal(parsed.error, "");
+    assert.equal(check_config(shell, packaged_files(), parsed.config, "/assets"), "");
+    //# nothing consumes the dotfiles yet, and it is brought all the same: the
+    //# medium it came from is gone once the installation starts
+    assert.is_true(shell.commands.includes(
+        "git clone --depth 1 https://example.invalid/dotfiles.git /tmp/oparch/dotfiles"))
+}
+
+test "a source that cannot be brought here stops the run before anything is checked" {
+    let shell = checking_shell();
+    let _ = shell.exit_codes.set(
+        "git clone --depth 1 https://example.invalid/gone.git /tmp/oparch/dotfiles", 128);
+    let text = full_config_text()
+        + "dotfiles:\n  origin: git\n  location: \"https://example.invalid/gone.git\"\n";
+    let parsed = parse_config_file(text);
+
+    assert.equal(check_config(shell, packaged_files(), parsed.config, "/assets"),
+                 "Cloning the dotfiles package failed with exit code 128:"
+                     + " https://example.invalid/gone.git");
+    //# the disk was never even looked at
+    assert.is_true(!shell.commands.includes("test -b /dev/sda"))
+}
+
 test "a package fetched from a URL that tries to escape is refused" {
     let shell = checking_shell();
     let _ = shell.replies.set(
         "tar -tf /tmp/oparch/template-package.tar", "manifest.yaml\n../../etc/passwd\n");
 
     let text = full_config_text()
-        + "return_message:\n  template: \"https://example.invalid/pkg.tar\"\n"
+        + "return_message:\n  template:\n    origin: tar\n"
+        + "    location: \"https://example.invalid/pkg.tar\"\n"
         + "  languages:\n    - \"es\"\n  fields:\n    owner_name: \"Ivan\"\n";
     let parsed = parse_config_file(text);
 

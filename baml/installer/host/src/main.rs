@@ -43,6 +43,8 @@ struct App {
     error: Option<String>,
     on_summary: bool,
     installing: bool,
+    /// Mount points F5 attached, detached again when the installation starts.
+    mounted: Vec<String>,
     phase: String,
     package: String,
     current: i64,
@@ -150,6 +152,7 @@ fn status_bar(f: &mut Frame, app: &App, area: Rect) {
     entry(&mut spans, "F2", "Install".into(), app.on_summary);
     entry(&mut spans, "F3", "About".into(), !app.installing);
     entry(&mut spans, "F4", format!("Verbose: {}", app.verbose), true);
+    entry(&mut spans, "F5", "Mount media".into(), !app.installing);
     entry(&mut spans, "F6", "Exit".into(), !app.installing);
     entry(&mut spans, "F7", "Shutdown".into(), !app.installing);
 
@@ -224,9 +227,105 @@ fn modal(host: &Host, title: &str, lines: Vec<String>, hints: &str) -> bool {
     }
 }
 
+/// A list drawn over whatever screen is up, for something that is not part of
+/// the form. Returns the chosen row, or None.
+fn modal_choose(host: &Host, title: &str, options: &[String]) -> Option<usize> {
+    let mut cursor = 0usize;
+    loop {
+        host.draw(|f, _, _| {
+            let height = (options.len() as u16 + 4).min(f.area().height);
+            let area = centered(f.area(), 72, height);
+            f.render_widget(Clear, area);
+            let mut state = ListState::default();
+            state.select(Some(cursor));
+            let items: Vec<ListItem> = options.iter().map(|o| ListItem::new(o.clone())).collect();
+            f.render_stateful_widget(
+                List::new(items)
+                    .block(Block::default().borders(Borders::ALL).title(format!(" {title} ")))
+                    .highlight_style(Style::default().fg(Color::Black).bg(Color::Cyan))
+                    .highlight_symbol(" ▸ "),
+                area,
+                &mut state,
+            );
+        });
+
+        let Some(key) = next_key() else { continue };
+        match key.code {
+            KeyCode::Up => cursor = cursor.saturating_sub(1),
+            KeyCode::Down => cursor = (cursor + 1).min(options.len().saturating_sub(1)),
+            KeyCode::Enter => return Some(cursor),
+            KeyCode::Esc | KeyCode::F(1) | KeyCode::F(5) => return None,
+            _ => {}
+        }
+    }
+}
+
+/// Mounts removable media, so that the pickers can reach a package that is on a
+/// stick nobody has mounted yet.
+///
+/// Nothing here decides anything: which command lists the devices, what its
+/// output means, where a device is mounted and what a failure is called all come
+/// from BAML, reentrantly, exactly as pacman's output is parsed while it runs.
+/// This function runs the commands and draws the result.
+async fn mount_media(host: &Host) {
+    let Ok(listing) = baml_sdk::mountable_listing_argv_async().await else { return };
+    let found = run_captured(listing.program, listing.args).await;
+    let Ok(devices) = baml_sdk::parse_mountable_async(found.stdout).await else { return };
+
+    if devices.is_empty() {
+        let nothing = baml_sdk::nothing_to_mount_async()
+            .await
+            .unwrap_or_else(|_| "Nothing to mount.".into());
+        modal(host, "Mount media", vec![nothing], "Enter or Esc to close");
+        return;
+    }
+
+    let Ok(labels) = baml_sdk::mountable_labels_async(devices.clone()).await else { return };
+    let Some(picked) = modal_choose(host, "Mount media", &labels) else { return };
+    let path = devices[picked].path.clone();
+
+    let Ok(at) = baml_sdk::mount_point_for_async(path.clone()).await else { return };
+    if let Err(e) = std::fs::create_dir_all(&at) {
+        modal(host, "Mount media", vec![format!("cannot create {at}: {e}")], "Enter or Esc to close");
+        return;
+    }
+
+    let Ok(argv) = baml_sdk::mount_argv_async(path.clone(), at.clone()).await else { return };
+    let mounted = run_captured(argv.program, argv.args).await;
+    if mounted.exit_code != 0 {
+        let failure = baml_sdk::mount_failed_async(path, mounted.exit_code)
+            .await
+            .unwrap_or_else(|_| "Mounting failed.".into());
+        modal(host, "Mount media", vec![failure], "Enter or Esc to close");
+        return;
+    }
+
+    // Remembered so that it can be detached again before the disk is written
+    // to, which is the one moment media must not still be attached.
+    host.app.lock().unwrap().mounted.push(at.clone());
+    modal(host, "Mount media", vec![format!("Mounted at {at}")], "Enter or Esc to close");
+}
+
+/// Detaches everything F5 mounted. Called when the installation starts: what
+/// was taken from a medium was copied when it was chosen, so nothing here is
+/// still needed, and nothing browsed stays attached to a disk being erased.
+async fn unmount_media(host: &Host) {
+    let attached: Vec<String> = std::mem::take(&mut host.app.lock().unwrap().mounted);
+    for at in attached {
+        let Ok(argv) = baml_sdk::unmount_argv_async(at).await else { continue };
+        let _ = run_captured(argv.program, argv.args).await;
+    }
+}
+
 /// Keys that work on every screen. Returns None when the key was consumed.
 fn global_key(host: &Host, key: KeyEvent) -> Option<KeyEvent> {
     match key.code {
+        KeyCode::F(5) => {
+            // Reentrant: BAML is above us on the stack, so the async API is
+            // what may be called, as `015-installer-host-bridge.md` records.
+            tokio::runtime::Handle::current().block_on(mount_media(host));
+            None
+        }
         KeyCode::F(3) => {
             modal(
                 host,
@@ -465,6 +564,209 @@ fn ui_text(host: &Host, title: String, prompt: String, initial: String, secret: 
     })
 }
 
+// ------------------------------------------------------------------- picker
+
+/// A row of the picker: what it shows, and what choosing it does.
+enum Entry {
+    /// Take the directory being looked at. Only offered when it may be taken.
+    Here,
+    /// Walk to the directory above. A row rather than only a key, because a
+    /// key nothing shows is a key nobody finds.
+    Up,
+    /// Walk to a directory.
+    Into(String),
+    /// Take a file.
+    Take(String),
+}
+
+impl Entry {
+    fn label(&self) -> String {
+        match self {
+            Entry::Here => "[ use this directory ]".into(),
+            Entry::Up => "../".into(),
+            Entry::Into(name) => format!("{name}/"),
+            Entry::Take(name) => name.clone(),
+        }
+    }
+
+    /// What typing filters against. It is the bare name, not the label: the
+    /// filter matches the segment after the last `/`, and a label that ends in
+    /// one would have nothing left to match.
+    fn key(&self) -> String {
+        match self {
+            Entry::Here => "use this directory".into(),
+            Entry::Up => "..".into(),
+            Entry::Into(name) => name.clone(),
+            Entry::Take(name) => name.clone(),
+        }
+    }
+}
+
+/// The parent of `at`, or None when there is none to go up to.
+fn parent_of(at: &str) -> Option<String> {
+    std::path::Path::new(at)
+        .parent()
+        .map(|p| p.to_string_lossy().into_owned())
+        .filter(|p| p != at)
+}
+
+fn joined(at: &str, name: &str) -> String {
+    if at.ends_with('/') {
+        format!("{at}{name}")
+    } else {
+        format!("{at}/{name}")
+    }
+}
+
+/// What the picker offers in `at`: the directory itself when a package is
+/// wanted, then every subdirectory, then the files that may be taken.
+///
+/// Directories come first because walking is what the operator is doing until
+/// the last keystroke. Hidden entries are shown: a package is as likely to live
+/// in `.config` as anywhere else, and a picker that hides half a disk sends the
+/// operator back to a shell.
+fn entries_in(at: &str, packages: bool) -> Vec<Entry> {
+    let mut rows = Vec::new();
+    if packages {
+        rows.push(Entry::Here);
+    }
+    if parent_of(at).is_some() {
+        rows.push(Entry::Up);
+    }
+
+    let Ok(reading) = std::fs::read_dir(at) else { return rows };
+    let (mut dirs, mut files) = (Vec::new(), Vec::new());
+    for found in reading.flatten() {
+        let name = found.file_name().to_string_lossy().into_owned();
+        // A symlink is followed: what matters is what it leads to.
+        let Ok(kind) = std::fs::metadata(found.path()) else { continue };
+        if kind.is_dir() {
+            dirs.push(name);
+        } else if !packages || name.ends_with(".tar") {
+            files.push(name);
+        }
+    }
+    dirs.sort_by_key(|n| n.to_lowercase());
+    files.sort_by_key(|n| n.to_lowercase());
+
+    rows.extend(dirs.into_iter().map(Entry::Into));
+    rows.extend(files.into_iter().map(Entry::Take));
+    rows
+}
+
+/// Walks the filesystem and answers with a path.
+///
+/// `packages` offers directories and `.tar` archives, and lets the directory
+/// being looked at be the answer; otherwise one file is what is being asked
+/// for, and a directory is only somewhere to walk through.
+fn ui_pick(host: &Host, title: String, prompt: String, start: String, packages: bool) -> Option<String> {
+    let mut error = host.take_error();
+    let mut at = if std::path::Path::new(&start).is_dir() { start } else { "/".to_string() };
+    let mut filter = String::new();
+    let mut cursor = 0usize;
+
+    tokio::task::block_in_place(|| loop {
+        let rows = entries_in(&at, packages);
+        let labels: Vec<String> = rows.iter().map(|e| e.label()).collect();
+        let keys: Vec<String> = rows.iter().map(|e| e.key()).collect();
+        let visible = filtered(&keys, &filter);
+        cursor = if visible.is_empty() { 0 } else { cursor.min(visible.len() - 1) };
+        let up = parent_of(&at);
+
+        let keys_hint = if packages {
+            "↑/↓ move · → open · ← up · Enter opens a directory or takes a .tar"
+        } else {
+            "↑/↓ move · → open · ← up · Enter takes the file"
+        };
+        host.draw(|f, _, area| {
+            let body =
+                content_block(f, area, &title, &format!("{prompt}\n{keys_hint}"), error.as_deref());
+            let mut state = ListState::default();
+            state.select((!visible.is_empty()).then_some(cursor));
+            let items: Vec<ListItem> = visible
+                .iter()
+                .map(|i| {
+                    let style = match rows[*i] {
+                        Entry::Here => Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+                        Entry::Up | Entry::Into(_) => Style::default().fg(Color::Cyan),
+                        Entry::Take(_) => Style::default(),
+                    };
+                    ListItem::new(Line::from(Span::styled(labels[*i].clone(), style)))
+                })
+                .collect();
+            let hint = if filter.is_empty() {
+                format!(" {at} ")
+            } else {
+                format!(" {at}   filter: {filter} ")
+            };
+            f.render_stateful_widget(
+                List::new(items)
+                    .block(Block::default().borders(Borders::ALL).title(hint))
+                    .highlight_style(Style::default().fg(Color::Black).bg(Color::Cyan))
+                    .highlight_symbol(" ▸ "),
+                body,
+                &mut state,
+            );
+        });
+
+        let Some(key) = widget_key(host) else { continue };
+        if is_back(&key) {
+            return None;
+        }
+        match key.code {
+            KeyCode::Up => cursor = cursor.saturating_sub(1),
+            KeyCode::Down => cursor = (cursor + 1).min(visible.len().saturating_sub(1)),
+            // Left walks up, which is what a picker is expected to do; the
+            // parent is not a row, so it cannot be filtered away.
+            KeyCode::Left => {
+                if let Some(above) = up {
+                    at = above;
+                    filter.clear();
+                    cursor = 0;
+                    error = None;
+                }
+            }
+            KeyCode::Right | KeyCode::Enter => {
+                let Some(index) = visible.get(cursor) else { continue };
+                match &rows[*index] {
+                    Entry::Here => return Some(at.clone()),
+                    Entry::Up => {
+                        if let Some(above) = up {
+                            at = above;
+                            filter.clear();
+                            cursor = 0;
+                            error = None;
+                        }
+                    }
+                    Entry::Into(name) => {
+                        at = joined(&at, name);
+                        filter.clear();
+                        cursor = 0;
+                        error = None;
+                    }
+                    // Right is for walking, so it does not take a file.
+                    Entry::Take(name) => {
+                        if key.code == KeyCode::Enter {
+                            return Some(joined(&at, name));
+                        }
+                    }
+                }
+            }
+            KeyCode::Backspace => {
+                filter.pop();
+                cursor = 0;
+                error = None;
+            }
+            KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                filter.push(c);
+                cursor = 0;
+                error = None;
+            }
+            _ => {}
+        }
+    })
+}
+
 fn ui_review(host: &Host, title: String, lines: Vec<String>) -> bool {
     let error = host.take_error();
     host.app.lock().unwrap().on_summary = true;
@@ -490,6 +792,8 @@ fn ui_review(host: &Host, title: String, lines: Vec<String>) -> bool {
             return false;
         }
         if key.code == KeyCode::F(2) {
+            //# media are detached before anything is written, not at exit
+            tokio::runtime::Handle::current().block_on(unmount_media(host));
             return true;
         }
     });
@@ -669,6 +973,14 @@ async fn run_unattended(
             unattended_question(&title);
             None
         },
+        move |title: String, _p: String, _s: String| {
+            unattended_question(&title);
+            None
+        },
+        move |title: String, _p: String, _s: String| {
+            unattended_question(&title);
+            None
+        },
         move |_title: String, _lines: Vec<String>| true,
     )
     .await
@@ -761,6 +1073,7 @@ async fn run_interactive(
             (host.clone(), host.clone(), host.clone(), host.clone());
         let (h_choose, h_many, h_text, h_review) =
             (host.clone(), host.clone(), host.clone(), host.clone());
+        let (h_pick_package, h_pick_file) = (host.clone(), host.clone());
 
         baml_sdk::run_installer_async(
             asset_dir,
@@ -818,6 +1131,12 @@ async fn run_interactive(
             },
             move |title: String, prompt: String, initial: String, secret: bool| {
                 ui_text(&h_text, title, prompt, initial, secret)
+            },
+            move |title: String, prompt: String, start: String| {
+                ui_pick(&h_pick_package, title, prompt, start, true)
+            },
+            move |title: String, prompt: String, start: String| {
+                ui_pick(&h_pick_file, title, prompt, start, false)
             },
             move |title: String, lines: Vec<String>| ui_review(&h_review, title, lines),
         )
@@ -1104,4 +1423,83 @@ fn restore_terminal() {
         let _ = execute!(tty, LeaveAlternateScreen);
     }
     let _ = disable_raw_mode();
+}
+
+// -------------------------------------------------------------------- tests
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A directory holding a subdirectory, an archive and a plain file. Each
+    /// test gets its own, because they run at the same time and one tearing
+    /// down the tree another is reading is a failure that comes and goes.
+    fn sample_tree(named: &str) -> std::path::PathBuf {
+        let root =
+            std::env::temp_dir().join(format!("oparch-picker-{}-{named}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("andorra")).unwrap();
+        std::fs::create_dir_all(root.join(".hidden")).unwrap();
+        std::fs::write(root.join("dark.tar"), "").unwrap();
+        std::fs::write(root.join("notes.txt"), "").unwrap();
+        root
+    }
+
+    #[test]
+    fn a_package_picker_offers_this_directory_then_directories_then_archives() {
+        let root = sample_tree("packages");
+        let labels: Vec<String> =
+            entries_in(&root.to_string_lossy(), true).iter().map(|e| e.label()).collect();
+
+        assert_eq!(
+            labels,
+            vec!["[ use this directory ]", "../", ".hidden/", "andorra/", "dark.tar"],
+            "a plain file is not a package, and a hidden directory is still a directory"
+        );
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_file_picker_offers_every_file_and_takes_no_directory() {
+        let root = sample_tree("files");
+        let rows = entries_in(&root.to_string_lossy(), false);
+        let labels: Vec<String> = rows.iter().map(|e| e.label()).collect();
+
+        assert_eq!(labels, vec!["../", ".hidden/", "andorra/", "dark.tar", "notes.txt"]);
+        assert!(
+            !rows.iter().any(|e| matches!(e, Entry::Here)),
+            "there is no directory to take when one file is what is being asked for"
+        );
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn typing_filters_directories_too() {
+        let root = sample_tree("filter");
+        let keys: Vec<String> = entries_in(&root.to_string_lossy(), true).iter().map(|e| e.key()).collect();
+
+        // The label ends in `/`, so filtering has to happen on the name.
+        assert_eq!(filtered(&keys, "andor"), vec![3]);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn walking_up_stops_at_the_top() {
+        assert_eq!(parent_of("/run/oparch/media"), Some("/run/oparch".into()));
+        assert_eq!(parent_of("/"), None);
+    }
+
+    #[test]
+    fn the_top_of_the_filesystem_offers_no_way_up() {
+        assert!(
+            !entries_in("/", true).iter().any(|e| matches!(e, Entry::Up)),
+            "a row that goes nowhere is a row that lies"
+        );
+    }
+
+    #[test]
+    fn joining_a_name_never_doubles_the_separator() {
+        assert_eq!(joined("/", "media"), "/media");
+        assert_eq!(joined("/run", "media"), "/run/media");
+    }
 }

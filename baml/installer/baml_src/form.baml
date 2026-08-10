@@ -261,18 +261,139 @@ function step_identity(ui: Ui, config: InstallConfig) -> bool {
     false
 }
 
+// -------------------------------------------------------- asking for content
+
+/// A source as a screen answers it. `answered` is false when the operator went
+/// back, which is the one thing a source of its own cannot express.
+class SourceAnswer {
+    source: root.common.Source,
+    answered: bool,
+}
+
+/// What each origin is called on screen. The names belong to the format; the
+/// wording is the screen's, and says what the operator will be asked for next.
+function origin_label(origin: string) -> string {
+    if (origin == "default") {
+        "the one this project ships"
+    } else if (origin == "local") {
+        "a directory or a .tar on this machine"
+    } else if (origin == "tar") {
+        "a .tar by URL"
+    } else if (origin == "git") {
+        "a git repository"
+    } else {
+        "a URL"
+    }
+}
+
+function origin_labels(origins: string[]) -> string[] {
+    let labels: string[] = [];
+    for (let origin in origins) {
+        labels.push(origin_label(origin));
+    }
+    labels
+}
+
+/// What the location is called, once the origin is known. Asking "URL or path"
+/// is what having answered the origin already removes.
+function location_prompt(origin: string) -> string {
+    if (origin == "local") {
+        "Where it is on this machine"
+    } else if (origin == "git") {
+        "Repository URL"
+    } else {
+        "URL"
+    }
+}
+
+/// Where a picker starts walking: where the operator last chose, or the top of
+/// the filesystem the first time. A location that is a `.tar` starts at the
+/// directory holding it, so reopening the picker shows it beside its neighbours.
+function picker_start(location: string) -> string {
+    if (location == "") {
+        return "/";
+    }
+    if (location.ends_with(".tar")) {
+        let cut = location.split("/");
+        let _ = cut.pop();
+        let parent = cut.join("/");
+        return if (parent == "") { "/" } else { parent };
+    }
+    location
+}
+
+test "a picker starts where the last choice was, or at the top" {
+    assert.equal(picker_start(""), "/");
+    assert.equal(picker_start("/run/oparch/media/sdb1/andorra"), "/run/oparch/media/sdb1/andorra");
+    //# an archive is a file, so what is walked is what holds it
+    assert.equal(picker_start("/run/oparch/media/sdb1/andorra.tar"), "/run/oparch/media/sdb1");
+    assert.equal(picker_start("/andorra.tar"), "/")
+}
+
+/// Asks where content comes from: the origin, and then the location, unless the
+/// origin is the project's own and there is none to ask for.
+///
+/// A location that is somewhere else is typed, because a URL cannot be walked
+/// to. A location on this machine is walked to, because it can: nobody should
+/// have to remember a path on a machine they are installing. `packages` says
+/// which of the two pickers that is.
+///
+/// Nothing is deduced from the answer. Backing out of the location returns to
+/// the origin, so a wrong choice is one keystroke to undo.
+function ask_source(ui: Ui, title: string, prompt: string, origins: string[], packages: bool,
+                    current: root.common.Source) -> SourceAnswer {
+    let refused = SourceAnswer { source: root.common.default_source(), answered: false };
+    let labels = origin_labels(origins);
+    let at = index_of_option(origins, current.origin);
+    let location = current.location;
+
+    while (true) {
+        if let picked: int = ui.choose(title, prompt, labels, at) {
+            let origin = origins.at(picked) ?? "";
+            if (origin == "default") {
+                return SourceAnswer { source: root.common.default_source(), answered: true };
+            }
+            at = picked;
+
+            let given = if (origin == "local") {
+                if (packages) {
+                    ui.pick_package(title, location_prompt(origin), picker_start(location))
+                } else {
+                    ui.pick_file(title, location_prompt(origin), picker_start(location))
+                }
+            } else {
+                ui.text(title, location_prompt(origin), location, false)
+            };
+
+            if let answer: string = given {
+                if (answer.trim() == "") {
+                    ui.error(`${location_prompt(origin)} cannot be empty.`);
+                } else {
+                    return SourceAnswer {
+                        source: root.common.source_at(origin, answer.trim()), answered: true,
+                    };
+                }
+            }
+            location = "";
+        } else {
+            return refused;
+        }
+    }
+    refused
+}
+
 function step_dotfiles(ui: Ui, config: InstallConfig) -> bool {
     ui.step("Dotfiles");
     let options = ["yes", "no"];
     let current = if (config.dotfiles == null) { 1 } else { 0 };
-    let url = if let existing: DotfilesConfig = config.dotfiles { existing.repository_url } else { "" };
+    let existing = config.dotfiles ?? root.common.source_at("git", "");
     let field = 0;
 
     while (field < 2) {
         if (field == 0) {
             if let picked: int = ui
-                .choose("Dotfiles", "Clone a public dotfiles repository?", options, current) {
-                //# the URL is only asked for when cloning is enabled
+                .choose("Dotfiles", "Install a public dotfiles package?", options, current) {
+                //# where it comes from is only asked for when there is one
                 if ((options.at(picked) ?? "") == "no") {
                     config.dotfiles = null;
                     return true;
@@ -282,15 +403,12 @@ function step_dotfiles(ui: Ui, config: InstallConfig) -> bool {
                 return false;
             }
         } else {
-            if let answer: string = ui.text("Dotfiles", "Dotfiles repository URL", url, false) {
-                if (answer.trim() == "") {
-                    ui.error(
-                        "Dotfiles repository URL is required when dotfiles cloning is enabled.",
-                    );
-                } else {
-                    config.dotfiles = DotfilesConfig { repository_url: answer.trim() };
-                    field = 2;
-                }
+            //# the project ships no dotfiles, so its own is not among the origins
+            let answered = ask_source(ui, "Dotfiles", "Where the dotfiles package comes from.",
+                                      root.common.supplied_package_origins(), true, existing);
+            if (answered.answered) {
+                config.dotfiles = answered.source;
+                field = 2;
             } else {
                 field = 0;
             }
@@ -332,16 +450,19 @@ function step_return_message(shell: root.common.Shell, files: root.common.Files,
                 return false;
             }
         } else if (field == 1) {
-            //# empty means the project's own package
-            if let answer: string = ui.text("Return message",
-                    "Template package directory or URL, or empty for the default one",
-                    message.template, false) {
-                let loaded = resolve_package(shell, files, asset_dir, answer.trim(),
+            let answered = ask_source(ui, "Return message",
+                                      "Where the template package comes from.",
+                                      root.common.package_origins(), true, message.template);
+            if (!answered.answered) {
+                field = 0;
+            } else {
+                //# brought here as it is chosen, and read from where it landed
+                let loaded = resolve_package(shell, files, asset_dir, answered.source,
                                              live_staging_dir());
                 if (loaded.error != "") {
                     ui.error(loaded.error);
                 } else {
-                    message.template = answer.trim();
+                    message.template = answered.source;
                     package = loaded.package;
                     asked = loaded.package.fields;
                     if (package.notice != "") {
@@ -349,25 +470,22 @@ function step_return_message(shell: root.common.Shell, files: root.common.Files,
                     }
                     field = 2;
                 }
-            } else {
-                field = 0;
             }
         } else if (field == 2) {
-            //# empty means the project's own theme
-            if let answer: string = ui.text("Return message",
-                    "Theme directory or URL, or empty for the default one",
-                    message.theme, false) {
-                let loaded = resolve_theme(shell, files, asset_dir, answer.trim(),
+            let answered = ask_source(ui, "Return message", "Where the theme comes from.",
+                                      root.common.package_origins(), true, message.theme);
+            if (!answered.answered) {
+                field = 1;
+            } else {
+                let loaded = resolve_theme(shell, files, asset_dir, answered.source,
                                            live_staging_dir());
                 if (loaded.error != "") {
                     ui.error(loaded.error);
                 } else {
-                    message.theme = answer.trim();
+                    message.theme = answered.source;
                     theme = loaded.theme;
                     field = 3;
                 }
-            } else {
-                field = 1;
             }
         } else if (field <= asked.length() + 2) {
             let declared = asked.at(field - 3);
@@ -424,20 +542,23 @@ function step_return_message(shell: root.common.Shell, files: root.common.Files,
             }
         } else {
             if let picked: int = ui.choose("Return message", "Include a company logo?", yes_no,
-                                           if (values.logo_url == "") { 1 } else { 0 }) {
+                                           if (values.logo == null) { 1 } else { 0 }) {
                 if ((yes_no.at(picked) ?? "") == "no") {
-                    values.logo_url = "";
+                    values.logo = null;
                     config.return_message = message;
                     return true;
                 }
-                if let answer: string = ui.text("Return message", "Logo URL", values.logo_url, false) {
-                    if (answer.trim() == "") {
-                        ui.error("Logo URL is required when the logo is included.");
-                    } else {
-                        values.logo_url = answer.trim();
-                        config.return_message = message;
-                        return true;
-                    }
+                //# one file, so a repository or an archive would be a container
+                //# around something that needs none
+                //# one file, walked to rather than typed when it is on this
+                //# machine, and typed when it is not
+                let answered = ask_source(ui, "Return message", "Where the logo comes from.",
+                                          root.common.file_origins(), false,
+                                          values.logo ?? root.common.source_at("url", ""));
+                if (answered.answered) {
+                    values.logo = answered.source;
+                    config.return_message = message;
+                    return true;
                 }
             } else {
                 field = field - 1;
@@ -536,7 +657,7 @@ test "the form walks every screen and collects the whole config" {
     }
 }
 
-test "the dotfiles URL is asked for only when cloning is enabled" {
+test "where the dotfiles come from is asked for only when there are any" {
     let ui = scripted(
         [
             "/dev/sda (476,9G, Samsung SSD 860)",
@@ -552,7 +673,8 @@ test "the dotfiles URL is asked for only when cloning is enabled" {
             "UTC",
             "oparch",
             "yes",
-            "https://example.invalid/dotfiles.git", // dotfiles
+            "a git repository", // dotfiles: the origin is answered, not guessed
+            "https://example.invalid/dotfiles.git",
             "no",
             "start",
         ],
@@ -561,8 +683,9 @@ test "the dotfiles URL is asked for only when cloning is enabled" {
     let config = collect_config(fake_live_shell(), packaged_files(), ui, "/assets");
 
     if let collected: InstallConfig = config {
-        if let dotfiles: DotfilesConfig = collected.dotfiles {
-            assert.equal(dotfiles.repository_url, "https://example.invalid/dotfiles.git")
+        if let dotfiles: root.common.Source = collected.dotfiles {
+            assert.equal(dotfiles.origin, "git");
+            assert.equal(dotfiles.location, "https://example.invalid/dotfiles.git")
         }
     }
 }
@@ -584,8 +707,8 @@ test "the return message asks the fields the template package declares" {
             "oparch",
             "no",
             "yes", // include return message
-            "", // template package: the project's own
-            "", // theme: the project's own
+            "the one this project ships", // template package
+            "the one this project ships", // theme
             "Ivan", // owner_name, as the package labels it
             "666 555 666", // phone
             "Español (es)", // languages
@@ -603,7 +726,7 @@ test "the return message asks the fields the template package declares" {
             assert.equal(message.values.fields.get("owner_name"), "Ivan");
             assert.equal(message.values.fields.get("phone"), "666 555 666");
             assert.equal(message.values.languages, ["es"]);
-            assert.equal(message.template, "")
+            assert.is_true(root.common.is_default_source(message.template))
         }
     }
 }
@@ -613,7 +736,8 @@ test "the package's notice is shown before its fields are asked" {
         [
             "/dev/sda (476,9G, Samsung SSD 860)", "wipe-all", "none", "none", "0", "0",
             "ivan", "s", "s", "es", "UTC", "oparch", "no",
-            "yes", "", "", "Ivan", "666", "Español (es)", "no", "start",
+            "yes", "the one this project ships", "the one this project ships",
+            "Ivan", "666", "Español (es)", "no", "start",
         ],
     );
 
@@ -628,17 +752,21 @@ test "a template package that cannot be read is reported and asked again" {
             "/dev/sda (476,9G, Samsung SSD 860)", "wipe-all", "none", "none", "0", "0",
             "ivan", "s", "s", "es", "UTC", "oparch", "no",
             "yes",
+            "a directory or a .tar on this machine",
             "/nowhere", // a package that is not there
-            "", // then the project's own
-            "", // theme: the project's own
+            "the one this project ships", // then the project's own
+            "the one this project ships", // theme
             "Ivan", "666", "Español (es)", "no", "start",
         ],
     );
+    let shell = fake_live_shell();
+    //# neither a directory nor a file, which is what makes it unreachable
+    let _ = shell.exit_codes.set("test -d /nowhere", 1);
 
-    let config = collect_config(fake_live_shell(), packaged_files(), ui, "/assets");
+    let config = collect_config(shell, packaged_files(), ui, "/assets");
 
-    assert.is_true(ui.errors.includes(
-        "The template package has no manifest.yaml: /nowhere/manifest.yaml"));
+    //# the location the operator gave, not the staging path it never reached
+    assert.is_true(ui.errors.includes("The template package is not there: /nowhere"));
     assert.not_null(config)
 }
 
@@ -648,22 +776,29 @@ test "the theme is asked for beside the package, and kept as it was named" {
             "/dev/sda (476,9G, Samsung SSD 860)", "wipe-all", "none", "none", "0", "0",
             "ivan", "s", "s", "es", "UTC", "oparch", "no",
             "yes",
-            "", // template package: the project's own
+            "the one this project ships", // template package
+            "a directory or a .tar on this machine",
             "/nowhere", // a theme that is not there
+            "a directory or a .tar on this machine",
             "/theme", // then one that is
             "Ivan", "666", "Español (es)", "no", "start",
         ],
     );
     let files = packaged_files();
-    files.write("/theme/manifest.yaml", root.return_message.sample_theme());
+    //# what the copy into the staging directory would have left there
+    files.write("/tmp/oparch/theme/manifest.yaml", root.return_message.sample_theme());
+    let shell = fake_live_shell();
+    let _ = shell.exit_codes.set("test -d /nowhere", 1);
 
-    let config = collect_config(fake_live_shell(), files, ui, "/assets");
+    let config = collect_config(shell, files, ui, "/assets");
 
-    assert.is_true(ui.errors.includes("The theme has no manifest.yaml: /nowhere/manifest.yaml"));
+    assert.is_true(ui.errors.includes("The theme is not there: /nowhere"));
     assert.not_null(config);
     if let collected: InstallConfig = config {
         if let message: ReturnMessageInput = collected.return_message {
-            assert.equal(message.theme, "/theme")
+            //# the config keeps where it came from, not where it landed
+            assert.equal(message.theme.origin, "local");
+            assert.equal(message.theme.location, "/theme")
         }
     }
 }
@@ -673,7 +808,7 @@ test "the languages the picker takes are the ones the theme lays out" {
         [
             "/dev/sda (476,9G, Samsung SSD 860)", "wipe-all", "none", "none", "0", "0",
             "ivan", "s", "s", "es", "UTC", "oparch", "no",
-            "yes", "", "", "Ivan", "666",
+            "yes", "the one this project ships", "the one this project ships", "Ivan", "666",
             "Español (es), Català (ca), English (en)", // three, which the theme has no arrangement for
             "Español (es), Català (ca)",
             "no", "start",

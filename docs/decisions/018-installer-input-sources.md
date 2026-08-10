@@ -40,7 +40,7 @@ Everything mounted this way is unmounted when the installation starts, at F2 on 
 Decision 015 gives the host the terminal and the running of processes, and gives BAML which commands run and what their output means. The three additions keep that line where it is:
 
 - A **package picker** and a **file picker**. They list directories themselves, which is the same filesystem access the host already performs for `read` and `exists` and carries no decision. In the package picker, where directories and `.tar` files appear in the same list, entering a directory and choosing it are different gestures.
-- A **mount widget**. It runs nothing: the devices it lists reach it as data, and choosing one returns a request to mount rather than a mount. BAML runs `lsblk` and `mount` and reads what they say, called reentrantly from inside the widget exactly as pacman's output is parsed today.
+- A **mount widget**, on F5, from any screen. It draws a list and nothing else. Which command lists the devices, what its raw output means, which partitions are worth offering, where a device is mounted and what a failure is called are all answered by BAML, asked for reentrantly from inside the widget exactly as pacman's output is parsed today. The widget runs the commands it is handed, because running commands is what the host is for, and decides none of them.
 
 ### A tool is given paths, not origins
 

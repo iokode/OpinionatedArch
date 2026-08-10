@@ -19,6 +19,17 @@ interface Ui {
                          selected: string[], min: int, max: int) -> string[]? throws never
     function text(self, title: string, prompt: string, initial: string, secret: bool) -> string? throws never
 
+    /// Walks the filesystem so that content on this machine is chosen rather
+    /// than typed. `start` is where the walk begins, and is the location that
+    /// was chosen before when there was one.
+    ///
+    /// A package is a directory or a `.tar`, and both are offered in the same
+    /// list: which of the two it is, is a fact of the filesystem rather than of
+    /// what the operator would have typed.
+    function pick_package(self, title: string, prompt: string, start: string) -> string? throws never
+    /// The same, for one file.
+    function pick_file(self, title: string, prompt: string, start: string) -> string? throws never
+
     /// The review screen. True starts the installation, false goes back.
     function review(self, title: string, lines: string[]) -> bool throws never
 }
@@ -45,6 +56,8 @@ class HostUi {
     on_choose: (string, string, string[], int) -> int? throws never,
     on_choose_many: (string, string, string[], string[], int, int) -> string[]? throws never,
     on_text: (string, string, string, bool) -> string? throws never,
+    on_pick_package: (string, string, string) -> string? throws never,
+    on_pick_file: (string, string, string) -> string? throws never,
     on_review: (string, string[]) -> bool throws never,
     implements Ui {
         function outline(self, names: string[]) -> void {
@@ -85,6 +98,12 @@ class HostUi {
         ) -> string? {
             self.on_text(title, prompt, initial, secret)
         }
+        function pick_package(self, title: string, prompt: string, start: string) -> string? {
+            self.on_pick_package(title, prompt, start)
+        }
+        function pick_file(self, title: string, prompt: string, start: string) -> string? {
+            self.on_pick_file(title, prompt, start)
+        }
         function review(self, title: string, lines: string[]) -> bool {
             self.on_review(title, lines)
         }
@@ -96,8 +115,9 @@ class HostUi {
 /// Replays scripted answers in order, and records what it was asked.
 ///
 /// An answer of "<back>" makes the screen return null. For `choose` the answer
-/// is the option text; for `choose_many`, comma-separated option texts; for
-/// `review`, "start" or "back".
+/// is the option text; for `choose_many`, comma-separated option texts; for a
+/// picker, the path that would have been walked to; for `review`, "start" or
+/// "back".
 class ScriptedUi {
     answers: string[],
     asked: string[],
@@ -177,6 +197,26 @@ class ScriptedUi {
             initial: string,
             secret: bool,
         ) -> string? {
+            self.asked.push(title);
+            let answer = self.next();
+            if (answer == "<back>") {
+                return null;
+            }
+            answer
+        }
+
+        /// A picker answers with a path, exactly as the text field did. What it
+        /// saves the operator is having to know the path, and a script knows it
+        /// by construction.
+        function pick_package(self, title: string, prompt: string, start: string) -> string? {
+            self.asked.push(title);
+            let answer = self.next();
+            if (answer == "<back>") {
+                return null;
+            }
+            answer
+        }
+        function pick_file(self, title: string, prompt: string, start: string) -> string? {
             self.asked.push(title);
             let answer = self.next();
             if (answer == "<back>") {

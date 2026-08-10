@@ -94,7 +94,7 @@ The logo is one file rather than a set of them, so its origins are `url` and `lo
 
 The origin is written down rather than deduced from the location, as decided in `../../decisions/018-installer-input-sources.md`: a repository and an archive are both URLs, and a rule guessing between them fetches the wrong thing. Whether a `local` location is a directory or an archive is not read from the text but from the filesystem.
 
-Content named by a `local` location is copied into the installer's staging directory when this file is read, which is what the same decision has the pickers do when the operator chooses. The path may name content on the very disk the installation is about to erase, so the copy happens before anything is validated against the live system, not when the content is finally used.
+Every source this file names is brought into the installer's staging directory when the configuration is checked, before a single value has been validated against the live system and long before anything is written. That is the unattended counterpart of the pickers copying what the operator chooses: there is nobody choosing, so the moment the installer learns what the content is, is the moment it takes it. A `local` path may name content on the very disk the installation is about to erase, and a source that cannot be brought here stops the run before the disk has even been looked at.
 
 ### Optional sections
 
