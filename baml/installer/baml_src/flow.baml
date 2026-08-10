@@ -58,7 +58,7 @@ function run_phase(files: root.common.Files, problem: string) -> string {
 
 //# every phase, in order, stopping at the first failure
 function run_phases(shell: root.common.Shell, files: root.common.Files, ui: Ui,
-                    config: InstallConfig, target: root.common.Target) -> string
+                    config: InstallConfig, target: root.common.Target, asset_dir: string) -> string
         throws baml.errors.InvalidArgument {
     let problem = run_phase(files, prepare_layout(shell, files, ui, config, target));
     if (problem != "") { return problem; }
@@ -78,14 +78,22 @@ function run_phases(shell: root.common.Shell, files: root.common.Files, ui: Ui,
     let problem = run_phase(files, configure_network(shell, ui, target));
     if (problem != "") { return problem; }
 
-    run_phase(files, configure_swap(shell, files, ui, config, target))
+    let problem = run_phase(files, configure_swap(shell, files, ui, config, target));
+    if (problem != "") { return problem; }
+
+    //# before the initramfs is built: the plymouth hook packs the theme, and
+    //# the images the renderer put in it, into the image it builds
+    let problem = run_phase(files, configure_return_message(shell, files, ui, config, target, asset_dir));
+    if (problem != "") { return problem; }
+
+    run_phase(files, configure_initramfs(shell, files, ui, config, target))
 }
 
 function install(shell: root.common.Shell, files: root.common.Files, ui: Ui, asset_dir: string,
                  config_text: string?) -> InstallSummary {
     if let config: InstallConfig = resolve_config(shell, files, ui, asset_dir, config_text) {
         let problem = run_phases(shell, files, ui, config,
-                                 root.common.mounted_target(install_root()))
+                                 root.common.mounted_target(install_root()), asset_dir)
             catch (e) { baml.errors.InvalidArgument => e.message };
 
         if (problem != "") {
@@ -161,7 +169,7 @@ test "a config file answers every question and the form is never shown" {
             "timedatectl list-timezones": "Europe/Madrid\nUTC\n",
         },
     };
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], limits: [] };
 
     let summary = install(shell, full_run_files(), ui, "/assets", full_config_text());
 
@@ -179,7 +187,7 @@ test "a config file that cannot be used stops before anything runs" {
         exit_codes: {},
         replies: { "timedatectl list-timezones": "Europe/Madrid\n" },
     };
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], limits: [] };
 
     let summary = install(shell, root.common.recording_files(), ui, "/assets", "disk: /dev/sda\nwat: 1\n");
 
@@ -203,6 +211,7 @@ test "without a config file the form is asked" {
 function full_run_files() -> root.common.RecordingFiles {
     let files = root.common.recording_files();
     files.write("/mnt/etc/locale.gen", "#en_US.UTF-8 UTF-8\n");
+    files.write("/mnt/etc/mkinitcpio.conf", stock_mkinitcpio_conf());
     files
 }
 
@@ -221,7 +230,7 @@ function full_run_shell() -> root.common.RecordingShell {
 }
 
 test "the phases run in order and the installation reports success" {
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], limits: [] };
 
     let summary = install(full_run_shell(), full_run_files(), ui, "/assets", full_config_text());
 
@@ -242,14 +251,69 @@ test "the phases run in order and the installation reports success" {
         "Creating users and groups",
         "Enabling the network stack",
         "Configuring swap",
+        "Building the initramfs",
         "Installation finished",
     ])
+}
+
+/// The same run, asking for a return message. The package the values are
+/// checked against has to be on the live system, so the files are the ones the
+/// configuration tests use, with the target's locale.gen added.
+function full_run_message_files() -> root.common.RecordingFiles {
+    let files = packaged_files();
+    files.write("/mnt/etc/locale.gen", "#en_US.UTF-8 UTF-8\n");
+    files.write("/mnt/etc/mkinitcpio.conf", stock_mkinitcpio_conf());
+    files
+}
+
+function full_message_config_text() -> string {
+    full_config_text()
+        + "return_message:\n"
+        + "  languages:\n    - \"es\"\n"
+        + "  fields:\n    owner_name: \"Ivan\"\n    phone: \"+34 666 555 666\"\n"
+        + "  logo_url: \"https://example.invalid/logo.png\"\n"
+}
+
+test "a return message adds its phase after swap, and the theme becomes the default" {
+    let shell = full_run_shell();
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], limits: [] };
+
+    let summary = install(shell, full_run_message_files(), ui, "/assets", full_message_config_text());
+
+    assert.equal(summary.exit_code, 0);
+    assert.equal(ui.steps, [
+        "Partitioning /dev/sda",
+        "Formatting EFI partition /dev/sda1",
+        "Creating LUKS2 container on /dev/sda2",
+        "Opening LUKS2 container on /dev/sda2",
+        "Creating Btrfs filesystem",
+        "Mounting the target layout",
+        "Disk layout is ready",
+        "Installing base system",
+        "Writing the mount table",
+        "Downloading the Arch netboot binary",
+        "Configuring localization",
+        "Configuring system identity",
+        "Creating users and groups",
+        "Enabling the network stack",
+        "Configuring swap",
+        "Rendering the pre-boot return message",
+        "Building the initramfs",
+        "Installation finished",
+    ]);
+    //# plymouth is installed with the base system, and the theme is its own
+    assert.is_true(shell.streamed.join(" ").includes(" plymouth"));
+    assert.is_true(shell.commands.includes(
+        "cp -r /assets/plymouth/opinionatedarch /mnt/usr/share/plymouth/themes"));
+    assert.is_true(shell.commands.includes(rendered_with_logo()));
+    assert.is_true(shell.commands.includes(
+        "arch-chroot /mnt plymouth-set-default-theme opinionatedarch"))
 }
 
 test "a phase that fails stops the ones after it" {
     let shell = full_run_shell();
     let _ = shell.exit_codes.set("arch-chroot /mnt locale-gen", 1);
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], limits: [] };
 
     let summary = install(shell, full_run_files(), ui, "/assets", full_config_text());
 
@@ -263,7 +327,7 @@ test "a phase that fails stops the ones after it" {
 test "a file operation that fails stops the installation" {
     let files = full_run_files();
     files.fails_with = "cannot write /mnt/etc/fstab: read-only file system";
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], limits: [] };
 
     let summary = install(full_run_shell(), files, ui, "/assets", full_config_text());
 

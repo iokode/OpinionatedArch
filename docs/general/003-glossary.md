@@ -18,7 +18,8 @@ Terms used across the OpinionatedArch documentation.
 
 ## Boot
 
-- **Pre-boot return message** — the optional ownership-and-return text shown on the disk-unlock screen, in up to four languages.
+- **Pre-boot return message** — the optional ownership-and-return text shown on the disk-unlock screen, in one or more languages.
+- **Return message theme** — a directory declaring what the rendered message looks like: typography, colours, panels, spacing and the arrangement of the languages. Its format is defined in `../tools/oparch-return-message-render/003-theme-format.md`.
 - **Return message template package** — a directory holding a manifest and one message file per language, defining the pre-boot return message and the data it needs. Its format is defined in `../tools/oparch-return-message-render/001-template-package-format.md`.
 
 ## Snapshots

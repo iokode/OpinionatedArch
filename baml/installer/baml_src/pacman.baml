@@ -21,12 +21,6 @@ class Unknown {
 
 type PacmanEvent = Progress | Downloading | PhaseMarker | Unknown;
 
-function parse_int(text: string) -> int? {
-    baml.Int.parse(text) catch (e) {
-        baml.errors.ParseError => null
-    }
-}
-
 /// Turns one line of pacman output into a typed event.
 function parse_pacman_line(raw: string) -> PacmanEvent {
     let line = raw.trim();
@@ -43,8 +37,8 @@ function parse_pacman_line(raw: string) -> PacmanEvent {
         if let close: int = line.index_of(")") {
             let parts = line.substring(1, close).split("/");
             if (parts.length() == 2) {
-                let current = parse_int((parts.at(0) ?? "").trim());
-                let total = parse_int((parts.at(1) ?? "").trim());
+                let current = root.common.parse_int((parts.at(0) ?? "").trim());
+                let total = root.common.parse_int((parts.at(1) ?? "").trim());
                 if let c: int = current {
                     if let t: int = total {
                         let rest = line.substring(close + 1, line.length()).trim();

@@ -6,4 +6,3 @@ ModuleName=script
 [script]
 ImageDir=/usr/share/plymouth/themes/opinionatedarch
 ScriptFile=/usr/share/plymouth/themes/opinionatedarch/opinionatedarch.script
-Font=Open Sans 14

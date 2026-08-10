@@ -84,12 +84,7 @@ function parse_size_gb(raw: string) -> int? {
     if (text == "" || !text.is_ascii_numeric()) {
         return null;
     }
-    parse_int(text)
-}
-
-/// Two lowercase ASCII letters.
-function validate_language_code(code: string) -> bool {
-    code.length() == 2 && code.is_ascii_lowercase()
+    root.common.parse_int(text)
 }
 
 test "validate_hostname accepts what Arch accepts" {
@@ -148,9 +143,3 @@ test "parse_size_gb takes non-negative integers only" {
     assert.is_true(parse_size_gb("many") == null)
 }
 
-test "validate_language_code wants exactly two lowercase letters" {
-    assert.is_true(validate_language_code("es"));
-    assert.is_true(!validate_language_code("ES"));
-    assert.is_true(!validate_language_code("esp"));
-    assert.is_true(!validate_language_code("e"))
-}

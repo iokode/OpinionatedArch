@@ -27,113 +27,6 @@ function allowed_dotfiles_keys() -> string[] {
     ["repository_url"]
 }
 
-function allowed_return_message_keys() -> string[] {
-    ["template", "languages", "fields", "logo_url"]
-}
-
-// ------------------------------------------------------------- reading yaml
-
-/// A scalar as text. Only a YAML string counts: a value YAML read as a number
-/// comes back in its canonical form, which is not what was written. `+34600...`
-/// would lose its `+`, and `1.10` its trailing zero, without anything failing.
-function as_text(value: baml.json.json) -> string? {
-    match (value) {
-        let s: string => s,
-        _ => null,
-    }
-}
-
-/// A text value read from a mapping. Distinguishes absent from present-but-not
-/// text, so a number cannot quietly become an empty string.
-class TextRead {
-    value: string,
-    error: string,
-}
-
-/// What YAML made of a value, for an error message. The value itself is never
-/// echoed back: what arrives is already the canonical form of whatever YAML
-/// decided, so repeating it would suggest the very value that was lost.
-function json_kind(value: baml.json.json) -> string {
-    match (value) {
-        let b: bool => "a boolean",
-        let i: int => "a number",
-        let f: float => "a number",
-        let s: string => "text",
-        let items: baml.json.json[] => "a list",
-        let entries: map<string, baml.json.json> => "a mapping",
-        _ => "nothing",
-    }
-}
-
-function read_text(entries: map<string, baml.json.json>, key: string, path: string) -> TextRead {
-    if (!entries.keys().includes(key)) {
-        return TextRead { value: "", error: "" };
-    }
-    let value = entries.get(key);
-    if let text: string = as_text(value) {
-        return TextRead { value: text, error: "" };
-    }
-    TextRead {
-        value: "",
-        error: `${path} must be quoted: YAML read it as ${json_kind(value)}, not as text.`
-            + " Wrap the value in double quotes.",
-    }
-}
-
-function as_int(value: baml.json.json) -> int? {
-    match (value) {
-        let i: int => i,
-        _ => null,
-    }
-}
-
-function as_map(value: baml.json.json) -> map<string, baml.json.json>? {
-    match (value) {
-        let entries: map<string, baml.json.json> => entries,
-        _ => null,
-    }
-}
-
-function empty_names() -> string[] {
-    let empty: string[] = [];
-    empty
-}
-
-function empty_json_map() -> map<string, baml.json.json> {
-    let empty: map<string, baml.json.json> = {};
-    empty
-}
-
-
-
-/// The first name in `entries` that is not in `allowed`, if any.
-function unknown_key(entries: map<string, baml.json.json>, allowed: string[]) -> string? {
-    for (let key in entries.keys()) {
-        if (!allowed.includes(key)) {
-            return key;
-        }
-    }
-    null
-}
-
-/// Reads a list of names, refusing anything that is not a scalar.
-function text_list(value: baml.json.json) -> string[]? {
-    match (value) {
-        let items: baml.json.json[] => {
-            let names: string[] = [];
-            for (let item in items) {
-                if let text: string = as_text(item) {
-                    names.push(text);
-                } else {
-                    return null;
-                }
-            }
-            names
-        },
-        _ => null,
-    }
-}
-
 // ----------------------------------------------------------------- the file
 
 function parse_config_file(text: string) -> ConfigParse {
@@ -144,58 +37,58 @@ function parse_config_file(text: string) -> ConfigParse {
             }
         };
 
-    let top = as_map(document) ?? empty_json_map();
-    if (as_map(document) == null) {
+    let top = root.common.as_map(document) ?? root.common.empty_json_map();
+    if (root.common.as_map(document) == null) {
         return ConfigParse { config: empty_config(), error: "The configuration must be a mapping." };
     }
-    if let unknown: string = unknown_key(top, allowed_top_keys()) {
+    if let unknown: string = root.common.unknown_key(top, allowed_top_keys()) {
         return ConfigParse { config: empty_config(), error: `Unknown key in config file: ${unknown}` };
     }
 
     let config = empty_config();
-    let read_disk = read_text(top, "disk", "disk");
+    let read_disk = root.common.read_text(top, "disk", "disk");
     if (read_disk.error != "") {
         return ConfigParse { config: config, error: read_disk.error };
     }
     config.disk = read_disk.value;
 
-    let read_install_mode = read_text(top, "install_mode", "install_mode");
+    let read_install_mode = root.common.read_text(top, "install_mode", "install_mode");
     if (read_install_mode.error != "") {
         return ConfigParse { config: config, error: read_install_mode.error };
     }
     config.install_mode = read_install_mode.value;
 
-    let read_ucode_package = read_text(top, "ucode_package", "ucode_package");
+    let read_ucode_package = root.common.read_text(top, "ucode_package", "ucode_package");
     if (read_ucode_package.error != "") {
         return ConfigParse { config: config, error: read_ucode_package.error };
     }
     config.ucode_package = read_ucode_package.value;
 
-    let read_gpu_driver = read_text(top, "gpu_driver", "gpu_driver");
+    let read_gpu_driver = root.common.read_text(top, "gpu_driver", "gpu_driver");
     if (read_gpu_driver.error != "") {
         return ConfigParse { config: config, error: read_gpu_driver.error };
     }
     config.gpu_driver = read_gpu_driver.value;
 
-    let read_shared_secret = read_text(top, "shared_secret", "shared_secret");
+    let read_shared_secret = root.common.read_text(top, "shared_secret", "shared_secret");
     if (read_shared_secret.error != "") {
         return ConfigParse { config: config, error: read_shared_secret.error };
     }
     config.shared_secret = read_shared_secret.value;
 
-    let read_console_keymap = read_text(top, "console_keymap", "console_keymap");
+    let read_console_keymap = root.common.read_text(top, "console_keymap", "console_keymap");
     if (read_console_keymap.error != "") {
         return ConfigParse { config: config, error: read_console_keymap.error };
     }
     config.console_keymap = read_console_keymap.value;
 
-    let read_timezone = read_text(top, "timezone", "timezone");
+    let read_timezone = root.common.read_text(top, "timezone", "timezone");
     if (read_timezone.error != "") {
         return ConfigParse { config: config, error: read_timezone.error };
     }
     config.timezone = read_timezone.value;
 
-    let read_hostname = read_text(top, "hostname", "hostname");
+    let read_hostname = root.common.read_text(top, "hostname", "hostname");
     if (read_hostname.error != "") {
         return ConfigParse { config: config, error: read_hostname.error };
     }
@@ -228,16 +121,16 @@ function parse_config_file(text: string) -> ConfigParse {
 function read_swap(top: map<string, baml.json.json>, config: InstallConfig) -> string {
     if (top.keys().includes("swap")) {
         let raw = top.get("swap");
-        let fields = as_map(raw) ?? empty_json_map();
-        if (as_map(raw) == null) {
+        let fields = root.common.as_map(raw) ?? root.common.empty_json_map();
+        if (root.common.as_map(raw) == null) {
             return "swap must be a mapping.";
         }
-        if let unknown: string = unknown_key(fields, allowed_swap_keys()) {
+        if let unknown: string = root.common.unknown_key(fields, allowed_swap_keys()) {
             return `Unknown key in config file: swap.${unknown}`;
         }
         if (fields.keys().includes("zram_gb")) {
             let zram = fields.get("zram_gb");
-            if let size: int = as_int(zram) {
+            if let size: int = root.common.as_int(zram) {
                 config.swap.zram_gb = size;
             } else {
                 return "swap.zram_gb must be a non-negative integer.";
@@ -245,7 +138,7 @@ function read_swap(top: map<string, baml.json.json>, config: InstallConfig) -> s
         }
         if (fields.keys().includes("swapfile_gb")) {
             let swapfile = fields.get("swapfile_gb");
-            if let size: int = as_int(swapfile) {
+            if let size: int = root.common.as_int(swapfile) {
                 config.swap.swapfile_gb = size;
             } else {
                 return "swap.swapfile_gb must be a non-negative integer.";
@@ -261,7 +154,7 @@ function read_swap(top: map<string, baml.json.json>, config: InstallConfig) -> s
 function read_users(top: map<string, baml.json.json>, config: InstallConfig) -> string {
     if (top.keys().includes("login_users")) {
         let raw = top.get("login_users");
-        if let names: string[] = text_list(raw) {
+        if let names: string[] = root.common.text_list(raw) {
             let parsed = parse_login_users_csv(names.join(","));
             if (parsed.error != "") {
                 return parsed.error;
@@ -276,7 +169,7 @@ function read_users(top: map<string, baml.json.json>, config: InstallConfig) -> 
 
     if (top.keys().includes("preserved_home_users")) {
         let raw = top.get("preserved_home_users");
-        if let names: string[] = text_list(raw) {
+        if let names: string[] = root.common.text_list(raw) {
             let parsed = parse_optional_users_csv(names.join(","));
             if (parsed.error != "") {
                 return parsed.error;
@@ -293,14 +186,14 @@ function read_users(top: map<string, baml.json.json>, config: InstallConfig) -> 
 function read_dotfiles(top: map<string, baml.json.json>, config: InstallConfig) -> string {
     if (top.keys().includes("dotfiles")) {
         let raw = top.get("dotfiles");
-        let fields = as_map(raw) ?? empty_json_map();
-        if (as_map(raw) == null) {
+        let fields = root.common.as_map(raw) ?? root.common.empty_json_map();
+        if (root.common.as_map(raw) == null) {
             return "dotfiles must be a mapping.";
         }
-        if let unknown: string = unknown_key(fields, allowed_dotfiles_keys()) {
+        if let unknown: string = root.common.unknown_key(fields, allowed_dotfiles_keys()) {
             return `Unknown key in config file: dotfiles.${unknown}`;
         }
-        let url = read_text(fields, "repository_url", "dotfiles.repository_url");
+        let url = root.common.read_text(fields, "repository_url", "dotfiles.repository_url");
         if (url.error != "") {
             return url.error;
         }
@@ -312,62 +205,43 @@ function read_dotfiles(top: map<string, baml.json.json>, config: InstallConfig) 
     ""
 }
 
+/// The keys of the section that are the installer's rather than the values
+/// format's: where the template package and the theme come from, which this
+/// file names because the installer is what resolves them.
+function return_message_source_keys() -> string[] {
+    ["template", "theme"]
+}
+
+/// The section is the values format of
+/// `docs/tools/oparch-return-message-render/002-values-format.md`, embedded,
+/// plus the two keys above. The values are read by the code that owns that
+/// format, so that the installer and the renderer cannot disagree about what a
+/// values file means; the two origins are read here, because they are ours.
 function read_return_message(top: map<string, baml.json.json>, config: InstallConfig) -> string {
     if (top.keys().includes("return_message")) {
         let raw = top.get("return_message");
-        let section = as_map(raw) ?? empty_json_map();
-        if (as_map(raw) == null) {
+        let section = root.common.as_map(raw) ?? root.common.empty_json_map();
+        if (root.common.as_map(raw) == null) {
             return "return_message must be a mapping.";
         }
-        if let unknown: string = unknown_key(section, allowed_return_message_keys()) {
-            return `Unknown key in config file: return_message.${unknown}`;
+
+        let parsed = root.return_message.parse_return_message(
+            section, "return_message.", return_message_source_keys());
+        if (parsed.error != "") {
+            return parsed.error;
         }
 
-        let languages: string[] = if (section.keys().includes("languages")) {
-            text_list(section.get("languages")) ?? empty_names()
-        } else {
-            empty_names()
-        };
-        for (let code in languages) {
-            if (!validate_language_code(code)) {
-                return `Invalid return-message language code: ${code}`;
-            }
-        }
-        if (languages.length() < 1 || languages.length() > 4) {
-            return "return_message.languages must include between 1 and 4 languages.";
-        }
-
-        //# the names here belong to the template, so they are not checked
-        //# against a list the installer knows
-        let values: map<string, string> = {};
-        if (section.keys().includes("fields")) {
-            let raw_fields = section.get("fields");
-            let declared = as_map(raw_fields) ?? empty_json_map();
-            if (as_map(raw_fields) == null) {
-                return "return_message.fields must be a mapping.";
-            }
-            for (let name in declared.keys()) {
-                let value = read_text(declared, name, `return_message.fields.${name}`);
-                if (value.error != "") {
-                    return value.error;
-                }
-                let _ = values.set(name, value.value);
-            }
-        }
-
-        let template = read_text(section, "template", "return_message.template");
+        let template = root.common.read_text(section, "template", "return_message.template");
         if (template.error != "") {
             return template.error;
         }
-        let logo = read_text(section, "logo_url", "return_message.logo_url");
-        if (logo.error != "") {
-            return logo.error;
+        let theme = root.common.read_text(section, "theme", "return_message.theme");
+        if (theme.error != "") {
+            return theme.error;
         }
-        config.return_message = ReturnMessageConfig {
-            template: template.value,
-            languages: languages,
-            fields: values,
-            logo_url: logo.value,
+
+        config.return_message = ReturnMessageInput {
+            template: template.value, theme: theme.value, values: parsed.message,
         };
     }
     ""
@@ -414,21 +288,26 @@ function check_config(shell: root.common.Shell, files: root.common.Files,
         return "Invalid hostname.";
     }
 
-    //# the package decides which languages exist and which fields are needed
-    if let message: ReturnMessageConfig = config.return_message {
-        let loaded = resolve_package(shell, files, asset_dir, message.template);
+    //# the package decides which languages exist and which fields are needed,
+    //# and the theme how many languages it has an arrangement for; both are
+    //# read here so that a message that cannot be drawn is refused before the
+    //# disk is touched
+    if let message: ReturnMessageInput = config.return_message {
+        let loaded = resolve_package(shell, files, asset_dir, message.template, live_staging_dir());
         if (loaded.error != "") {
             return loaded.error;
         }
-        let available = package_language_codes(loaded.package);
-        for (let code in message.languages) {
-            if (!available.includes(code)) {
-                return `The template package offers no message in ${code}.`;
-            }
+        let problem = root.return_message.check_values(loaded.package, message.values,
+                                                       "return_message.");
+        if (problem != "") {
+            return problem;
         }
-        if let missing: string = missing_required_field(loaded.package, message.fields) {
-            return `return_message.fields.${missing} is required by the template package.`;
+
+        let theme = resolve_theme(shell, files, asset_dir, message.theme, live_staging_dir());
+        if (theme.error != "") {
+            return theme.error;
         }
+        return root.return_message.check_language_count(theme.theme, message.values);
     }
     ""
 }
@@ -453,13 +332,25 @@ function full_config_text() -> string {
         + "hostname: oparch\n"
 }
 
-/// A filesystem holding the project's package, for tests that validate a
-/// configuration against it.
+/// A filesystem holding the project's package and its theme, for tests that
+/// validate a configuration against them.
 function packaged_files() -> root.common.RecordingFiles {
     let files = root.common.recording_files();
-    files.write("/assets/return-message/manifest.yaml", sample_manifest());
+    files.write("/assets/return-message/manifest.yaml", root.return_message.sample_manifest());
     files.write("/assets/return-message/es.txt", "Hola {{owner_name}}[[, {{phone}}]]");
     files.write("/assets/return-message/ca.txt", "Hola {{owner_name}}");
+    files.write("/assets/return-message-theme/manifest.yaml", root.return_message.sample_theme());
+    files
+}
+
+/// The same, with a third language in the package. What the package offers and
+/// what the theme lays out are different limits, and telling them apart needs a
+/// package offering a number the theme has no arrangement for.
+function three_language_files() -> root.common.RecordingFiles {
+    let files = packaged_files();
+    files.write("/assets/return-message/manifest.yaml",
+                root.return_message.sample_manifest() + "  - code: \"en\"\n    name: \"English\"\n");
+    files.write("/assets/return-message/en.txt", "Hello {{owner_name}}");
     files
 }
 
@@ -502,9 +393,9 @@ test "a section that is present turns its feature on" {
     if let dotfiles: DotfilesConfig = parsed.config.dotfiles {
         assert.equal(dotfiles.repository_url, "https://example.invalid/dotfiles.git")
     }
-    if let message: ReturnMessageConfig = parsed.config.return_message {
-        assert.equal(message.languages, ["es"]);
-        assert.equal(message.fields.get("phone"), "666 555 666")
+    if let message: ReturnMessageInput = parsed.config.return_message {
+        assert.equal(message.values.languages, ["es"]);
+        assert.equal(message.values.fields.get("phone"), "666 555 666")
     }
 }
 
@@ -523,8 +414,8 @@ test "quoting keeps the value exactly as written" {
     let parsed = parse_config_file(text);
 
     assert.equal(parsed.error, "");
-    if let message: ReturnMessageConfig = parsed.config.return_message {
-        assert.equal(message.fields.get("phone"), "+34666555666")
+    if let message: ReturnMessageInput = parsed.config.return_message {
+        assert.equal(message.values.fields.get("phone"), "+34666555666")
     }
 }
 
@@ -541,8 +432,8 @@ test "field names are the template's, so they are not refused" {
     let parsed = parse_config_file(text);
 
     assert.equal(parsed.error, "");
-    if let message: ReturnMessageConfig = parsed.config.return_message {
-        assert.equal(message.fields.get("police_contact"), "Policia d'Andorra")
+    if let message: ReturnMessageInput = parsed.config.return_message {
+        assert.equal(message.values.fields.get("police_contact"), "Policia d'Andorra")
     }
 }
 
@@ -566,10 +457,10 @@ test "a bad value is reported with the key that carries it" {
                  "Invalid username: Ivan")
 }
 
-test "a return message must name between one and four languages" {
+test "a return message must name at least one language" {
     let text = full_config_text() + "return_message:\n  fields: {}\n";
     assert.equal(parse_config_file(text).error,
-                 "return_message.languages must include between 1 and 4 languages.")
+                 "return_message.languages must name at least one language.")
 }
 
 test "check_config accepts a configuration this machine can install" {
@@ -601,8 +492,8 @@ test "a template named by URL is fetched before it is read" {
     let shell = checking_shell();
     let _ = shell.replies.set(
         "tar -tf /tmp/oparch/template-package.tar", "manifest.yaml\nes.txt\nca.txt\n");
-    let files = root.common.recording_files();
-    files.write("/tmp/oparch/template-package/manifest.yaml", sample_manifest());
+    let files = packaged_files();
+    files.write("/tmp/oparch/template-package/manifest.yaml", root.return_message.sample_manifest());
     files.write("/tmp/oparch/template-package/es.txt", "Hola {{owner_name}}");
     files.write("/tmp/oparch/template-package/ca.txt", "Hola {{owner_name}}");
 
@@ -614,6 +505,44 @@ test "a template named by URL is fetched before it is read" {
     assert.equal(parsed.error, "");
     assert.equal(check_config(shell, files, parsed.config, "/assets"), "");
     assert.is_true(shell.commands.includes("tar -tf /tmp/oparch/template-package.tar"))
+}
+
+test "check_config refuses a theme that cannot be read" {
+    let text = full_config_text()
+        + "return_message:\n  theme: \"/nowhere\"\n"
+        + "  languages:\n    - \"es\"\n  fields:\n    owner_name: \"Ivan\"\n";
+    let parsed = parse_config_file(text);
+
+    assert.equal(parsed.error, "");
+    assert.equal(check_config(checking_shell(), packaged_files(), parsed.config, "/assets"),
+                 "The theme has no manifest.yaml: /nowhere/manifest.yaml")
+}
+
+test "check_config refuses a number of languages the theme does not lay out" {
+    let text = full_config_text()
+        + "return_message:\n  languages:\n    - \"es\"\n    - \"ca\"\n    - \"en\"\n"
+        + "  fields:\n    owner_name: \"Ivan\"\n";
+    let parsed = parse_config_file(text);
+
+    //# the package offers all three; the theme is what refuses three of them
+    assert.equal(check_config(checking_shell(), three_language_files(), parsed.config, "/assets"),
+                 "The theme lays out 1, 2 or 4 languages, and 3 were selected.")
+}
+
+test "a theme named by URL is fetched into a directory of its own" {
+    let shell = checking_shell();
+    let _ = shell.replies.set("tar -tf /tmp/oparch/theme.tar", "manifest.yaml\n");
+    let files = packaged_files();
+    files.write("/tmp/oparch/theme/manifest.yaml", root.return_message.sample_theme());
+
+    let text = full_config_text()
+        + "return_message:\n  theme: \"https://example.invalid/theme.tar\"\n"
+        + "  languages:\n    - \"es\"\n  fields:\n    owner_name: \"Ivan\"\n";
+    let parsed = parse_config_file(text);
+
+    assert.equal(check_config(shell, files, parsed.config, "/assets"), "");
+    assert.is_true(shell.commands.includes(
+        "tar -xf /tmp/oparch/theme.tar -C /tmp/oparch/theme"))
 }
 
 test "a package fetched from a URL that tries to escape is refused" {

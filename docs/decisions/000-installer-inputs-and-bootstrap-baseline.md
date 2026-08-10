@@ -31,26 +31,24 @@ The installer asks for:
 11. console keymap
 12. timezone
 13. hostname
-14. public dotfiles repository clone (`yes/no`)
-15. if public dotfiles repository clone is enabled: dotfiles repository URL
+14. public dotfiles package (`yes/no`)
+15. if the public dotfiles package is enabled: where it comes from, as `018-installer-input-sources.md` defines a package source
 16. pre-boot return message inclusion (`yes/no`)
-17. if return message is enabled: pre-boot ownership fields:
-  - owner name
-    - phone
-    - email
-    - return address
-18. if return message is enabled: return-message languages, selecting 1 to 4 templates
-19. if return message is enabled: logo inclusion (`yes/no`)
-20. if logo is enabled: `logo_url` (retry or explicit continue-without-logo on download failure)
+17. if return message is enabled: where the template package comes from, the project's own among the origins, as `018-installer-input-sources.md` defines a package source
+18. if return message is enabled: where the theme comes from, the project's own among the origins, as the same document defines it and `017-return-message-themes.md` decides it
+19. if return message is enabled: a value for each field the template package declares. The project's own package declares owner name, phone, email and return address
+20. if return message is enabled: return-message languages, selecting as many as the theme accepts
+21. if return message is enabled: logo inclusion (`yes/no`)
+22. if logo is enabled: where the logo file comes from, as `018-installer-input-sources.md` defines a file source (retry or explicit continue-without-logo when it cannot be obtained)
 
 ### Temporary Paths for Installer Staging
 
 - Live installer temporary path for transient installation files: `/tmp/oparch`.
 - Nothing is staged inside the target. The target filesystem is mounted while the installation runs, so the installer writes into it directly; only the commands that need the target's own context are run there.
 
-### Public Dotfiles Repository Clone
+### Public Dotfiles Package
 
-When the public dotfiles repository clone is enabled, the installer clones the given repository into `/dotfiles` and then runs `oparch-dotfiles-sync`.
+When a public dotfiles package is enabled, the installer puts its content into `/dotfiles` and then runs `oparch-dotfiles-sync`. Where that content comes from — a directory, an archive or a repository — is defined in `018-installer-input-sources.md`.
 
 ### Bootstrap Package List
 
@@ -89,7 +87,7 @@ These services must be enabled in the target system before first boot, not only 
 - The preserved-home user selection allows multiple choices because `keep-homes` can preserve any subset of existing user homes.
 - Ucode package selection is required because CPU microcode must be installed before reboot when the target hardware needs it; if deferred until after first boot, the first run can start without the CPU fixes expected for correct hardware operation.
 - GPU driver selection is required because the target graphics driver must be installed before reboot when the hardware needs it; if deferred until after first boot, the first run can start with missing or incorrect graphics support.
-- Public dotfiles repository clone is requested during installation so public dotfiles can be cloned into `/dotfiles` and synchronized before first boot.
+- A public dotfiles package is requested during installation so public dotfiles can be placed in `/dotfiles` and synchronized before first boot.
 - Return-message language selection is requested during installation so the pre-boot return message is available on first boot instead of requiring post-install setup.
 - The minimum service baseline is enabled before first boot so baseline system functionality is available immediately.
 

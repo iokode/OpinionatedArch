@@ -35,9 +35,15 @@ timezone: Europe/Madrid
 hostname: oparch
 
 dotfiles:
-  repository_url: https://example.invalid/dotfiles.git
+  origin: git
+  location: https://example.invalid/dotfiles.git
 
 return_message:
+  template:
+    origin: default
+  theme:
+    origin: tar
+    location: https://example.invalid/andorra-dark.tar
   languages:
     - es
     - ca
@@ -45,7 +51,9 @@ return_message:
     owner_name: Ivan
     phone: "+34 666 555 666"
     address: Carrer de la Unió, Andorra
-  logo_url: https://example.invalid/logo.png
+  logo:
+    origin: url
+    location: https://example.invalid/logo.png
 ```
 
 ### Keys
@@ -64,18 +72,37 @@ return_message:
 | `console_keymap` | Keymap name | yes |
 | `timezone` | A timezone the live system reports | yes |
 | `hostname` | Hostname | yes |
-| `dotfiles.repository_url` | Repository URL | only inside `dotfiles` |
+| `dotfiles` | Source of the dotfiles package | no |
 | `return_message` | The return message values, as defined in `../oparch-return-message-render/002-values-format.md` | no |
+| `return_message.template` | Source of the template package | no, defaults to the project's package |
+| `return_message.theme` | Source of the theme, as defined in `../oparch-return-message-render/003-theme-format.md` | no, defaults to the project's theme |
 
-A key outside this list is an error, reported as `Unknown key in config file: <key>`. Unknown keys are refused rather than ignored, so a misspelled key cannot silently drop a setting. Inside `return_message` the same rule applies, with the keys that document defines, and inside `return_message.fields` it does not apply at all: the names there are the template's.
+A key outside this list is an error, reported as `Unknown key in config file: <key>`. Unknown keys are refused rather than ignored, so a misspelled key cannot silently drop a setting. Inside `return_message` the same rule applies, with the keys that document defines plus the two above, and inside `return_message.fields` it does not apply at all: the names there are the template's.
+
+### Sources
+
+Three of the inputs are not values but content held elsewhere: the dotfiles package, the template package and the theme. Each is written as an origin and, unless the origin is `default`, a location:
+
+| Origin | Location |
+| --- | --- |
+| `default` | None. The project's own package or theme; not available for `dotfiles` |
+| `local` | Path of a directory or of a `.tar` on the machine the installation runs from |
+| `tar` | URL of a `.tar` to download |
+| `git` | URL of a repository to clone, whose whole content is the package |
+
+The logo is one file rather than a set of them, so its origins are `url` and `local`, and its location is a URL or the path of a file.
+
+The origin is written down rather than deduced from the location, as decided in `../../decisions/018-installer-input-sources.md`: a repository and an archive are both URLs, and a rule guessing between them fetches the wrong thing. Whether a `local` location is a directory or an archive is not read from the text but from the filesystem.
+
+Content named by a `local` location is copied into the installer's staging directory when this file is read, which is what the same decision has the pickers do when the operator chooses. The path may name content on the very disk the installation is about to erase, so the copy happens before anything is validated against the live system, not when the content is finally used.
 
 ### Optional sections
 
 A section that is absent turns its feature off:
 
-- Without `dotfiles`, no dotfiles repository is cloned.
+- Without `dotfiles`, no dotfiles package is taken.
 - Without `return_message`, there is no pre-boot return message, and nothing about it is read.
-- Without `return_message.logo_url`, the message carries no logo.
+- Without `return_message.logo`, the message carries no logo.
 
 There is no separate key stating whether a feature is enabled.
 
@@ -115,7 +142,8 @@ The first problem found stops the run, and nothing is executed.
 - Lists are written as YAML sequences because the previous format had to encode them as comma-separated strings, which needed its own parsing and its own errors for something the file format already expresses.
 - A missing section means the feature is off, rather than a separate key saying so, because two ways of expressing the same thing can disagree; a file that says the return message is disabled while carrying its fields has no obvious meaning, and the previous format had to define which one won.
 - Unknown keys are refused because a configuration file is written by hand; a silently ignored key would install something other than what the file describes.
-- The return message section is the values format rather than a copy of it, because the same values are read by `oparch-return-message-render` on an installed system; two shapes for one thing drift apart.
+- The return message section is the values format rather than a copy of it, because the same values are read by `oparch-return-message-render` on an installed system; two shapes for one thing drift apart. It adds `template` and `theme`, which that format does not carry: the renderer is handed directories and resolves nothing, so naming where they come from is the caller's business and this file is where the caller is told.
+- A source is written as an origin and a location, in the same shape the screens ask for, so that an installation performed either way is the same installation and the file can express every origin a picker can.
 - A text value YAML would read as a number is refused rather than converted, because converting it back to text gives the number's canonical form and not what was written: `+34666555666` loses its `+`, and `1.10` its trailing zero, with nothing failing. A quoted value is one keystroke; a phone number that silently loses its country prefix is discovered when someone cannot call it.
 - Values are validated against the live system rather than only against their own syntax, because a well-formed file can still name a disk, a timezone or a template that does not exist.
 - The file is validated completely before execution starts, because a configuration error found halfway through leaves a partially installed disk.
@@ -124,4 +152,4 @@ The first problem found stops the run, and nothing is executed.
 
 - The file holds `shared_secret` in clear text. A file used for a real installation is as sensitive as the passphrase it contains, because that one secret unlocks the disk and every login user.
 - A file written for one machine is not portable to another without review: `disk` names a device, and `console_keymap` and `timezone` describe where the machine is used.
-- The template package is fetched during validation, so a file naming a template by URL only works where that URL is reachable.
+- The template package is resolved during validation, so a file naming one by URL only works where that URL is reachable, and one naming a `local` path only works where that path is, on the machine the installation runs from.

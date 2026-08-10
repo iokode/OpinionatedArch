@@ -4,18 +4,21 @@
 
 `oparch-return-message-render` builds the pre-boot return message image from a template package and the values that fill it, and installs it where the boot splash reads it.
 
-It reads its input from `/etc/opinionatedarch/return-message.yaml`, written during installation and editable afterwards. That file has the same shape as the `return_message` section of the installer's configuration file, defined in `../oparch-installer/001-config-file-format.md`:
+It reads the values that fill the template from `/etc/opinionatedarch/return-message.yaml`, written during installation and editable afterwards, and defined in `002-values-format.md`:
 
 ```yaml
-template: "https://example.invalid/andorra.tar"
 languages:
   - "ca"
   - "es"
 fields:
   owner_name: "Ivan"
   phone: "+34 666 555 666"
-logo_url: "https://example.invalid/logo.png"
+logo:
+  origin: url
+  location: "https://example.invalid/logo.png"
 ```
+
+The template package, the theme and the logo are not resolved from that file: each reaches the tool as a path it is given. Working out where they come from — a directory, an archive, a repository — belongs to whoever calls it, as decided in `../../decisions/018-installer-input-sources.md`.
 
 It writes three images into `/usr/share/plymouth/themes/opinionatedarch/`:
 
@@ -27,9 +30,13 @@ It writes three images into `/usr/share/plymouth/themes/opinionatedarch/`:
 
 Each is composed at a fixed width, with its height following its content. The boot splash scales them by the same factor to fit the screen it finds and arranges them, so no image depends on the display it was built for and none needs to know where the others are placed.
 
+Beside them it writes `opinionatedarch.script`, the script the splash runs: the values of the theme's `screen` section, written as literals, followed by the body the project carries in its assets. Why the splash is handed them rather than reading them is in `003-theme-format.md`.
+
+What the three look like — typography, colours, panels, spacing and the arrangement of the languages — comes from a theme, given to the tool as a directory and defined in `003-theme-format.md`. The tool composes; the theme decides how.
+
 The prompt is in English because the system's interface is English, as decided in `../../decisions/011-localization-and-time-policy.md`. A template package translates what a finder reads, not what the owner reads.
 
-When more than one language is selected, they are arranged to keep the composition closer to the shape of a screen than to a column: four languages are laid out as a grid rather than stacked. A tall composition on a wide screen is limited by its height and ends up small.
+How many languages may be selected, and how they are arranged, is the theme's: it declares an arrangement for each number it accepts. What that arrangement should aim for is argued in `../../decisions/007-preboot-ownership-message.md` — a composition closer to the shape of a screen than to a column, because a tall composition on a wide screen is limited by its height and ends up small.
 
 ## Why is needed
 
@@ -42,8 +49,13 @@ Building an image, rather than having the boot splash draw text, is decided in `
 ## Input parameters
 
 - `--config <path>`: Optional. Read the values from this file instead of `/etc/opinionatedarch/return-message.yaml`.
-- `--assets <path>`: Optional. Directory holding the project's own template package, used when the configuration names no template. Default: `/usr/share/opinionatedarch/assets`.
+- `--template-package <path>`: Optional. Directory holding the template package to compose, as defined in `001-template-package-format.md`. Default: the project's own, inside `--assets`.
+- `--theme <path>`: Optional. Directory holding the theme to compose it with, as defined in `003-theme-format.md`. Default: the project's own, inside `--assets`.
+- `--assets <path>`: Optional. Directory holding the project's own assets: the template package and the theme used when neither is given, and the body of the Plymouth script. Default: `/usr/share/opinionatedarch/assets`.
 - `--output <path>`: Optional. Directory to write the images into. Default: `/usr/share/plymouth/themes/opinionatedarch`.
+- `--logo <path>`: Optional. Image file to compose above the message. Without it the message carries no logo.
+
+The template package, the theme and the logo all arrive as paths on the local filesystem, never as the place they came from. Obtaining them — cloning a repository, downloading and unpacking an archive, letting the operator pick a directory from disk — belongs to whoever calls this tool, which for a new installation is the installer. The tool itself therefore reaches no network and unpacks nothing.
 
 The exit status is `0` when the images were written, and non-zero when the configuration, the template package or the rendering failed. Nothing is written when any of them does.
 
@@ -51,4 +63,4 @@ The exit status is `0` when the images were written, and non-zero when the confi
 
 There is no interactive version. What the message says is declared in the configuration file, and the installer collects it through its own screens.
 
-Changing the message on an installed system is editing that file and running the tool again. The result takes effect on the next boot, with no initramfs rebuild: the images live in the theme, which the splash reads at boot.
+Changing the message on an installed system is editing that file and running the tool again, naming the template package and the theme the message was built with when they are not the project's own. The result takes effect on the next boot, with no initramfs rebuild: the images live in the theme, which the splash reads at boot.

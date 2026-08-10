@@ -1,3 +1,0 @@
-logo_image = Image("logo.png");
-logo_sprite = Sprite(logo_image);
-logo_sprite.SetPosition((screen_width / 2) - (logo_image.GetWidth() / 2), 35, 20);

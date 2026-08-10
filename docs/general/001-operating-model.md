@@ -49,7 +49,7 @@ See [Snapshot Strategy](../decisions/005-snapshot-strategy.md) and [GRUB Boot Po
 
 ## Pre-Boot Ownership Message
 
-The disk-unlock screen can carry an ownership-and-return message, optionally with a logo, in up to four languages. It is the one part of the system that is not English-only, because it addresses whoever finds a lost machine.
+The disk-unlock screen can carry an ownership-and-return message, optionally with a logo, in as many languages as its theme lays out. It is the one part of the system that is not English-only, because it addresses whoever finds a lost machine.
 
 See [Pre-Boot Ownership Message](../decisions/007-preboot-ownership-message.md).
 

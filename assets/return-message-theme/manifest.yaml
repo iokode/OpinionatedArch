@@ -1,0 +1,65 @@
+version: "0.1"
+name: "OpinionatedArch dark"
+
+# The unlock screen is the first thing a display shows, in a room that may be
+# dark. Everything here is dark for that reason, not for taste.
+palette:
+  ground: "#0B1620"
+  panel: "#12202C"
+  edge: "#25415A"
+  ink: "#E8EEF4"
+  accent: "#8FC2FF"
+
+# No font travels with this theme. The symbols the icons use live in
+# Noto Sans Symbols, which `noto-fonts` already brings for the message itself,
+# and fontconfig substitutes it for the glyphs Noto Sans does not carry.
+fonts:
+  sans: { family: "Noto Sans" }
+
+styles:
+  regular: { font: sans, color_palette: ink, size: 1.0, weight: regular, slant: upright, align: left }
+  heading: { extends: regular, color_palette: accent, size: 1.3, weight: semibold }
+  contact: { extends: regular, color_palette: accent, weight: semibold }
+  icon: { extends: contact, weight: regular }
+  prompt: { extends: regular, size: 1.1, align: center }
+
+elements:
+  language_heading_style: heading
+  body_style: regular
+  password_prompt_style: prompt
+
+# A finder scanning for a way to get in touch finds the channel before reading
+# the sentence around it.
+kinds:
+  phone: { text_style: contact, icon_glyph: "☎", icon_style: icon }
+  email: { text_style: contact, icon_glyph: "✉", icon_style: icon }
+  address: { text_style: contact, icon_glyph: "⌂", icon_style: icon }
+  url: { text_style: contact }
+
+password_mask: { shape: circle, size: 96, color_palette: ink }
+
+language_panel: { fill_palette: panel, border: { color_palette: edge, width: 4 }, corner_radius: 40, padding: 72 }
+password_prompt_panel: { fill_palette: panel, border: { color_palette: edge, width: 4 }, corner_radius: 32, padding: 56 }
+
+# `body_size_ratio` puts about seventy characters on a line whatever the block
+# is wide, which is what keeps every arrangement readable by the same measure.
+canvas: { width: 3840, row_gap: 64, column_gap: 64, body_size_ratio: 0.0347 }
+
+spacing: { language_heading_gap: 24, line_gap: 10, paragraph_gap: 48 }
+
+logo: { width: 1000, gap: 96, position: above }
+
+# One language spans the width. From two on, the languages go side by side:
+# a composition shaped like the screen survives the scaling larger than a
+# column does.
+arrangement:
+  "1": [[1]]
+  "2": [[1, 1]]
+  "3": [[1], [1, 1]]
+  "4": [[1, 1], [1, 1]]
+
+screen:
+  background_palette: ground
+  fit: 0.85
+  message_gap: 96
+  mask_gap: 40

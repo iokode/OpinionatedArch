@@ -14,15 +14,25 @@ class DotfilesConfig {
     repository_url: string,
 }
 
-class ReturnMessageConfig {
+/// What the installer collected for the pre-boot return message: the values
+/// themselves, and where the package and the theme that render them come from.
+///
+/// The values are the renderer's own format, and it reads them from the file
+/// the installation leaves behind. The two origins are not in that format and
+/// never reach it: the renderer is handed directories, and resolving an origin
+/// into one is the installer's job.
+class ReturnMessageInput {
     /// Where the template package comes from. Empty means the project's own.
     template: string,
-    languages: string[],
-    /// Values for the fields the template declares. The names are the
-    /// template's, so the installer does not know them in advance.
-    fields: map<string, string>,
-    /// Empty when the message carries no logo.
-    logo_url: string,
+    /// Where the theme comes from. Empty means the project's own.
+    theme: string,
+    values: root.return_message.ReturnMessageConfig,
+}
+
+function empty_return_message_input() -> ReturnMessageInput {
+    ReturnMessageInput {
+        template: "", theme: "", values: root.return_message.empty_return_message(),
+    }
 }
 
 class InstallConfig {
@@ -40,7 +50,7 @@ class InstallConfig {
     /// Absent when no dotfiles repository is cloned.
     dotfiles: DotfilesConfig?,
     /// Absent when there is no pre-boot return message.
-    return_message: ReturnMessageConfig?,
+    return_message: ReturnMessageInput?,
     /// Read from the disk once it is partitioned; not part of the file.
     root_part_uuid: string,
 }
@@ -86,13 +96,14 @@ function summary_lines(config: InstallConfig) -> string[] {
         lines.push("dotfiles repository: none");
     }
 
-    if let message: ReturnMessageConfig = config.return_message {
-        lines.push(`return message: ${message.languages.join(", ")}`);
-        for (let name in message.fields.keys().sort_by_key((k) -> { k })) {
-            lines.push(`  ${name}: ${message.fields.get(name) ?? ""}`);
+    if let message: ReturnMessageInput = config.return_message {
+        let values = message.values;
+        lines.push(`return message: ${values.languages.join(", ")}`);
+        for (let name in values.fields.keys().sort_by_key((k) -> { k })) {
+            lines.push(`  ${name}: ${values.fields.get(name) ?? ""}`);
         }
-        if (message.logo_url != "") {
-            lines.push(`  logo: ${message.logo_url}`);
+        if (values.logo_url != "") {
+            lines.push(`  logo: ${values.logo_url}`);
         }
     } else {
         lines.push("return message: none");
@@ -112,11 +123,14 @@ test "summary_lines describes an installation without optional sections" {
 
 test "summary_lines lists the return message fields it was given" {
     let config = empty_config();
-    config.return_message = ReturnMessageConfig {
+    config.return_message = ReturnMessageInput {
         template: "",
-        languages: ["es", "ca"],
-        fields: { "phone": "666 555 666", "owner_name": "Ivan" },
-        logo_url: "",
+        theme: "",
+        values: root.return_message.ReturnMessageConfig {
+            languages: ["es", "ca"],
+            fields: { "phone": "666 555 666", "owner_name": "Ivan" },
+            logo_url: "",
+        },
     };
     let lines = summary_lines(config);
 

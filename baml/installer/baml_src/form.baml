@@ -299,22 +299,25 @@ function step_dotfiles(ui: Ui, config: InstallConfig) -> bool {
     true
 }
 
-//# the template decides what is asked here, so it is loaded before asking
+//# the template decides what is asked here, and the theme how many languages
+//# may be answered, so both are loaded before asking
 function step_return_message(shell: root.common.Shell, files: root.common.Files, ui: Ui,
                              config: InstallConfig, asset_dir: string) -> bool {
     ui.step("Return message");
     let yes_no = ["yes", "no"];
     let existing = config.return_message;
 
-    let message = if let present: ReturnMessageConfig = existing {
+    let message = if let present: ReturnMessageInput = existing {
         present
     } else {
-        ReturnMessageConfig { template: "", languages: [], fields: {}, logo_url: "" }
+        empty_return_message_input()
     };
+    let values = message.values;
 
     let field = 0;
-    let package = empty_package();
-    let asked: TemplateField[] = [];
+    let package = root.return_message.empty_package();
+    let theme = root.return_message.empty_theme();
+    let asked: root.return_message.TemplateField[] = [];
 
     while (true) {
         if (field == 0) {
@@ -333,7 +336,8 @@ function step_return_message(shell: root.common.Shell, files: root.common.Files,
             if let answer: string = ui.text("Return message",
                     "Template package directory or URL, or empty for the default one",
                     message.template, false) {
-                let loaded = resolve_package(shell, files, asset_dir, answer.trim());
+                let loaded = resolve_package(shell, files, asset_dir, answer.trim(),
+                                             live_staging_dir());
                 if (loaded.error != "") {
                     ui.error(loaded.error);
                 } else {
@@ -348,15 +352,32 @@ function step_return_message(shell: root.common.Shell, files: root.common.Files,
             } else {
                 field = 0;
             }
-        } else if (field <= asked.length() + 1) {
-            let declared = asked.at(field - 2);
-            if let current: TemplateField = declared {
+        } else if (field == 2) {
+            //# empty means the project's own theme
+            if let answer: string = ui.text("Return message",
+                    "Theme directory or URL, or empty for the default one",
+                    message.theme, false) {
+                let loaded = resolve_theme(shell, files, asset_dir, answer.trim(),
+                                           live_staging_dir());
+                if (loaded.error != "") {
+                    ui.error(loaded.error);
+                } else {
+                    message.theme = answer.trim();
+                    theme = loaded.theme;
+                    field = 3;
+                }
+            } else {
+                field = 1;
+            }
+        } else if (field <= asked.length() + 2) {
+            let declared = asked.at(field - 3);
+            if let current: root.return_message.TemplateField = declared {
                 if let answer: string = ui.text("Return message", current.label,
-                        message.fields.get(current.name) ?? "", false) {
+                        values.fields.get(current.name) ?? "", false) {
                     if (current.required && answer.trim() == "") {
                         ui.error(`${current.label} cannot be empty.`);
                     } else {
-                        let _ = message.fields.set(current.name, answer.trim());
+                        let _ = values.fields.set(current.name, answer.trim());
                         field = field + 1;
                     }
                 } else {
@@ -365,25 +386,37 @@ function step_return_message(shell: root.common.Shell, files: root.common.Files,
             } else {
                 field = field + 1;
             }
-        } else if (field == asked.length() + 2) {
+        } else if (field == asked.length() + 3) {
+            //# how many languages may be shown is the theme's: it is what has an
+            //# arrangement for each number, so the picker offers no more than
+            //# the largest it lays out and the theme judges what was picked
+            let accepted = root.return_message.accepted_counts(theme);
+            let listed: string[] = [];
+            for (let count in accepted) {
+                listed.push(`${count}`);
+            }
+            let most = accepted.at(accepted.length() - 1) ?? 1;
+
             if let picked: string[] = ui.choose_many("Return message",
-                    "Return-message languages (1 to 4).",
-                    package_language_labels(package), message.languages, 1, 4) {
-                if (picked.length() < 1 || picked.length() > 4) {
-                    ui.error("Select between 1 and 4 languages.");
-                } else {
-                    //# the operator picks labels; the config keeps codes
-                    let codes: string[] = [];
-                    let labels = package_language_labels(package);
-                    let all = package_language_codes(package);
-                    let index = 0;
-                    for (let label in labels) {
-                        if (picked.includes(label)) {
-                            codes.push(all.at(index) ?? "");
-                        }
-                        index = index + 1;
+                    `Return-message languages (${listed.join(", ")}).`,
+                    root.return_message.package_language_labels(package), values.languages, 1, most) {
+                //# the operator picks labels; the config keeps codes
+                let codes: string[] = [];
+                let labels = root.return_message.package_language_labels(package);
+                let all = root.return_message.package_language_codes(package);
+                let index = 0;
+                for (let label in labels) {
+                    if (picked.includes(label)) {
+                        codes.push(all.at(index) ?? "");
                     }
-                    message.languages = codes;
+                    index = index + 1;
+                }
+                values.languages = codes;
+
+                let problem = root.return_message.check_language_count(theme, values);
+                if (problem != "") {
+                    ui.error(problem);
+                } else {
                     field = field + 1;
                 }
             } else {
@@ -391,17 +424,17 @@ function step_return_message(shell: root.common.Shell, files: root.common.Files,
             }
         } else {
             if let picked: int = ui.choose("Return message", "Include a company logo?", yes_no,
-                                           if (message.logo_url == "") { 1 } else { 0 }) {
+                                           if (values.logo_url == "") { 1 } else { 0 }) {
                 if ((yes_no.at(picked) ?? "") == "no") {
-                    message.logo_url = "";
+                    values.logo_url = "";
                     config.return_message = message;
                     return true;
                 }
-                if let answer: string = ui.text("Return message", "Logo URL", message.logo_url, false) {
+                if let answer: string = ui.text("Return message", "Logo URL", values.logo_url, false) {
                     if (answer.trim() == "") {
                         ui.error("Logo URL is required when the logo is included.");
                     } else {
-                        message.logo_url = answer.trim();
+                        values.logo_url = answer.trim();
                         config.return_message = message;
                         return true;
                     }
@@ -440,7 +473,7 @@ function fake_live_shell() -> root.common.RecordingShell {
 }
 
 function scripted(answers: string[]) -> ScriptedUi {
-    ScriptedUi { answers: answers, asked: [], steps: [], errors: [], outline: [] }
+    ScriptedUi { answers: answers, asked: [], steps: [], errors: [], outline: [], limits: [] }
 }
 
 test "the form walks every screen and collects the whole config" {
@@ -552,6 +585,7 @@ test "the return message asks the fields the template package declares" {
             "no",
             "yes", // include return message
             "", // template package: the project's own
+            "", // theme: the project's own
             "Ivan", // owner_name, as the package labels it
             "666 555 666", // phone
             "Español (es)", // languages
@@ -564,11 +598,11 @@ test "the return message asks the fields the template package declares" {
 
     assert.not_null(config);
     if let collected: InstallConfig = config {
-        if let message: ReturnMessageConfig = collected.return_message {
+        if let message: ReturnMessageInput = collected.return_message {
             //# the names come from the package, not from the installer
-            assert.equal(message.fields.get("owner_name"), "Ivan");
-            assert.equal(message.fields.get("phone"), "666 555 666");
-            assert.equal(message.languages, ["es"]);
+            assert.equal(message.values.fields.get("owner_name"), "Ivan");
+            assert.equal(message.values.fields.get("phone"), "666 555 666");
+            assert.equal(message.values.languages, ["es"]);
             assert.equal(message.template, "")
         }
     }
@@ -579,7 +613,7 @@ test "the package's notice is shown before its fields are asked" {
         [
             "/dev/sda (476,9G, Samsung SSD 860)", "wipe-all", "none", "none", "0", "0",
             "ivan", "s", "s", "es", "UTC", "oparch", "no",
-            "yes", "", "Ivan", "666", "Español (es)", "no", "start",
+            "yes", "", "", "Ivan", "666", "Español (es)", "no", "start",
         ],
     );
 
@@ -596,6 +630,7 @@ test "a template package that cannot be read is reported and asked again" {
             "yes",
             "/nowhere", // a package that is not there
             "", // then the project's own
+            "", // theme: the project's own
             "Ivan", "666", "Español (es)", "no", "start",
         ],
     );
@@ -605,6 +640,57 @@ test "a template package that cannot be read is reported and asked again" {
     assert.is_true(ui.errors.includes(
         "The template package has no manifest.yaml: /nowhere/manifest.yaml"));
     assert.not_null(config)
+}
+
+test "the theme is asked for beside the package, and kept as it was named" {
+    let ui = scripted(
+        [
+            "/dev/sda (476,9G, Samsung SSD 860)", "wipe-all", "none", "none", "0", "0",
+            "ivan", "s", "s", "es", "UTC", "oparch", "no",
+            "yes",
+            "", // template package: the project's own
+            "/nowhere", // a theme that is not there
+            "/theme", // then one that is
+            "Ivan", "666", "Español (es)", "no", "start",
+        ],
+    );
+    let files = packaged_files();
+    files.write("/theme/manifest.yaml", root.return_message.sample_theme());
+
+    let config = collect_config(fake_live_shell(), files, ui, "/assets");
+
+    assert.is_true(ui.errors.includes("The theme has no manifest.yaml: /nowhere/manifest.yaml"));
+    assert.not_null(config);
+    if let collected: InstallConfig = config {
+        if let message: ReturnMessageInput = collected.return_message {
+            assert.equal(message.theme, "/theme")
+        }
+    }
+}
+
+test "the languages the picker takes are the ones the theme lays out" {
+    let ui = scripted(
+        [
+            "/dev/sda (476,9G, Samsung SSD 860)", "wipe-all", "none", "none", "0", "0",
+            "ivan", "s", "s", "es", "UTC", "oparch", "no",
+            "yes", "", "", "Ivan", "666",
+            "Español (es), Català (ca), English (en)", // three, which the theme has no arrangement for
+            "Español (es), Català (ca)",
+            "no", "start",
+        ],
+    );
+
+    let config = collect_config(fake_live_shell(), three_language_files(), ui, "/assets");
+
+    //# four is the largest the theme lays out, not a number the installer holds
+    assert.equal(ui.limits, ["1 to 4", "1 to 4"]);
+    assert.is_true(ui.errors.includes(
+        "The theme lays out 1, 2 or 4 languages, and 3 were selected."));
+    if let collected: InstallConfig = config {
+        if let message: ReturnMessageInput = collected.return_message {
+            assert.equal(message.values.languages, ["es", "ca"])
+        }
+    }
 }
 
 test "going back re-asks the previous screen" {

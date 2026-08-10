@@ -31,6 +31,20 @@ function target_path(target: Target, path: string) -> string throws baml.errors.
     `${root}${path}`
 }
 
+/// Joins a directory and a name, whether or not the directory ends in a slash.
+function in_directory(directory: string, name: string) -> string {
+    if (directory.ends_with("/")) {
+        `${directory}${name}`
+    } else {
+        `${directory}/${name}`
+    }
+}
+
+test "in_directory joins with exactly one slash" {
+    assert.equal(in_directory("/pkg", "manifest.yaml"), "/pkg/manifest.yaml");
+    assert.equal(in_directory("/pkg/", "manifest.yaml"), "/pkg/manifest.yaml")
+}
+
 interface Files {
     /// The first operation that failed, if any. File operations do not report
     /// failure one by one, because a phase would then have to check every

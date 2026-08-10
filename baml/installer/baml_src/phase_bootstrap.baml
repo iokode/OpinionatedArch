@@ -2,8 +2,10 @@
 // files that must exist before the first chroot step are put in place.
 
 /// A return message, for tests that need one present.
-function sample_return_message() -> ReturnMessageConfig {
-    ReturnMessageConfig { template: "", languages: ["es"], fields: {}, logo_url: "" }
+function sample_return_message() -> ReturnMessageInput {
+    let message = empty_return_message_input();
+    message.values.languages = ["es"];
+    message
 }
 
 /// Where transient installation files are staged in the live system.
@@ -143,7 +145,7 @@ function bootstrap_shell() -> root.common.RecordingShell {
 test "bootstrap installs, writes fstab and stages the netboot binary" {
     let shell = bootstrap_shell();
     let files = root.common.recording_files();
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], limits: [] };
     let config = layout_config();
     config.ucode_package = "amd-ucode";
     config.gpu_driver = "none";
@@ -166,7 +168,7 @@ test "bootstrap stops and says so when pacstrap fails" {
         commands: [], streamed: [], fed: [], replies: {}, exit_codes: {},
     };
     let files = root.common.recording_files();
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], limits: [] };
     let config = empty_config();
     config.ucode_package = "none";
     config.gpu_driver = "none";

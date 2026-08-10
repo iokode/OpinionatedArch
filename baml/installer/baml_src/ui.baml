@@ -104,6 +104,9 @@ class ScriptedUi {
     steps: string[],
     errors: string[],
     outline: string[],
+    /// What each multi-select was allowed to take, as `min to max`. The bounds
+    /// are a decision of the screen, so a test can hold them to it.
+    limits: string[],
 
     function next(self) -> string {
         self.answers.shift() ?? "<back>"
@@ -152,6 +155,7 @@ class ScriptedUi {
             max: int,
         ) -> string[]? {
             self.asked.push(title);
+            self.limits.push(`${min} to ${max}`);
             let answer = self.next();
             if (answer == "<back>") {
                 return null;

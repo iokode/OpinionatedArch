@@ -1,0 +1,119 @@
+# The unlock screen. It draws no text: everything it shows was composed into an
+# image beforehand by `oparch-return-message-render`, and the installed system
+# carries no font for this screen. What is drawn is decided by the return-message
+# theme, in `docs/tools/oparch-return-message-render/003-theme-format.md`.
+#
+# This file is the body of the script. Whoever installs the theme writes these
+# seven values above it, as literals, and the two together are the script the
+# splash runs. A Plymouth script cannot read them for itself: `[script-env-vars]`
+# in a `.plymouth` file does reach the script, but every value arrives as a
+# string and the script language has no way to make a number of one.
+#
+#   background_red, background_green, background_blue
+#   has_background_image    1 when the theme brought `background.png`, else 0
+#   fit                     fraction of the limiting screen dimension the stack fills
+#   message_gap, mask_gap   in the pixels of the 3840-wide canvas the images were composed at
+
+Window.SetBackgroundTopColor(background_red, background_green, background_blue);
+Window.SetBackgroundBottomColor(background_red, background_green, background_blue);
+
+screen.x = Window.GetX();
+screen.y = Window.GetY();
+screen.width = Window.GetWidth();
+screen.height = Window.GetHeight();
+
+# The background image covers the screen, so it is scaled by whichever of the two
+# ratios is the larger and the overflow falls outside.
+if (has_background_image)
+  {
+    backdrop.source = Image("background.png");
+    backdrop.scale = Math.Max(screen.width / backdrop.source.GetWidth(),
+                              screen.height / backdrop.source.GetHeight());
+    backdrop.image = backdrop.source.Scale(Math.Int(backdrop.source.GetWidth() * backdrop.scale),
+                                           Math.Int(backdrop.source.GetHeight() * backdrop.scale));
+    backdrop.sprite = Sprite(backdrop.image);
+    backdrop.sprite.SetPosition(screen.x + (screen.width - backdrop.image.GetWidth()) / 2,
+                                screen.y + (screen.height - backdrop.image.GetHeight()) / 2,
+                                0);
+  }
+
+message.source = Image("return-message.png");
+prompt.source = Image("password-prompt.png");
+mask.source = Image("password-mask.png");
+
+# The three images and the two gaps are one composition, in canvas pixels. Its
+# width is the canvas width, which the message and the prompt were composed at.
+canvas.width = message.source.GetWidth();
+canvas.height = message.source.GetHeight() + message_gap
+              + prompt.source.GetHeight() + mask_gap
+              + mask.source.GetHeight();
+
+# One factor for all three, so they stay in proportion with each other: the
+# largest that keeps the composition inside `fit` of both screen dimensions,
+# which is `fit` of whichever of them is the limiting one.
+scale = Math.Min(screen.width * fit / canvas.width, screen.height * fit / canvas.height);
+
+fun scaled (image)
+  {
+    return image.Scale(Math.Int(image.GetWidth() * scale), Math.Int(image.GetHeight() * scale));
+  }
+
+message.image = scaled(message.source);
+prompt.image = scaled(prompt.source);
+mask.image = scaled(mask.source);
+
+# The stack keeps the room for the prompt and for one row of mask, asked for or
+# not, so that the message does not move when the password is asked for.
+stack.height = Math.Int(canvas.height * scale);
+stack.top = screen.y + (screen.height - stack.height) / 2;
+
+message.sprite = Sprite(message.image);
+message.sprite.SetPosition(screen.x + (screen.width - message.image.GetWidth()) / 2,
+                           stack.top,
+                           10);
+
+prompt.y = stack.top + message.image.GetHeight() + Math.Int(message_gap * scale);
+prompt.sprite = Sprite(prompt.image);
+prompt.sprite.SetPosition(screen.x + (screen.width - prompt.image.GetWidth()) / 2,
+                          prompt.y,
+                          10);
+prompt.sprite.SetOpacity(0);
+
+mask.y = prompt.y + prompt.image.GetHeight() + Math.Int(mask_gap * scale);
+
+# One mask per character typed, the row centred on the same line as the rest.
+# A sprite is made once and then reused, so a keystroke moves and shows sprites
+# rather than building them.
+fun show_masks (count)
+  {
+    local.left = screen.x + (screen.width - count * mask.image.GetWidth()) / 2;
+
+    for (index = 0; mask.sprite[index] || index < count; index++)
+      {
+        if (!mask.sprite[index])
+          mask.sprite[index] = Sprite(mask.image);
+
+        if (index < count)
+          {
+            mask.sprite[index].SetPosition(left + index * mask.image.GetWidth(), mask.y, 10);
+            mask.sprite[index].SetOpacity(1);
+          }
+        else
+          mask.sprite[index].SetOpacity(0);
+      }
+  }
+
+fun display_password_callback (text, characters)
+  {
+    prompt.sprite.SetOpacity(1);
+    show_masks(characters);
+  }
+
+fun display_normal_callback ()
+  {
+    prompt.sprite.SetOpacity(0);
+    show_masks(0);
+  }
+
+Plymouth.SetDisplayPasswordFunction(display_password_callback);
+Plymouth.SetDisplayNormalFunction(display_normal_callback);

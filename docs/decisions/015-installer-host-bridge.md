@@ -14,9 +14,19 @@ The bridge is **`rust`**, with the host kept as a thin, disposable shim over the
 
 Because the host is disposable, the selection criterion is not which host is best today, but which one leaves the BAML code untouched on the day it is deleted.
 
+### Only a tool that needs one has a host
+
+A host exists to own a terminal and to read a command's output while it is still running. A tool that needs neither has no host and no bridge: `baml.sys` runs commands and `baml.fs` touches files, and `baml pack` turns the tool into the executable it ships as.
+
+`oparch-return-message-render` is the first tool built that way. Of the built-in tools, only the installer is known to need a host.
+
+What such a tool uses instead of the host are the same `Shell` and `Files` ports the installer is written against, implemented over `baml.sys` and `baml.fs` and living beside the recording doubles in `baml/utils/`. Nothing above the port can tell which implementation is underneath, so the tests do not change and neither does the code being tested.
+
 ## Why
 
 - A host language is used at all because BAML currently provides neither a TUI nor streaming process output; if `baml.sys.exec` is used directly, the installer cannot show progress until each command has already finished.
+- A tool that needs neither of those has no host because a host is then pure cost: a second language, a generated SDK, a build step and a runtime library, all to forward calls that `baml.sys` and `baml.fs` already make. It would also be cost paid for something already scheduled for deletion.
+- The port is kept even where there is no host to hide, because what the ports buy is the recording doubles: a tool that called `baml.sys.exec` directly could only be tested by running the commands for real.
 - The bridge is treated as disposable because BAML's standard library will cover this ground; if the host is designed as a permanent component, its constraints get baked into code that outlives it.
 - `rust` is chosen over `go` because Go has no sum types, so a BAML union reaches the Go SDK as `any`. Working around that means flattening unions into tagged classes *in BAML* — permanent code written to serve a disposable host. Rust receives a generated `enum` and needs no such workaround.
 - `rust`'s own limitations are accepted because they land entirely on the host side: function-type aliases cannot cross the boundary (inline closure types work), and reentrant calls must use the `_async` API. Neither deforms the BAML data model.
@@ -79,6 +89,15 @@ Rust's constraints, by contrast, are confined to the disposable side: write clos
 - The host binary is not self-contained: it loads a ~25 MB shared library, downloaded on first run unless shipped in the archiso with `BAML_LIBRARY_PATH` pointing at it. `BAML_LIBRARY_DISABLE_DOWNLOAD` turns a missing library into a failure instead of a silent download, which is the wanted behaviour inside the ISO.
 - The runtime logs to stdout as it starts, which lands on top of a TUI. `BAML_LOG` controls it.
 - The bridge package is pinned to the exact toolchain build. The `rust` and `go` generators write that pin themselves; with Python it must be pinned by hand, and a mismatch surfaces as `Failed to deserialize BAML bytecode: Unexpected variant tag: 7`.
+
+#### A packed tool and a hosted one ship differently
+
+`baml pack` produced an 18 MB executable linked against nothing but `libc`, `libm` and `libgcc`, which ran and drove ImageMagick with no library to find and nothing to download. That is the opposite of the hosted case measured above, where the host binary loads a ~25 MB shared library and fetches it on first run unless the ISO carries it.
+
+Two further findings shape how such a tool is written:
+
+- Parameters declared on the packed entry point become **mandatory** flags in the generated CLI, `string?` included: an optional `--config` has to be written as `--config null`. A tool with optional options therefore declares no parameters and reads `baml.sys.argv()` itself, which also puts the wording of its own errors back in its hands.
+- The entry point's return value is printed, not used as the exit status. `baml.sys.exit` is what sets it.
 
 ### Consequences of the choice
 

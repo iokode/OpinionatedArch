@@ -1,8 +1,12 @@
 // Reading a return-message template package, as defined in
 // `docs/tools/oparch-return-message-render/001-template-package-format.md`.
 //
-// Everything here is pure: the manifest arrives as text and the bodies arrive
-// as text. Fetching them is the caller's business.
+// Two tools read a package: the installer, to know which values to ask for,
+// and `oparch-return-message-render`, to build the message. They read it with
+// this code, not with two copies of it.
+//
+// Parsing is pure: the manifest arrives as text and the bodies arrive as text.
+// Fetching them is the caller's business.
 
 class TemplateField {
     name: string,
@@ -36,7 +40,7 @@ function empty_package() -> TemplatePackage {
     TemplatePackage { version: "", name: "", notice: "", fields: [], languages: [] }
 }
 
-/// The revision of the format this installer implements.
+/// The revision of the format this project implements.
 function supported_major() -> int {
     1
 }
@@ -59,14 +63,14 @@ function parse_manifest(text: string) -> PackageParse {
             }
         };
 
-    let top = as_map(document) ?? empty_json_map();
-    if (as_map(document) == null) {
+    let top = root.common.as_map(document) ?? root.common.empty_json_map();
+    if (root.common.as_map(document) == null) {
         return PackageParse { package: empty_package(), error: "The manifest must be a mapping." };
     }
 
     let package = empty_package();
 
-    let version = read_text(top, "version", "version");
+    let version = root.common.read_text(top, "version", "version");
     if (version.error != "") {
         return PackageParse { package: package, error: version.error };
     }
@@ -76,13 +80,13 @@ function parse_manifest(text: string) -> PackageParse {
     }
     package.version = version.value;
 
-    let name = read_text(top, "name", "name");
+    let name = root.common.read_text(top, "name", "name");
     if (name.error != "") {
         return PackageParse { package: package, error: name.error };
     }
     package.name = name.value;
 
-    let notice = read_text(top, "notice", "notice");
+    let notice = root.common.read_text(top, "notice", "notice");
     if (notice.error != "") {
         return PackageParse { package: package, error: notice.error };
     }
@@ -101,7 +105,7 @@ function parse_manifest(text: string) -> PackageParse {
     PackageParse { package: package, error: "" }
 }
 
-/// A revision this installer cannot interpret is refused rather than guessed at.
+/// A revision this project cannot interpret is refused rather than guessed at.
 function check_version(version: string) -> string {
     if (version == "") {
         return "version is required.";
@@ -110,16 +114,17 @@ function check_version(version: string) -> string {
     if (parts.length() != 2) {
         return `Invalid version: ${version}`;
     }
-    let major = parse_int(parts.at(0) ?? "");
-    let minor = parse_int(parts.at(1) ?? "");
+    let major = root.common.parse_int(parts.at(0) ?? "");
+    let minor = root.common.parse_int(parts.at(1) ?? "");
     if (major == null || minor == null) {
         return `Invalid version: ${version}`;
     }
     if ((major ?? 0) != supported_major()) {
-        return `This package needs format version ${major ?? 0}, which this installer does not implement.`;
+        return `This package needs format version ${major ?? 0}, which is not implemented here.`;
     }
     if ((minor ?? 0) > supported_minor()) {
-        return `This package needs format version ${version}, and this installer implements up to ${supported_major()}.${supported_minor()}.`;
+        return `This package needs format version ${version}, and what is implemented here is up to`
+            + ` ${supported_major()}.${supported_minor()}.`;
     }
     ""
 }
@@ -128,19 +133,19 @@ function read_fields(top: map<string, baml.json.json>, package: TemplatePackage)
     if (!top.keys().includes("fields")) {
         return "The package declares no field.";
     }
-    let entries = as_list(top.get("fields"));
+    let entries = root.common.as_list(top.get("fields"));
     if (entries == null) {
         return "fields must be a list.";
     }
     let seen: string[] = [];
 
     for (let entry in entries) {
-        let values = as_map(entry) ?? empty_json_map();
-        if (as_map(entry) == null) {
+        let values = root.common.as_map(entry) ?? root.common.empty_json_map();
+        if (root.common.as_map(entry) == null) {
             return "Every field must be a mapping.";
         }
 
-        let name = read_text(values, "name", "field name");
+        let name = root.common.read_text(values, "name", "field name");
         if (name.error != "") {
             return name.error;
         }
@@ -152,7 +157,7 @@ function read_fields(top: map<string, baml.json.json>, package: TemplatePackage)
         }
         seen.push(name.value);
 
-        let label = read_text(values, "label", `field ${name.value} label`);
+        let label = root.common.read_text(values, "label", `field ${name.value} label`);
         if (label.error != "") {
             return label.error;
         }
@@ -160,7 +165,7 @@ function read_fields(top: map<string, baml.json.json>, package: TemplatePackage)
             return `The field ${name.value} declares no label.`;
         }
 
-        let kind = read_text(values, "kind", `field ${name.value} kind`);
+        let kind = root.common.read_text(values, "kind", `field ${name.value} kind`);
         if (kind.error != "") {
             return kind.error;
         }
@@ -197,19 +202,19 @@ function read_languages(top: map<string, baml.json.json>, package: TemplatePacka
     if (!top.keys().includes("languages")) {
         return "The package declares no language.";
     }
-    let entries = as_list(top.get("languages"));
+    let entries = root.common.as_list(top.get("languages"));
     if (entries == null) {
         return "languages must be a list.";
     }
     let seen: string[] = [];
 
     for (let entry in entries) {
-        let values = as_map(entry) ?? empty_json_map();
-        if (as_map(entry) == null) {
+        let values = root.common.as_map(entry) ?? root.common.empty_json_map();
+        if (root.common.as_map(entry) == null) {
             return "Every language must be a mapping.";
         }
 
-        let code = read_text(values, "code", "language code");
+        let code = root.common.read_text(values, "code", "language code");
         if (code.error != "") {
             return code.error;
         }
@@ -221,7 +226,7 @@ function read_languages(top: map<string, baml.json.json>, package: TemplatePacka
         }
         seen.push(code.value);
 
-        let name = read_text(values, "name", `language ${code.value} name`);
+        let name = root.common.read_text(values, "name", `language ${code.value} name`);
         if (name.error != "") {
             return name.error;
         }
@@ -252,13 +257,6 @@ function validate_field_name(name: string) -> bool {
         }
     }
     true
-}
-
-function as_list(value: baml.json.json) -> baml.json.json[]? {
-    match (value) {
-        let items: baml.json.json[] => items,
-        _ => null,
-    }
 }
 
 /// The file holding the message for a language.
@@ -431,10 +429,10 @@ test "a field is required and text unless it says otherwise" {
     assert.equal((parsed.package.fields.at(0))?.kind, "text")
 }
 
-test "a package for a version this installer does not implement is refused" {
+test "a package for a version that is not implemented is refused" {
     let text = sample_manifest().replace("version: \"1.0\"", "version: \"2.0\"");
     assert.equal(parse_manifest(text).error,
-                 "This package needs format version 2, which this installer does not implement.");
+                 "This package needs format version 2, which is not implemented here.");
 
     let newer = sample_manifest().replace("version: \"1.0\"", "version: \"1.7\"");
     assert.is_true(parse_manifest(newer).error.starts_with("This package needs format version 1.7"))
@@ -512,19 +510,10 @@ class LoadedPackage {
     error: string,
 }
 
-/// Joins a directory and a name, whether or not the directory ends in a slash.
-function in_directory(directory: string, name: string) -> string {
-    if (directory.ends_with("/")) {
-        `${directory}${name}`
-    } else {
-        `${directory}/${name}`
-    }
-}
-
 /// Reads a package from a directory and validates it completely: the manifest,
 /// then every message it declares.
 function load_package(files: root.common.Files, directory: string) -> LoadedPackage {
-    let manifest_path = in_directory(directory, "manifest.yaml");
+    let manifest_path = root.common.in_directory(directory, "manifest.yaml");
     let manifest_text = files.read(manifest_path);
     if (manifest_text == null) {
         return LoadedPackage {
@@ -541,7 +530,7 @@ function load_package(files: root.common.Files, directory: string) -> LoadedPack
 
     let bodies: map<string, string> = {};
     for (let language in parsed.package.languages) {
-        let path = in_directory(directory, body_file_name(language.code));
+        let path = root.common.in_directory(directory, body_file_name(language.code));
         let body = files.read(path);
         if (body == null) {
             return LoadedPackage {
@@ -560,42 +549,32 @@ function load_package(files: root.common.Files, directory: string) -> LoadedPack
     LoadedPackage { package: parsed.package, bodies: bodies, error: "" }
 }
 
+/// True when a path would land outside the directory it belongs to. A theme
+/// names its own font and image files this way, and whoever unpacks an archive
+/// checks its entries the same way, so the rule is written once.
+function entry_escapes(entry: string) -> bool {
+    if (entry.starts_with("/")) {
+        return true;
+    }
+    for (let part in entry.split("/")) {
+        if (part == "..") {
+            return true;
+        }
+    }
+    false
+}
+
+test "entry_escapes catches the ways out of a directory" {
+    assert.is_true(!entry_escapes("manifest.yaml"));
+    assert.is_true(!entry_escapes("nested/es.txt"));
+    assert.is_true(entry_escapes("/etc/passwd"));
+    assert.is_true(entry_escapes("../outside.txt"));
+    assert.is_true(entry_escapes("nested/../../outside.txt"))
+}
+
 /// Where the project's own package lives inside the asset directory.
 function default_package_directory(asset_dir: string) -> string {
-    in_directory(asset_dir, "return-message")
-}
-
-/// Where a fetched package is unpacked. The installer chooses this path; the
-/// archive never influences it.
-function fetched_package_directory() -> string {
-    in_directory(live_staging_dir(), "template-package")
-}
-
-/// The package a configuration asks for: its own, or the project's. A package
-/// named by URL is fetched first, and read from where it was unpacked.
-function resolve_package(shell: root.common.Shell, files: root.common.Files,
-                         asset_dir: string, template: string) -> LoadedPackage {
-    if (template == "") {
-        return load_package(files, default_package_directory(asset_dir));
-    }
-    if (!is_url(template)) {
-        return load_package(files, template);
-    }
-    let destination = fetched_package_directory();
-    let problem = fetch_package(shell, files, template, live_staging_dir(), destination);
-    if (problem != "") {
-        return LoadedPackage { package: empty_package(), bodies: {}, error: problem };
-    }
-    load_package(files, destination)
-}
-
-/// The package a configuration asks for, by directory, when it is not a URL.
-function package_directory(asset_dir: string, template: string) -> string {
-    if (template == "") {
-        default_package_directory(asset_dir)
-    } else {
-        template
-    }
+    root.common.in_directory(asset_dir, "return-message")
 }
 
 /// The codes a package offers, in the order it declares them.
@@ -614,6 +593,16 @@ function package_language_labels(package: TemplatePackage) -> string[] {
         labels.push(`${language.name} (${language.code})`);
     }
     labels
+}
+
+/// The language's own name, as the package writes it.
+function language_name(package: TemplatePackage, code: string) -> string {
+    for (let language in package.languages) {
+        if (language.code == code) {
+            return language.name;
+        }
+    }
+    ""
 }
 
 /// The first required field left without a value, if any.
@@ -663,9 +652,14 @@ test "load_package refuses a message referring to an undeclared field" {
                  "es.txt refers to a field the manifest does not declare: fax")
 }
 
-test "package_directory prefers the operator's package over the project's" {
-    assert.equal(package_directory("/assets", ""), "/assets/return-message");
-    assert.equal(package_directory("/assets", "/home/ivan/andorra"), "/home/ivan/andorra")
+test "the project's own package lives beside the other assets" {
+    assert.equal(default_package_directory("/assets"), "/assets/return-message")
+}
+
+test "language_name answers with the name the package gave the code" {
+    let package = parse_manifest(sample_manifest()).package;
+    assert.equal(language_name(package, "ca"), "Català");
+    assert.equal(language_name(package, "de"), "")
 }
 
 test "missing_required_field names the first one left empty" {
@@ -676,130 +670,3 @@ test "missing_required_field names the first one left empty" {
     assert.is_true(missing_required_field(package, { "owner_name": "Ivan" }) == null)
 }
 
-// ---------------------------------------------------------------- fetching
-
-/// True when an archive entry would be written outside the directory it is
-/// extracted into. Checked before extracting rather than trusted to `tar`.
-function entry_escapes(entry: string) -> bool {
-    if (entry.starts_with("/")) {
-        return true;
-    }
-    for (let part in entry.split("/")) {
-        if (part == "..") {
-            return true;
-        }
-    }
-    false
-}
-
-/// The first entry of a listing that would escape, if any.
-function escaping_entry(listing: string) -> string? {
-    for (let entry in root.common.nonempty_lines(listing)) {
-        if (entry_escapes(entry)) {
-            return entry;
-        }
-    }
-    null
-}
-
-/// A package named by URL is downloaded and unpacked into `destination`, which
-/// the installer chooses. Nothing else about the archive decides where its
-/// contents land.
-function fetch_package(shell: root.common.Shell, files: root.common.Files,
-                       url: string, staging: string, destination: string) -> string {
-    let archive = in_directory(staging, "template-package.tar");
-    files.mkdir(staging);
-
-    let downloaded = shell.capture("curl",
-        ["-fL", "--retry", "2", "--connect-timeout", "10", "-o", archive, url]);
-    if (downloaded.exit_code != 0) {
-        return `Downloading the template package failed with exit code ${downloaded.exit_code}: ${url}`;
-    }
-
-    //# look before unpacking: an entry that escapes is refused, not extracted
-    let listing = shell.capture("tar", ["-tf", archive]);
-    if (listing.exit_code != 0) {
-        return `The template package is not a readable archive: ${url}`;
-    }
-    if let entry: string = escaping_entry(listing.stdout) {
-        return `The template package holds an entry that would be written outside it: ${entry}`;
-    }
-
-    files.mkdir(destination);
-    let extracted = shell.capture("tar", ["-xf", archive, "-C", destination]);
-    if (extracted.exit_code != 0) {
-        return `Unpacking the template package failed with exit code ${extracted.exit_code}.`;
-    }
-    ""
-}
-
-/// True when a template is named by URL rather than by path.
-function is_url(template: string) -> bool {
-    template.starts_with("http://") || template.starts_with("https://")
-}
-
-test "entry_escapes catches the ways out of a directory" {
-    assert.is_true(!entry_escapes("manifest.yaml"));
-    assert.is_true(!entry_escapes("nested/es.txt"));
-    assert.is_true(entry_escapes("/etc/passwd"));
-    assert.is_true(entry_escapes("../outside.txt"));
-    assert.is_true(entry_escapes("nested/../../outside.txt"))
-}
-
-test "escaping_entry names the first bad entry of a listing" {
-    assert.is_true(escaping_entry("manifest.yaml\nes.txt\n") == null);
-    assert.equal(escaping_entry("manifest.yaml\n../../etc/passwd\nes.txt\n"), "../../etc/passwd")
-}
-
-test "fetch_package refuses an archive before unpacking it" {
-    let shell = root.common.RecordingShell {
-        commands: [], streamed: [], fed: [], exit_codes: {},
-        replies: { "tar -tf /tmp/oparch/template-package.tar": "manifest.yaml\n../escape.txt\n" },
-    };
-
-    assert.equal(
-        fetch_package(shell, root.common.recording_files(),
-                      "https://example.invalid/pkg.tar", "/tmp/oparch", "/tmp/oparch/package"),
-        "The template package holds an entry that would be written outside it: ../escape.txt");
-    //# refused means not extracted
-    assert.is_true(!shell.commands.includes(
-        "tar -xf /tmp/oparch/template-package.tar -C /tmp/oparch/package"))
-}
-
-test "fetch_package downloads, inspects and unpacks in that order" {
-    let shell = root.common.RecordingShell {
-        commands: [], streamed: [], fed: [], exit_codes: {},
-        replies: { "tar -tf /tmp/oparch/template-package.tar": "manifest.yaml\nes.txt\n" },
-    };
-
-    assert.equal(
-        fetch_package(shell, root.common.recording_files(),
-                      "https://example.invalid/pkg.tar", "/tmp/oparch", "/tmp/oparch/package"),
-        "");
-    assert.equal(shell.commands, [
-        "curl -fL --retry 2 --connect-timeout 10 -o /tmp/oparch/template-package.tar"
-            + " https://example.invalid/pkg.tar",
-        "tar -tf /tmp/oparch/template-package.tar",
-        "tar -xf /tmp/oparch/template-package.tar -C /tmp/oparch/package",
-    ])
-}
-
-test "fetch_package reports a download that failed" {
-    let shell = root.common.RecordingShell {
-        commands: [], streamed: [], fed: [], exit_codes: {}, replies: {},
-    };
-    let _ = shell.exit_codes.set(
-        "curl -fL --retry 2 --connect-timeout 10 -o /tmp/oparch/template-package.tar"
-            + " https://example.invalid/pkg.tar", 22);
-
-    assert.equal(
-        fetch_package(shell, root.common.recording_files(),
-                      "https://example.invalid/pkg.tar", "/tmp/oparch", "/tmp/oparch/package"),
-        "Downloading the template package failed with exit code 22: https://example.invalid/pkg.tar")
-}
-
-test "is_url tells a URL from a path" {
-    assert.is_true(is_url("https://example.invalid/pkg.tar"));
-    assert.is_true(!is_url("/home/ivan/andorra"));
-    assert.is_true(!is_url(""))
-}

@@ -49,6 +49,8 @@ Section order:
 - [BAML as Implementation Language](decisions/014-baml-as-implementation-language.md)
 - [Installer Host Bridge](decisions/015-installer-host-bridge.md)
 - [BAML Repository Layout](decisions/016-baml-repository-layout.md)
+- [Return Message Themes](decisions/017-return-message-themes.md)
+- [Installer Input Sources](decisions/018-installer-input-sources.md)
 
 ## Tool
 
@@ -82,6 +84,7 @@ The `Specification` section uses free `###` subsections.
 - [oparch-return-message-render](tools/oparch-return-message-render/000-command.md)
   - [Return Message Template Package Format](tools/oparch-return-message-render/001-template-package-format.md)
   - [Return Message Values Format](tools/oparch-return-message-render/002-values-format.md)
+  - [Return Message Theme Format](tools/oparch-return-message-render/003-theme-format.md)
 - [oparch-installer](tools/oparch-installer/000-command.md)
   - [Installer Configuration File Format](tools/oparch-installer/001-config-file-format.md)
 
@@ -95,6 +98,7 @@ Development documents have no fixed section order. They open with a summary para
 
 - [End-to-End Testing](development/000-end-to-end-testing.md)
 - [Installer Port Plan](development/001-installer-port-plan.md)
+- [BAML Working Notes](development/002-baml-working-notes.md)
 
 ## Critical Notes With Replies (Copy of Discussion)
 
