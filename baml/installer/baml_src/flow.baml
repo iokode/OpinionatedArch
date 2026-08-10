@@ -208,7 +208,7 @@ test "without a config file the form is asked" {
 
     let summary = install(fake_live_shell(), root.common.recording_files(), ui, "/assets", null);
 
-    assert.equal(ui.steps.slice(0, 10), step_names());
+    assert.equal(ui.steps.slice(0, step_names().length()), step_names());
     assert.equal(summary.disk, "/dev/sda")
 }
 

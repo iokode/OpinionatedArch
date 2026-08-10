@@ -45,6 +45,12 @@ struct App {
     installing: bool,
     /// Mount points F5 attached, detached again when the installation starts.
     mounted: Vec<String>,
+    /// A full-screen view is up, and the status-bar keys do nothing until it
+    /// closes. They are drawn dim so that they do not invite a press.
+    overlay: bool,
+    /// The step list is hidden, because what is on screen is not a step of the
+    /// form. Seeing it come back reads as having returned to the installer.
+    full_screen: bool,
     phase: String,
     package: String,
     current: i64,
@@ -78,31 +84,26 @@ impl Host {
     fn draw<F: FnOnce(&mut Frame, &App, Rect)>(&self, fill: F) {
         let app = self.app.lock().unwrap();
         let mut term = self.term.lock().unwrap();
-        let notes = self.diagnostics.lines();
+        // What the runtime says is kept, not shown: it is one line of noise in
+        // front of a question, and F8 is where it can be read in full.
+        let waiting = self.diagnostics.lines().len();
         let _ = term.draw(|f| {
-            let banner = if notes.is_empty() { 0 } else { 1 };
             let rows = Layout::default()
                 .direction(Direction::Vertical)
-                .constraints([Constraint::Min(5), Constraint::Length(banner), Constraint::Length(1)])
+                .constraints([Constraint::Min(5), Constraint::Length(1)])
                 .split(f.area());
-            let panes = Layout::default()
-                .direction(Direction::Horizontal)
-                .constraints([Constraint::Length(STEPS_WIDTH), Constraint::Min(20)])
-                .split(rows[0]);
+            if app.full_screen {
+                fill(f, &app, rows[0]);
+            } else {
+                let panes = Layout::default()
+                    .direction(Direction::Horizontal)
+                    .constraints([Constraint::Length(STEPS_WIDTH), Constraint::Min(20)])
+                    .split(rows[0]);
 
-            steps_pane(f, &app, panes[0]);
-            fill(f, &app, panes[1]);
-            if let Some(latest) = notes.last() {
-                let extra = if notes.len() > 1 { format!(" (+{} more)", notes.len() - 1) } else { String::new() };
-                f.render_widget(
-                    Paragraph::new(Line::from(Span::styled(
-                        format!(" runtime: {latest}{extra}"),
-                        Style::default().fg(Color::Yellow),
-                    ))),
-                    rows[1],
-                );
+                steps_pane(f, &app, panes[0]);
+                fill(f, &app, panes[1]);
             }
-            status_bar(f, &app, rows[2]);
+            status_bar(f, &app, waiting, rows[1]);
         });
     }
 
@@ -137,24 +138,30 @@ fn steps_pane(f: &mut Frame, app: &App, area: Rect) {
     );
 }
 
-fn status_bar(f: &mut Frame, app: &App, area: Rect) {
+fn status_bar(f: &mut Frame, app: &App, waiting: usize, area: Rect) {
     let key = Style::default().fg(Color::Black).bg(Color::Cyan);
     let dim = Style::default().fg(Color::DarkGray);
     let label = Style::default().fg(Color::Gray);
 
     let mut spans = Vec::new();
+    //# nothing on this bar answers while a full-screen view is up, so nothing
+    //# on it is drawn as though it would
+    let live = !app.overlay;
     let entry = |spans: &mut Vec<Span<'static>>, k: &str, text: String, enabled: bool| {
         spans.push(Span::styled(format!(" {k} "), if enabled { key } else { dim }));
         spans.push(Span::styled(format!("{text} "), if enabled { label } else { dim }));
     };
 
-    entry(&mut spans, "F1", "Back".into(), !app.installing);
-    entry(&mut spans, "F2", "Install".into(), app.on_summary);
-    entry(&mut spans, "F3", "About".into(), !app.installing);
-    entry(&mut spans, "F4", format!("Verbose: {}", app.verbose), true);
-    entry(&mut spans, "F5", "Mount media".into(), !app.installing);
-    entry(&mut spans, "F6", "Exit".into(), !app.installing);
-    entry(&mut spans, "F7", "Shutdown".into(), !app.installing);
+    entry(&mut spans, "F1", "Back".into(), live && !app.installing);
+    entry(&mut spans, "F2", "Install".into(), live && app.on_summary);
+    entry(&mut spans, "F3", "About".into(), live && !app.installing);
+    entry(&mut spans, "F4", format!("Verbose: {}", app.verbose), live);
+    entry(&mut spans, "F5", "Mount media".into(), live && !app.installing);
+    entry(&mut spans, "F6", "Exit".into(), live && !app.installing);
+    entry(&mut spans, "F7", "Shutdown".into(), live && !app.installing);
+    // The count is the whole of the notice: without it, a log nothing points
+    // at is a log nobody opens.
+    entry(&mut spans, "F8", format!("Runtime log: {waiting}"), live && waiting > 0);
 
     f.render_widget(Paragraph::new(Line::from(spans)), area);
 }
@@ -199,10 +206,26 @@ fn centered(area: Rect, width: u16, height: u16) -> Rect {
 
 // -------------------------------------------------------------------- modals
 
+/// How tall a modal has to be for its text to fit. Counting lines is not
+/// enough: they are wrapped, so a line longer than the box is two rows, and
+/// counting it as one is what cuts the last line off.
+fn wrapped_height(lines: &[String], inner: u16) -> u16 {
+    let inner = inner.max(1) as usize;
+    let rows: usize = lines
+        .iter()
+        .map(|l| (l.chars().count() + inner - 1) / inner)
+        .map(|rows| rows.max(1))
+        .sum();
+    rows as u16
+}
+
+const MODAL_WIDTH: u16 = 60;
+
 fn modal(host: &Host, title: &str, lines: Vec<String>, hints: &str) -> bool {
     loop {
         host.draw(|f, _, _| {
-            let area = centered(f.area(), 60, (lines.len() as u16 + 4).min(f.area().height));
+            let height = wrapped_height(&lines, MODAL_WIDTH - 2) + 4;
+            let area = centered(f.area(), MODAL_WIDTH, height.min(f.area().height));
             f.render_widget(Clear, area);
             let text: Vec<Line> = lines.iter().map(|l| Line::from(l.clone())).collect();
             f.render_widget(
@@ -317,9 +340,123 @@ async fn unmount_media(host: &Host) {
     }
 }
 
+// --------------------------------------------------------------- runtime log
+
+/// What the log is called when it is written out. The directory is chosen, so
+/// only the name has to be typed, and it comes prefilled.
+const LOG_FILE: &str = "oparch-runtime.log";
+
+/// Writes the log where the operator chooses: a directory picked by walking to
+/// it, and a name typed into a field. Reports where it landed, or why it did
+/// not.
+fn save_log(host: &Host, lines: &[String]) {
+    let Some(directory) =
+        ui_pick(host, "Save the runtime log".into(), "Choose where to write it.".into(),
+                "/".into(), Want::Directory)
+    else {
+        return;
+    };
+    let Some(name) =
+        ui_text(host, "Save the runtime log".into(), "File name".into(), LOG_FILE.into(), false)
+    else {
+        return;
+    };
+    let name = if name.trim().is_empty() { LOG_FILE.to_string() } else { name.trim().to_string() };
+
+    let at = joined(&directory, &name);
+    let written = lines.join("\n") + "\n";
+    let said = match std::fs::write(&at, written) {
+        Ok(()) => format!("Written to {at}"),
+        Err(e) => format!("Cannot write {at}: {e}"),
+    };
+    modal(host, "Save the runtime log", vec![said], "Enter or Esc to close");
+}
+
+/// The whole of what the BAML runtime and the program itself printed, over the
+/// screen rather than beside it.
+///
+/// It is one line of noise where a question should be, and most of it is about
+/// a shared library being found or fetched — worth keeping, not worth reading
+/// unless something went wrong.
+fn show_log(host: &Host) {
+    let lines = host.diagnostics.lines();
+    if lines.is_empty() {
+        return;
+    }
+    let body = lines.join("\n");
+    let mut top: u16 = 0;
+    {
+        let mut app = host.app.lock().unwrap();
+        app.overlay = true;
+        //# stays set while the log is saved too: the picker that chooses where
+        //# is part of reading the log, not a step of the installation
+        app.full_screen = true;
+    }
+
+    loop {
+        host.draw(|f, _, area| {
+            f.render_widget(Clear, area);
+            let title = format!(
+                " Runtime log — {} line(s), from {} ",
+                lines.len(),
+                top as usize + 1
+            );
+            f.render_widget(
+                Paragraph::new(body.clone())
+                    .wrap(Wrap { trim: false })
+                    .scroll((top, 0))
+                    .block(Block::default().borders(Borders::ALL).title(title)),
+                area,
+            );
+            let footer = Rect {
+                x: area.x + 2,
+                y: area.y + area.height.saturating_sub(1),
+                width: area.width.saturating_sub(4),
+                height: 1,
+            };
+            f.render_widget(
+                Paragraph::new(Span::styled(
+                    "↑/↓ scroll · PgUp/PgDn page · s save to a file · Esc close",
+                    Style::default().fg(Color::DarkGray),
+                )),
+                footer,
+            );
+        });
+
+        let Some(key) = next_key() else { continue };
+        let page = 10u16;
+        match key.code {
+            KeyCode::Esc | KeyCode::F(8) => {
+                let mut app = host.app.lock().unwrap();
+                app.overlay = false;
+                app.full_screen = false;
+                return;
+            }
+            KeyCode::Up => top = top.saturating_sub(1),
+            KeyCode::Down => top = top.saturating_add(1).min(lines.len() as u16),
+            KeyCode::PageUp => top = top.saturating_sub(page),
+            KeyCode::PageDown => top = top.saturating_add(page).min(lines.len() as u16),
+            KeyCode::Home => top = 0,
+            KeyCode::End => top = lines.len() as u16,
+            //# the picker answers the status-bar keys again, so they wake up
+            //# for as long as it is the thing on screen
+            KeyCode::Char('s') | KeyCode::Char('S') => {
+                host.app.lock().unwrap().overlay = false;
+                save_log(host, &lines);
+                host.app.lock().unwrap().overlay = true;
+            }
+            _ => {}
+        }
+    }
+}
+
 /// Keys that work on every screen. Returns None when the key was consumed.
 fn global_key(host: &Host, key: KeyEvent) -> Option<KeyEvent> {
     match key.code {
+        KeyCode::F(8) => {
+            show_log(host);
+            None
+        }
         KeyCode::F(5) => {
             // Reentrant: BAML is above us on the stack, so the async API is
             // what may be called, as `015-installer-host-bridge.md` records.
@@ -331,11 +468,14 @@ fn global_key(host: &Host, key: KeyEvent) -> Option<KeyEvent> {
                 host,
                 "About",
                 vec![
-                    "OpinionatedArch installer".into(),
+                    "OpinionatedArch is an Arch-based distribution for one".into(),
+                    "person juggling multiple work contexts.".into(),
                     String::new(),
-                    "The flow, the validation and the meaning of every".into(),
-                    "command's output live in BAML. This program owns".into(),
-                    "the terminal and runs the processes.".into(),
+                    "Created by Ivan Montilla (@montyclt)".into(),
+                    "Part of the IOKode Project — iokode.blog".into(),
+                    String::new(),
+                    "Website: oparch.iokode.net".into(),
+                    "Licensed under the BSD 2-Clause License".into(),
                 ],
                 "Enter or Esc to close",
             );
@@ -566,6 +706,31 @@ fn ui_text(host: &Host, title: String, prompt: String, initial: String, secret: 
 
 // ------------------------------------------------------------------- picker
 
+/// What a picker is being opened for. A package is a directory or a `.tar`; a
+/// file is one file; a directory is where something is about to be written, so
+/// files are not offered at all.
+#[derive(Clone, Copy, PartialEq)]
+enum Want {
+    Package,
+    File,
+    Directory,
+}
+
+impl Want {
+    /// Whether the directory being looked at may itself be the answer.
+    fn takes_a_directory(self) -> bool {
+        self != Want::File
+    }
+
+    fn takes(self, name: &str) -> bool {
+        match self {
+            Want::Package => name.ends_with(".tar"),
+            Want::File => true,
+            Want::Directory => false,
+        }
+    }
+}
+
 /// A row of the picker: what it shows, and what choosing it does.
 enum Entry {
     /// Take the directory being looked at. Only offered when it may be taken.
@@ -625,9 +790,9 @@ fn joined(at: &str, name: &str) -> String {
 /// the last keystroke. Hidden entries are shown: a package is as likely to live
 /// in `.config` as anywhere else, and a picker that hides half a disk sends the
 /// operator back to a shell.
-fn entries_in(at: &str, packages: bool) -> Vec<Entry> {
+fn entries_in(at: &str, want: Want) -> Vec<Entry> {
     let mut rows = Vec::new();
-    if packages {
+    if want.takes_a_directory() {
         rows.push(Entry::Here);
     }
     if parent_of(at).is_some() {
@@ -642,7 +807,7 @@ fn entries_in(at: &str, packages: bool) -> Vec<Entry> {
         let Ok(kind) = std::fs::metadata(found.path()) else { continue };
         if kind.is_dir() {
             dirs.push(name);
-        } else if !packages || name.ends_with(".tar") {
+        } else if want.takes(&name) {
             files.push(name);
         }
     }
@@ -659,24 +824,24 @@ fn entries_in(at: &str, packages: bool) -> Vec<Entry> {
 /// `packages` offers directories and `.tar` archives, and lets the directory
 /// being looked at be the answer; otherwise one file is what is being asked
 /// for, and a directory is only somewhere to walk through.
-fn ui_pick(host: &Host, title: String, prompt: String, start: String, packages: bool) -> Option<String> {
+fn ui_pick(host: &Host, title: String, prompt: String, start: String, want: Want) -> Option<String> {
     let mut error = host.take_error();
     let mut at = if std::path::Path::new(&start).is_dir() { start } else { "/".to_string() };
     let mut filter = String::new();
     let mut cursor = 0usize;
 
     tokio::task::block_in_place(|| loop {
-        let rows = entries_in(&at, packages);
+        let rows = entries_in(&at, want);
         let labels: Vec<String> = rows.iter().map(|e| e.label()).collect();
         let keys: Vec<String> = rows.iter().map(|e| e.key()).collect();
         let visible = filtered(&keys, &filter);
         cursor = if visible.is_empty() { 0 } else { cursor.min(visible.len() - 1) };
         let up = parent_of(&at);
 
-        let keys_hint = if packages {
-            "↑/↓ move · → open · ← up · Enter opens a directory or takes a .tar"
-        } else {
-            "↑/↓ move · → open · ← up · Enter takes the file"
+        let keys_hint = match want {
+            Want::Package => "↑/↓ move · → open · ← up · Enter opens a directory or takes a .tar",
+            Want::File => "↑/↓ move · → open · ← up · Enter takes the file",
+            Want::Directory => "↑/↓ move · → open · ← up · Enter opens a directory",
         };
         host.draw(|f, _, area| {
             let body =
@@ -1133,10 +1298,10 @@ async fn run_interactive(
                 ui_text(&h_text, title, prompt, initial, secret)
             },
             move |title: String, prompt: String, start: String| {
-                ui_pick(&h_pick_package, title, prompt, start, true)
+                ui_pick(&h_pick_package, title, prompt, start, Want::Package)
             },
             move |title: String, prompt: String, start: String| {
-                ui_pick(&h_pick_file, title, prompt, start, false)
+                ui_pick(&h_pick_file, title, prompt, start, Want::File)
             },
             move |title: String, lines: Vec<String>| ui_review(&h_review, title, lines),
         )
@@ -1449,7 +1614,7 @@ mod tests {
     fn a_package_picker_offers_this_directory_then_directories_then_archives() {
         let root = sample_tree("packages");
         let labels: Vec<String> =
-            entries_in(&root.to_string_lossy(), true).iter().map(|e| e.label()).collect();
+            entries_in(&root.to_string_lossy(), Want::Package).iter().map(|e| e.label()).collect();
 
         assert_eq!(
             labels,
@@ -1462,7 +1627,7 @@ mod tests {
     #[test]
     fn a_file_picker_offers_every_file_and_takes_no_directory() {
         let root = sample_tree("files");
-        let rows = entries_in(&root.to_string_lossy(), false);
+        let rows = entries_in(&root.to_string_lossy(), Want::File);
         let labels: Vec<String> = rows.iter().map(|e| e.label()).collect();
 
         assert_eq!(labels, vec!["../", ".hidden/", "andorra/", "dark.tar", "notes.txt"]);
@@ -1476,11 +1641,35 @@ mod tests {
     #[test]
     fn typing_filters_directories_too() {
         let root = sample_tree("filter");
-        let keys: Vec<String> = entries_in(&root.to_string_lossy(), true).iter().map(|e| e.key()).collect();
+        let keys: Vec<String> = entries_in(&root.to_string_lossy(), Want::Package).iter().map(|e| e.key()).collect();
 
         // The label ends in `/`, so filtering has to happen on the name.
         assert_eq!(filtered(&keys, "andor"), vec![3]);
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_directory_picker_offers_no_file_at_all() {
+        let root = sample_tree("saving");
+        let rows = entries_in(&root.to_string_lossy(), Want::Directory);
+        let labels: Vec<String> = rows.iter().map(|e| e.label()).collect();
+
+        // Writing a file is choosing where, not choosing what to overwrite.
+        assert_eq!(labels, vec!["[ use this directory ]", "../", ".hidden/", "andorra/"]);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_modal_is_tall_enough_for_text_that_wraps() {
+        let short = vec!["one".to_string(), "two".to_string()];
+        assert_eq!(wrapped_height(&short, 58), 2);
+
+        // 70 characters in a 58-wide box is two rows, not one.
+        let long = vec!["x".repeat(70)];
+        assert_eq!(wrapped_height(&long, 58), 2);
+
+        // An empty line is still a line.
+        assert_eq!(wrapped_height(&[String::new()], 58), 1);
     }
 
     #[test]
@@ -1492,7 +1681,7 @@ mod tests {
     #[test]
     fn the_top_of_the_filesystem_offers_no_way_up() {
         assert!(
-            !entries_in("/", true).iter().any(|e| matches!(e, Entry::Up)),
+            !entries_in("/", Want::Package).iter().any(|e| matches!(e, Entry::Up)),
             "a row that goes nowhere is a row that lies"
         );
     }

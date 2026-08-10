@@ -6,24 +6,20 @@ function collect_config(shell: root.common.Shell, files: root.common.Files, ui: 
     ui.outline(step_names());
     let step = 0;
 
-    while (step <= 9) {
+    while (step <= 7) {
         let advanced = if (step == 0) {
             step_disk(shell, ui, config)
         } else if (step == 1) {
-            step_install_mode(ui, config)
+            step_data_preservation(ui, config)
         } else if (step == 2) {
             step_hardware(ui, config)
         } else if (step == 3) {
-            step_swap(ui, config)
-        } else if (step == 4) {
             step_users(ui, config)
+        } else if (step == 4) {
+            step_locale_and_identity(shell, ui, config)
         } else if (step == 5) {
-            step_locale(shell, ui, config)
-        } else if (step == 6) {
-            step_identity(ui, config)
-        } else if (step == 7) {
             step_dotfiles(ui, config)
-        } else if (step == 8) {
+        } else if (step == 6) {
             step_return_message(shell, files, ui, config, asset_dir)
         } else {
             step_summary(ui, config)
@@ -48,8 +44,8 @@ function collect_config(shell: root.common.Shell, files: root.common.Files, ui: 
 /// title through `ui.step`, and a test keeps the two in agreement.
 function step_names() -> string[] {
     [
-        "Target disk", "Install mode", "Hardware", "Swap", "Users",
-        "Locale", "Identity", "Dotfiles", "Return message", "Summary",
+        "Target disk", "Data preservation", "Hardware", "Users",
+        "Locale and identity", "Dotfiles", "Return message", "Summary",
     ]
 }
 
@@ -80,12 +76,12 @@ function step_disk(shell: root.common.Shell, ui: Ui, config: InstallConfig) -> b
     false
 }
 
-function step_install_mode(ui: Ui, config: InstallConfig) -> bool {
-    ui.step("Install mode");
+function step_data_preservation(ui: Ui, config: InstallConfig) -> bool {
+    ui.step("Data preservation");
     let options = ["wipe-all", "keep-homes"];
     if let picked: int = ui
         .choose(
-            "Install mode",
+            "Data preservation",
             "wipe-all erases the disk. keep-homes preserves existing home subvolumes.",
             options,
             index_of_option(options, config.install_mode),
@@ -102,7 +98,7 @@ function step_hardware(ui: Ui, config: InstallConfig) -> bool {
     let gpus = ["nvidia", "nvidia-open", "nouveau", "none"];
     let field = 0;
 
-    while (field < 2) {
+    while (field < 4) {
         if (field == 0) {
             if let picked: int = ui
                 .choose(
@@ -116,44 +112,35 @@ function step_hardware(ui: Ui, config: InstallConfig) -> bool {
             } else {
                 return false;
             }
-        } else {
+        } else if (field == 1) {
             if let picked: int = ui.choose("Hardware", "GPU driver.", gpus, index_of_option(gpus, config.gpu_driver)) {
                 config.gpu_driver = gpus.at(picked) ?? "";
                 field = 2;
             } else {
                 field = 0;
             }
-        }
-    }
-    true
-}
-
-function step_swap(ui: Ui, config: InstallConfig) -> bool {
-    ui.step("Swap");
-    let field = 0;
-
-    while (field < 2) {
-        if (field == 0) {
-            if let answer: string = ui.text("Swap", "zram size in GB", `${config.swap.zram_gb}`, false) {
+        } else if (field == 2) {
+            if let answer: string = ui.text("Hardware", "zram size in GB", `${config.swap.zram_gb}`, false) {
                 if let size: int = parse_size_gb(answer) {
                     config.swap.zram_gb = size;
-                    field = 1;
+                    field = 3;
                 } else {
                     ui.error("Swap sizes must be non-negative integers.");
                 }
             } else {
-                return false;
+                field = 1;
             }
         } else {
-            if let answer: string = ui.text("Swap", "disk swapfile size in GB", `${config.swap.swapfile_gb}`, false) {
+            if let answer: string = ui.text("Hardware", "disk swapfile size in GB",
+                                            `${config.swap.swapfile_gb}`, false) {
                 if let size: int = parse_size_gb(answer) {
                     config.swap.swapfile_gb = size;
-                    field = 2;
+                    field = 4;
                 } else {
                     ui.error("Swap sizes must be non-negative integers.");
                 }
             } else {
-                field = 0;
+                field = 2;
             }
         }
     }
@@ -207,17 +194,19 @@ function step_users(ui: Ui, config: InstallConfig) -> bool {
     true
 }
 
-function step_locale(shell: root.common.Shell, ui: Ui, config: InstallConfig) -> bool {
-    ui.step("Locale");
+function step_locale_and_identity(shell: root.common.Shell, ui: Ui,
+                                  config: InstallConfig) -> bool {
+    ui.step("Locale and identity");
+    let title = "Locale and identity";
     let keymaps = list_keymaps(shell);
     let timezones = list_timezones(shell);
     let field = 0;
 
-    while (field < 2) {
+    while (field < 3) {
         if (field == 0) {
             if let picked: int = ui
                 .choose(
-                    "Locale",
+                    title,
                     "Console keymap.",
                     keymaps,
                     index_of_option(keymaps, config.console_keymap),
@@ -227,10 +216,10 @@ function step_locale(shell: root.common.Shell, ui: Ui, config: InstallConfig) ->
             } else {
                 return false;
             }
-        } else {
+        } else if (field == 1) {
             if let picked: int = ui
                 .choose(
-                    "Locale",
+                    title,
                     "Timezone. Type to filter.",
                     timezones,
                     index_of_option(timezones, config.timezone),
@@ -240,25 +229,20 @@ function step_locale(shell: root.common.Shell, ui: Ui, config: InstallConfig) ->
             } else {
                 field = 0;
             }
+        } else {
+            if let answer: string = ui.text(title, "Hostname", config.hostname, false) {
+                if (validate_hostname(answer)) {
+                    config.hostname = answer;
+                    field = 3;
+                } else {
+                    ui.error("Invalid hostname format.");
+                }
+            } else {
+                field = 1;
+            }
         }
     }
     true
-}
-
-function step_identity(ui: Ui, config: InstallConfig) -> bool {
-    ui.step("Identity");
-    while (true) {
-        if let answer: string = ui.text("Identity", "Hostname", config.hostname, false) {
-            if (validate_hostname(answer)) {
-                config.hostname = answer;
-                return true;
-            }
-            ui.error("Invalid hostname format.");
-        } else {
-            return false;
-        }
-    }
-    false
 }
 
 // -------------------------------------------------------- asking for content
@@ -625,18 +609,7 @@ test "the form walks every screen and collects the whole config" {
     assert
         .equal(
             ui.steps,
-            [
-                "Target disk",
-                "Install mode",
-                "Hardware",
-                "Swap",
-                "Users",
-                "Locale",
-                "Identity",
-                "Dotfiles",
-                "Return message",
-                "Summary",
-            ],
+            step_names(),
         );
 
     if let collected: InstallConfig = config {
@@ -854,7 +827,7 @@ test "going back re-asks the previous screen" {
     let config = collect_config(fake_live_shell(), packaged_files(), ui, "/assets");
 
     assert.not_null(config);
-    assert.equal(ui.steps.slice(0, 3), ["Target disk", "Install mode", "Target disk"])
+    assert.equal(ui.steps.slice(0, 3), ["Target disk", "Data preservation", "Target disk"])
 }
 
 test "backing out of the first screen cancels the installer" {
