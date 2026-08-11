@@ -136,11 +136,11 @@ test "kind_of answers with what the package declared" {
 test "a value is wrapped in the style its kind asks for" {
     let theme = sample_test_theme();
     let markup = render_markup(theme, test_package(), "Call {{phone}}.",
-                               { "phone": "+34 666" }, 1824);
+                               { "phone": "+376 000 000" }, 1824);
 
     //# the words around it are plain, the value is not
     assert.is_true(markup.starts_with("Call <span"));
-    assert.is_true(markup.includes(">+34 666</span>"));
+    assert.is_true(markup.includes(">+376 000 000</span>"));
     assert.is_true(markup.ends_with("."))
 }
 
@@ -175,7 +175,7 @@ test "a paragraph is wrapped in the body style, and its values override it" {
     let theme = sample_test_theme();
     let markup = wrap_style(theme, theme.body_style,
                             render_markup(theme, test_package(), "Call {{phone}}.",
-                                          { "phone": "+34 666" }, 1824),
+                                          { "phone": "+376 000 000" }, 1824),
                             1824);
     let body = root.return_message.style_named(theme, theme.body_style);
 

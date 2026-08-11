@@ -142,7 +142,7 @@ function parse_values_file(text: string) -> ReturnMessageParse {
 
 /// A text value as this format writes it. The language has no YAML writer, so
 /// the quoting rule of the format is honoured here: every text value is
-/// quoted, which is what keeps `+34 666 555 666` the text it was written as
+/// quoted, which is what keeps `+376 000 000` the text it was written as
 /// instead of the number YAML would otherwise read.
 function quote_value(value: string) -> string {
     let escaped = value.replace_all("\\", "\\\\").replace_all("\"", "\\\"").replace_all("\n", "\\n");
@@ -208,12 +208,12 @@ function check_values(package: TemplatePackage, message: ReturnMessageConfig, pr
 test "parse_values_file reads a whole values file" {
     let parsed = parse_values_file(
         "languages:\n  - \"ca\"\n  - \"es\"\n"
-            + "fields:\n  owner_name: \"Ivan\"\n  phone: \"+34 666 555 666\"\n"
+            + "fields:\n  owner_name: \"Ivan\"\n  phone: \"+376 000 000\"\n"
             + "logo:\n  origin: \"url\"\n  location: \"https://example.invalid/logo.png\"\n");
 
     assert.equal(parsed.error, "");
     assert.equal(parsed.message.languages, ["ca", "es"]);
-    assert.equal(parsed.message.fields.get("phone"), "+34 666 555 666");
+    assert.equal(parsed.message.fields.get("phone"), "+376 000 000");
     if let logo: root.common.Source = parsed.message.logo {
         assert.equal(logo.origin, "url");
         assert.equal(logo.location, "https://example.invalid/logo.png")
@@ -221,7 +221,7 @@ test "parse_values_file reads a whole values file" {
 }
 
 test "the renderer names a key without a section prefix, the installer with one" {
-    let text = "languages:\n  - \"es\"\nfields:\n  phone: +34666\n";
+    let text = "languages:\n  - \"es\"\nfields:\n  phone: +376000000\n";
     assert.equal(parse_values_file(text).error,
                  "fields.phone must be quoted: YAML read it as a number, not as text."
                      + " Wrap the value in double quotes.");
@@ -259,13 +259,13 @@ test "the keys the caller reads for itself are not refused as unknown" {
 test "render_values_file writes the file the format defines" {
     let message = empty_return_message();
     message.languages = ["ca", "es"];
-    let _ = message.fields.set("phone", "+34 666 555 666");
+    let _ = message.fields.set("phone", "+376 000 000");
     let _ = message.fields.set("owner_name", "Ivan");
     message.logo = root.common.source_at("url", "https://example.invalid/logo.png");
 
     assert.equal(render_values_file(message),
                  "languages:\n  - \"ca\"\n  - \"es\"\n"
-                     + "fields:\n  owner_name: \"Ivan\"\n  phone: \"+34 666 555 666\"\n"
+                     + "fields:\n  owner_name: \"Ivan\"\n  phone: \"+376 000 000\"\n"
                      + "logo:\n  origin: \"url\"\n  location: \"https://example.invalid/logo.png\"\n")
 }
 
@@ -285,7 +285,7 @@ test "what render_values_file writes is what parse_values_file reads back" {
     let message = empty_return_message();
     message.languages = ["ca", "es"];
     let _ = message.fields.set("owner_name", "Ivan \"the finder\" \\ Montilla");
-    let _ = message.fields.set("phone", "+34666555666");
+    let _ = message.fields.set("phone", "+376000000555666");
     let _ = message.fields.set("address", "Carrer de la Unió\nAndorra");
     message.logo = root.common.source_at("local", "/media/pen/logo.png");
 
@@ -294,7 +294,7 @@ test "what render_values_file writes is what parse_values_file reads back" {
     assert.equal(read_back.error, "");
     assert.equal(read_back.message.languages, ["ca", "es"]);
     //# the `+` is still there: it is a quoted value, so YAML reads it as text
-    assert.equal(read_back.message.fields.get("phone"), "+34666555666");
+    assert.equal(read_back.message.fields.get("phone"), "+376000000555666");
     assert.equal(read_back.message.fields.get("owner_name"), "Ivan \"the finder\" \\ Montilla");
     assert.equal(read_back.message.fields.get("address"), "Carrer de la Unió\nAndorra");
     if let logo: root.common.Source = read_back.message.logo {

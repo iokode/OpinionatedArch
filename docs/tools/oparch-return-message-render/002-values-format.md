@@ -19,7 +19,7 @@ languages:
 
 fields:
   owner_name: "Ivan"
-  phone: "+34 666 555 666"
+  phone: "+376 000 000"
   address: "Carrer de la Unió, Andorra"
 
 logo:
@@ -40,7 +40,7 @@ A key outside this list is an error. Inside `fields` this does not apply: the na
 
 The file does not name the template package or the theme. They reach the renderer as directories, through the `--template-package` and `--theme` of `000-command.md`, resolved by whoever calls it — as decided in `../../decisions/018-installer-input-sources.md`.
 
-Text values are quoted, and a value YAML would read as something other than text is refused, as in `../oparch-installer/001-config-file-format.md`. A field value written as `+34666555666` would come back without its `+`, so it is refused rather than converted.
+Text values are quoted, and a value YAML would read as something other than text is refused, as in `../oparch-installer/001-config-file-format.md`. A field value written as `+376000000` would come back without its `+`, so it is refused rather than converted.
 
 Without `logo`, the message carries no logo. There is no separate key stating whether one is included.
 

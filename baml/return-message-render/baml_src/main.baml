@@ -547,7 +547,7 @@ function rendered(shell: root.common.RecordingShell, files: root.common.Recordin
 }
 
 function one_language_values() -> string {
-    "languages:\n  - \"es\"\nfields:\n  owner_name: \"Ivan\"\n  phone: \"+34 666 555 666\"\n"
+    "languages:\n  - \"es\"\nfields:\n  owner_name: \"Ivan\"\n  phone: \"+376 000 000\"\n"
 }
 
 test "the message is drawn from the theme and installed where the splash reads it" {
@@ -558,7 +558,7 @@ test "the message is drawn from the theme and installed where the splash reads i
 
     //# the markup is this tool's, with the value in the style its kind asks for
     let markup = files.written.get("/tmp/oparch-return-message/body-es-1.markup") ?? "";
-    assert.is_true(markup.includes("+34 666 555 666"));
+    assert.is_true(markup.includes("+376 000 000"));
     assert.is_true(markup.includes("<span font_family=\"Noto Sans\""));
 
     //# the panel is the content plus the theme's padding and border, both sides

@@ -49,8 +49,14 @@ Three things had to be dealt with before an installation would complete, and all
 
 None of this applies to the ISO this project will ship, which carries its own packages, at its own versions, already installed.
 
+### What this harness cannot see
+
+Its guest runs with `-nographic`, so there is no display for a splash. Plymouth falls back to the text prompt `../decisions/007-preboot-ownership-message.md` requires, which is worth knowing works, but the harness therefore never draws the composed message and never runs the script the renderer writes.
+
+That is a limit of this harness. The splash itself was seen on 2026-08-11, on VMware and by hand: the machine booted to the return message screen, and Escape moved between it and the text prompt. A run with a display attached is what would bring that under the harness.
+
 ## State
 
-The harness boots the live environment, drives it over the serial console, and runs an installation to completion: every phase against the real `sgdisk`, `cryptsetup`, `mkfs.btrfs`, `pacstrap`, `arch-chroot`, ImageMagick and `mkinitcpio`. That is step 4.
+The harness runs all five steps. It boots the live environment, drives it over the serial console, installs from a configuration file with every phase against the real `sgdisk`, `cryptsetup`, `mkfs.btrfs`, `pacstrap`, `arch-chroot`, ImageMagick and `mkinitcpio`, and then boots the disk it has just made, answers the passphrase, and waits for a login. It builds what it tests: the host embeds the BAML program at compile time, so a binary that was not rebuilt runs the previous one and says nothing about it.
 
-Step 5 is not written. It cannot pass yet either: nothing installs a bootloader, so there is nothing on the disk to boot. Writing that phase is what comes next, and it is deliberately written with this harness already in hand.
+One thing is deliberately not checked. The menu is reached by pressing a key while the machine starts, and GRUB draws that menu on the video console, which this guest does not have — so a check would be pressing keys it cannot see the effect of, and the attempt at one was still sending them when the passphrase prompt was up. That path was verified by hand instead.

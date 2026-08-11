@@ -391,7 +391,7 @@ test "an absent section leaves its feature off" {
 test "a section that is present turns its feature on" {
     let text = full_config_text()
         + "dotfiles:\n  origin: git\n  location: \"https://example.invalid/dotfiles.git\"\n"
-        + "return_message:\n  languages:\n    - es\n  fields:\n    phone: \"666 555 666\"\n";
+        + "return_message:\n  languages:\n    - es\n  fields:\n    phone: \"+376 000 000\"\n";
     let parsed = parse_config_file(text);
 
     assert.equal(parsed.error, "");
@@ -401,13 +401,13 @@ test "a section that is present turns its feature on" {
     }
     if let message: ReturnMessageInput = parsed.config.return_message {
         assert.equal(message.values.languages, ["es"]);
-        assert.equal(message.values.fields.get("phone"), "666 555 666")
+        assert.equal(message.values.fields.get("phone"), "+376 000 000")
     }
 }
 
 test "a value YAML would read as a number must be quoted" {
     let text = full_config_text()
-        + "return_message:\n  languages:\n    - es\n  fields:\n    phone: +34666555666\n";
+        + "return_message:\n  languages:\n    - es\n  fields:\n    phone: +376000000555666\n";
 
     assert.equal(parse_config_file(text).error,
                  "return_message.fields.phone must be quoted: YAML read it as a number, not as text."
@@ -416,12 +416,12 @@ test "a value YAML would read as a number must be quoted" {
 
 test "quoting keeps the value exactly as written" {
     let text = full_config_text()
-        + "return_message:\n  languages:\n    - es\n  fields:\n    phone: \"+34666555666\"\n";
+        + "return_message:\n  languages:\n    - es\n  fields:\n    phone: \"+376000000555666\"\n";
     let parsed = parse_config_file(text);
 
     assert.equal(parsed.error, "");
     if let message: ReturnMessageInput = parsed.config.return_message {
-        assert.equal(message.values.fields.get("phone"), "+34666555666")
+        assert.equal(message.values.fields.get("phone"), "+376000000555666")
     }
 }
 

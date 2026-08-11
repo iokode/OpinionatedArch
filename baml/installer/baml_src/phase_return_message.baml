@@ -215,7 +215,7 @@ function return_message_config(logo: root.common.Source?) -> InstallConfig {
     let message = empty_return_message_input();
     message.values.languages = ["es"];
     let _ = message.values.fields.set("owner_name", "Ivan");
-    let _ = message.values.fields.set("phone", "+34 666 555 666");
+    let _ = message.values.fields.set("phone", "+376 000 000");
     message.values.logo = logo;
     config.return_message = message;
     config
@@ -302,7 +302,7 @@ test "the values are left in the target where the message can be rebuilt from th
                  ["/tmp/oparch", "/mnt/etc/opinionatedarch", "/mnt/usr/share/plymouth/themes"]);
     assert.equal(files.written.get("/mnt/etc/opinionatedarch/return-message.yaml"),
                  "languages:\n  - \"es\"\n"
-                     + "fields:\n  owner_name: \"Ivan\"\n  phone: \"+34 666 555 666\"\n"
+                     + "fields:\n  owner_name: \"Ivan\"\n  phone: \"+376 000 000\"\n"
                      + "logo:\n  origin: \"url\"\n"
                      + "  location: \"https://example.invalid/logo.png\"\n")
 }
@@ -349,7 +349,7 @@ test "without a logo nothing is downloaded and the renderer is given none" {
     ]);
     assert.equal(files.written.get("/mnt/etc/opinionatedarch/return-message.yaml"),
                  "languages:\n  - \"es\"\n"
-                     + "fields:\n  owner_name: \"Ivan\"\n  phone: \"+34 666 555 666\"\n")
+                     + "fields:\n  owner_name: \"Ivan\"\n  phone: \"+376 000 000\"\n")
 }
 
 test "a logo that will not download is retried with the URL the operator gives" {

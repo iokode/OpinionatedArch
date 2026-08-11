@@ -716,7 +716,7 @@ test "the return message asks the fields the template package declares" {
             "the one this project ships", // template package
             "the one this project ships", // theme
             "Ivan", // owner_name, as the package labels it
-            "666 555 666", // phone
+            "+376 000 000", // phone
             "Español (es)", // languages
             "no", // logo
             "start",
@@ -730,7 +730,7 @@ test "the return message asks the fields the template package declares" {
         if let message: ReturnMessageInput = collected.return_message {
             //# the names come from the package, not from the installer
             assert.equal(message.values.fields.get("owner_name"), "Ivan");
-            assert.equal(message.values.fields.get("phone"), "666 555 666");
+            assert.equal(message.values.fields.get("phone"), "+376 000 000");
             assert.equal(message.values.languages, ["es"]);
             assert.is_true(root.common.is_default_source(message.template))
         }

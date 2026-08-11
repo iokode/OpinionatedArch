@@ -49,7 +49,7 @@ return_message:
     - ca
   fields:
     owner_name: Ivan
-    phone: "+34 666 555 666"
+    phone: "+376 000 000"
     address: Carrer de la Unió, Andorra
   logo:
     origin: url
@@ -111,7 +111,7 @@ There is no separate key stating whether a feature is enabled.
 Every value that is text must be written as text. A value YAML would read as a number, a boolean or a date has to be quoted, and is refused otherwise:
 
 ```yaml
-    phone: "+34 666 555 666"
+    phone: "+376 000 000"
 ```
 
 The error names the key, says what YAML made of the value, and what to do:
@@ -144,7 +144,7 @@ The first problem found stops the run, and nothing is executed.
 - Unknown keys are refused because a configuration file is written by hand; a silently ignored key would install something other than what the file describes.
 - The return message section is the values format rather than a copy of it, because the same values are read by `oparch-return-message-render` on an installed system; two shapes for one thing drift apart. It adds `template` and `theme`, which that format does not carry: the renderer is handed directories and resolves nothing, so naming where they come from is the caller's business and this file is where the caller is told.
 - A source is written as an origin and a location, in the same shape the screens ask for, so that an installation performed either way is the same installation and the file can express every origin a picker can.
-- A text value YAML would read as a number is refused rather than converted, because converting it back to text gives the number's canonical form and not what was written: `+34666555666` loses its `+`, and `1.10` its trailing zero, with nothing failing. A quoted value is one keystroke; a phone number that silently loses its country prefix is discovered when someone cannot call it.
+- A text value YAML would read as a number is refused rather than converted, because converting it back to text gives the number's canonical form and not what was written: `+376000000` loses its `+`, and `1.10` its trailing zero, with nothing failing. A quoted value is one keystroke; a phone number that silently loses its country prefix is discovered when someone cannot call it.
 - Values are validated against the live system rather than only against their own syntax, because a well-formed file can still name a disk, a timezone or a template that does not exist.
 - The file is validated completely before execution starts, because a configuration error found halfway through leaves a partially installed disk.
 

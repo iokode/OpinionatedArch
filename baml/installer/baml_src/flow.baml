@@ -286,7 +286,7 @@ function full_message_config_text() -> string {
     full_config_text()
         + "return_message:\n"
         + "  languages:\n    - \"es\"\n"
-        + "  fields:\n    owner_name: \"Ivan\"\n    phone: \"+34 666 555 666\"\n"
+        + "  fields:\n    owner_name: \"Ivan\"\n    phone: \"+376 000 000\"\n"
         + "  logo:\n    origin: url\n    location: \"https://example.invalid/logo.png\"\n"
 }
 

@@ -6,7 +6,7 @@
 // first.
 
 /// A scalar as text. Only a YAML string counts: a value YAML read as a number
-/// comes back in its canonical form, which is not what was written. `+34600...`
+/// comes back in its canonical form, which is not what was written. `+376000...`
 /// would lose its `+`, and `1.10` its trailing zero, without anything failing.
 function as_text(value: baml.json.json) -> string? {
     match (value) {
@@ -129,7 +129,7 @@ function parse_int(text: string) -> int? {
 }
 
 test "read_text tells absent from present-but-not-text" {
-    let entries = baml.yaml.parse("name: \"Ivan\"\nphone: +34666\n");
+    let entries = baml.yaml.parse("name: \"Ivan\"\nphone: +376000000\n");
     let top = as_map(entries) ?? empty_json_map();
 
     assert.equal(read_text(top, "name", "name").value, "Ivan");

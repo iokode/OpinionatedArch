@@ -12,7 +12,8 @@ swap:
   swapfile_gb: 0
 
 login_users:
-  - ivan
+  - personal
+  - work
 shared_secret: "harness secret"
 
 console_keymap: es
@@ -29,5 +30,5 @@ return_message:
     - en
   fields:
     owner_name: Ivan Montilla
-    phone: "+34 666 555 666"
-    email: ivan@iokode.net
+    phone: "+376 000 000"
+    email: ivan@example.com

@@ -184,7 +184,7 @@ test "summary_lines lists the return message fields it was given" {
         theme: root.common.default_source(),
         values: root.return_message.ReturnMessageConfig {
             languages: ["es", "ca"],
-            fields: { "phone": "666 555 666", "owner_name": "Ivan" },
+            fields: { "phone": "+376 000 000", "owner_name": "Ivan" },
             logo: null,
         },
     };
@@ -192,6 +192,6 @@ test "summary_lines lists the return message fields it was given" {
 
     assert.is_true(lines.includes("return message: es, ca"));
     assert.is_true(lines.includes("  owner_name: Ivan"));
-    assert.is_true(lines.includes("  phone: 666 555 666"));
+    assert.is_true(lines.includes("  phone: +376 000 000"));
     assert.is_true(!lines.join("\n").includes("logo:"))
 }

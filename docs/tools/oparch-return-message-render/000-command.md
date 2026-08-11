@@ -12,7 +12,7 @@ languages:
   - "es"
 fields:
   owner_name: "Ivan"
-  phone: "+34 666 555 666"
+  phone: "+376 000 000"
 logo:
   origin: url
   location: "https://example.invalid/logo.png"

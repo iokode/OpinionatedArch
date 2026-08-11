@@ -41,3 +41,6 @@ Terms used across the OpinionatedArch documentation.
 - **Command-line tool** — owns the behavior and takes explicit parameters. Scriptable.
 - **Interactive tool** — browses, filters, confirms, and collects input, then calls the matching command-line tool. Performs no system change itself.
 
+## End-to-end testing
+
+- **Harness** — the apparatus around what is being tested: it puts the real system into a state where it can run, starts it, feeds it its inputs, watches what comes back and decides whether the run passed. It is not the thing under test and it is not the assertions; it is what makes running them possible at all. Here it is `test/e2e/run.sh`, and what it tests is the installer and the system the installer leaves behind. The word is the one used for a wiring harness — the thing that connects and drives — and not for anything to do with the tools this project is written with. Described in `../development/000-end-to-end-testing.md`.

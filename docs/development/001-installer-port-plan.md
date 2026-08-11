@@ -35,8 +35,8 @@ Tests, counted on 2026-08-11: 232 in `baml/installer`, 127 in `baml/return-messa
 
 ## Open
 
-- The Plymouth script has still never run. A machine now boots, but under `-nographic` there is no display for a splash, so unlock fell back to text and the script was not the thing drawing it. Its arithmetic, the names it expects above it and the numbers it is handed remain asserted as text by the renderer's tests and read by nothing else. Watching it needs a harness run with a display attached.
-- What the message looks like on a real panel is still unseen, for the same reason. The project's theme composes at 3840 px wide and the splash scales the images to the `fit` its `screen` section declares, and whether that reads at the resolutions these machines boot at is a question no run has yet been able to answer.
+- The splash works, and the harness cannot see it. On 2026-08-11 an installation on VMware, with a display, booted to the return message screen, and pressing Escape moved between it and the text unlock prompt and back. The harness runs its guest with `-nographic`, so Plymouth has no display there and falls back to text: it never draws the splash and never runs the script the renderer writes. That is a limit of the harness, not of the thing it is testing.
+- How the message *reads* at the resolutions these machines boot at is a separate question, and it is open. The project's theme composes at 3840 px wide and the splash scales the images to the `fit` its `screen` section declares; that it appears is known, that it is comfortable to read on a given panel is not, and `../decisions/007-preboot-ownership-message.md` asks for that to be checked on the real ones.
 - `install_mode: keep-homes` is refused by the disk phase, as the earlier implementation also did.
 - What an installed system would need in order to rebuild its message, and what ImageMagick and the fonts need on the ISO and on the target, are recorded in `../remaining.md` and not repeated here.
 - `src/` and `installer/` are deleted once this reaches parity.
@@ -45,6 +45,6 @@ Tests, counted on 2026-08-11: 232 in `baml/installer`, 127 in `baml/return-messa
 
 It boots. On 2026-08-11 the harness installed from a configuration file and then started the disk it had made: the firmware found `\EFI\OpinionatedArch\grubx64.efi`, GRUB started the kernel the project's menu names, the initramfs asked for the passphrase, and the secret the installation was given opened the container and reached a login on the hostname that was configured.
 
-What that run does not cover: the splash has no display under `-nographic`, so the unlock screen was the text fallback `007` requires rather than the composed images, and how the message reads on a real panel is still unseen. The recording doubles remain what they always were — they assert which commands would run, not that they work.
+What that run does not cover is the splash: with `-nographic` there is no display for one, so what it saw was the text fallback `007` requires rather than the composed images. The splash itself was seen the same day, on VMware, by hand. The recording doubles remain what they always were — they assert which commands would run, not that they work.
 
 The installer presumes it runs from the Arch live environment and does not check for the tools it calls. Do not add environment checks to make it runnable elsewhere; give it the environment instead.

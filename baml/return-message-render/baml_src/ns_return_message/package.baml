@@ -467,15 +467,15 @@ test "an unbalanced region is an error, not text" {
 }
 
 test "render_body keeps a region when its fields are answered" {
-    let values: map<string, string> = { "phone": "+34 666", "email": "a@b.invalid" };
+    let values: map<string, string> = { "phone": "+376 000 000", "email": "a@b.invalid" };
     assert.equal(render_body("Call {{phone}}[[ or write to {{email}}]].", values),
-                 "Call +34 666 or write to a@b.invalid.")
+                 "Call +376 000 000 or write to a@b.invalid.")
 }
 
 test "render_body drops a region when a field is missing, with its words" {
-    let values: map<string, string> = { "phone": "+34 666" };
+    let values: map<string, string> = { "phone": "+376 000 000" };
     assert.equal(render_body("Call {{phone}}[[ or write to {{email}}]].", values),
-                 "Call +34 666.")
+                 "Call +376 000 000.")
 }
 
 test "render_body drops each unanswered channel on its own" {
