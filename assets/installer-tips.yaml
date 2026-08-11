@@ -1,0 +1,63 @@
+# What each question of the installer says about itself.
+#
+# One entry per question, in the order the questions are asked. Every string in
+# an entry is a paragraph, and it is wrapped to the width of the box it is drawn
+# in, so write a whole paragraph on one line and let the installer break it. A
+# list is written as one string per item.
+#
+# A question whose key is missing here is simply asked without a note, and so is
+# every question if this file is not there at all: nothing depends on it.
+
+disk:
+  - "OpinionatedArch is designed to use a whole disk. Installing onto a partition is not supported."
+
+data_preservation:
+  - "wipe-all repartitions the disk: everything on it is gone."
+  - "keep-homes keeps the home subvolumes already there and creates their users again, so it expects a disk this installer laid out."
+
+ucode:
+  - "Microcode is the CPU maker's own fix-ups, loaded at every boot. Pick the one that matches this CPU."
+  - "`none` installs no microcode. Use it in VMs."
+
+gpu:
+  - "nvidia: NVIDIA's proprietary kernel modules (Turing, Ampere, Ada Lovelace and Hopper)."
+  - "nvidia-open: NVIDIA's open kernel modules (Turing and newer; required for Blackwell and newer)."
+  - "nvidia-open-dkms: the same open kernel modules, rebuilt by DKMS for every installed kernel."
+  - "nouveau: open, and slower."
+  - "none: for AMD and Intel graphics, which the kernel drives itself."
+
+zram:
+  - "Swap held compressed in RAM: quicker than the disk and it costs no space on it. 0 creates none."
+
+swapfile:
+  - "Swap on the disk, for when memory runs out and zram is not enough. 0 creates none."
+
+usernames:
+  - "One account per work context. They share their configuration through /dotfiles and keep their sessions and data apart."
+
+shared_secret:
+  - "One secret unlocks the disk at boot and logs in every account."
+
+confirm_secret:
+  - "Typed again because nothing on screen shows what was typed."
+
+keymap:
+  - "The layout of the keyboard in front of you. It is also the layout the boot passphrase screen uses, so a wrong one here is a passphrase that cannot be typed."
+
+timezone:
+  - "Where this machine is, which is what sets its clock."
+
+hostname:
+  - "The name this machine answers to on a network."
+
+dotfiles:
+  - "Public dotfiles are cloned into /dotfiles, which every account shares, so a configuration is written once rather than once per account. Nothing secret belongs in them: they are readable by all."
+
+dotfiles_source:
+  - "Whatever is chosen is copied here straight away, so the medium it came from can be unplugged before the installation starts."
+
+return_message:
+  - "A message drawn on the boot screen, before the passphrase is asked, so whoever finds a lost machine can return it."
+
+return_message_source:
+  - "Whatever is chosen is copied here straight away, so the medium it came from can be unplugged before the installation starts."

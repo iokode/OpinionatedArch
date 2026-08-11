@@ -18,9 +18,9 @@ Terms used across the OpinionatedArch documentation.
 
 ## Boot
 
-- **Startup policy** — `automatic` hides the GRUB menu and boots the default entry; `manual` shows the menu and waits for a selection.
-- **Pre-boot return message** — the optional ownership-and-return text shown on the disk-unlock screen, in up to four languages.
-- **Return template** — a `.tpl` file under `assets/returning-templates` holding one language of the return message.
+- **Pre-boot return message** — the optional ownership-and-return text shown on the disk-unlock screen, in one or more languages.
+- **Return message theme** — a directory declaring what the rendered message looks like: typography, colours, panels, spacing and the arrangement of the languages. Its format is defined in `../tools/oparch-return-message-render/003-theme-format.md`.
+- **Return message template package** — a directory holding a manifest and one message file per language, defining the pre-boot return message and the data it needs. Its format is defined in `../tools/oparch-return-message-render/001-template-package-format.md`.
 
 ## Snapshots
 
@@ -41,3 +41,6 @@ Terms used across the OpinionatedArch documentation.
 - **Command-line tool** — owns the behavior and takes explicit parameters. Scriptable.
 - **Interactive tool** — browses, filters, confirms, and collects input, then calls the matching command-line tool. Performs no system change itself.
 
+## End-to-end testing
+
+- **Harness** — the apparatus around what is being tested: it puts the real system into a state where it can run, starts it, feeds it its inputs, watches what comes back and decides whether the run passed. It is not the thing under test and it is not the assertions; it is what makes running them possible at all. Here it is `test/e2e/run.sh`, and what it tests is the installer and the system the installer leaves behind. The word is the one used for a wiring harness — the thing that connects and drives — and not for anything to do with the tools this project is written with. Described in `../development/000-end-to-end-testing.md`.

@@ -13,7 +13,7 @@ The `HOOKS` line is set in `/etc/mkinitcpio.conf`, and images are generated with
 When the pre-boot return message is enabled, the configured hooks are:
 
 ```bash
-HOOKS=(base udev autodetect microcode kms keyboard keymap block opinionatedarch-plymouth-locale plymouth encrypt filesystems)
+HOOKS=(base udev autodetect microcode kms keyboard keymap block plymouth encrypt filesystems)
 ```
 
 When the pre-boot return message is disabled, the configured hooks are:
@@ -26,7 +26,6 @@ The following hooks are intentionally not used in this phase: `systemd`, `sd-enc
 
 Plymouth must be installed in the target system before generating initramfs only when the pre-boot return message is enabled.
 
-The `opinionatedarch-plymouth-locale` hook exports `LANG=C.UTF-8` and `LC_CTYPE=C.UTF-8` before Plymouth starts.
 
 Keyboard layout for unlock is provided by installer input, written to `/etc/vconsole.conf`, and applied through `keymap`.
 
@@ -36,7 +35,7 @@ Keyboard layout for unlock is provided by installer input, written to `/etc/vcon
 - `base`, `udev`, `block`, and `filesystems` are required because they provide the minimum boot path from initramfs to mounted root; if any is missing, early boot cannot complete reliably.
 - `encrypt` is required because root is encrypted with LUKS; if it is missing, root cannot be unlocked during boot.
 - `plymouth` is required only when the return message is enabled because that screen needs custom visual rendering; if the return message is disabled, the plain unlock prompt is sufficient.
-- `opinionatedarch-plymouth-locale` is required before `plymouth` because Plymouth's FreeType label renderer decodes template text through the process locale; if Plymouth starts in the default `C` locale, UTF-8 language names and message text can render as missing glyphs even when the font contains those characters.
+- No hook prepares Plymouth for text because Plymouth draws none: everything the unlock screen shows is an image, as decided in `007-preboot-ownership-message.md`. A hook setting the process locale existed to make its label renderer decode text correctly, and there is no text left for it to decode.
 - `keyboard` and `keymap` are required because passphrase input must work with the expected layout; if omitted, unlock can fail from wrong key interpretation.
 - `kms` is required because early graphics setup should be consistent across boot paths and supports Plymouth rendering when the return message is enabled; if omitted, rendering quality and handoff behavior can degrade.
 - `microcode` is included because CPU microcode updates should be applied early; if omitted, the system still boots but loses early mitigation/CPU-fix coverage.
@@ -50,7 +49,6 @@ Keyboard layout for unlock is provided by installer input, written to `/etc/vcon
 ## Considerations
 
 - Hook order is part of policy and must not be arbitrarily reordered.
-- If enabled, `opinionatedarch-plymouth-locale` must appear before `plymouth`.
 - If enabled, `plymouth` must appear before `encrypt`.
 - Reference to `plymouth-encrypt` is treated as obsolete for current Arch hook set in this project.
 - If initramfs policy changes to systemd later, migrate explicitly to `sd-encrypt` in a dedicated decision update.

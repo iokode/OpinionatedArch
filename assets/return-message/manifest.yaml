@@ -1,0 +1,31 @@
+version: "1.0"
+name: "Default OpinionatedArch message"
+notice: "Every contact field is optional, but a message with no way to reach you cannot bring the device back."
+
+fields:
+  - name: "owner_name"
+    label: "Owner name"
+    kind: "text"
+    required: true
+  - name: "phone"
+    label: "Phone number"
+    kind: "phone"
+    required: false
+  - name: "email"
+    label: "Email address"
+    kind: "email"
+    required: false
+  - name: "address"
+    label: "Return address"
+    kind: "address"
+    required: false
+
+languages:
+  - code: "ca"
+    name: "Català"
+  - code: "en"
+    name: "English"
+  - code: "es"
+    name: "Español"
+  - code: "fr"
+    name: "Français"

@@ -36,7 +36,7 @@ See [Disk Layout](../decisions/002-disk-layout.md).
 
 ## What the Installer Asks
 
-Prompts cover the target disk and install mode, startup policy, microcode and GPU driver, swap sizes, login usernames, the shared secret, keymap, timezone, hostname, an optional public dotfiles repository, and the optional pre-boot return message with its ownership fields, languages, and logo.
+Prompts cover the target disk and install mode, microcode and GPU driver, swap sizes, login usernames, the shared secret, keymap, timezone, hostname, an optional public dotfiles package, and the optional pre-boot return message with its ownership fields, languages, and logo.
 
 The complete prompt list, the bootstrap package set, and the services enabled before first boot are in [Installer Inputs and Bootstrap Baseline](../decisions/000-installer-inputs-and-bootstrap-baseline.md).
 
