@@ -49,10 +49,10 @@ struct App {
     installing: bool,
     /// Mount points F5 attached, detached again when the installation starts.
     mounted: Vec<String>,
-    /// A widget is on screen and reading the keyboard for itself. While it is,
-    /// the installation's own reader keeps its hands off: two readers on one
-    /// terminal split the keys between them at random.
-    asking: bool,
+    /// How many widgets are on screen reading the keyboard for themselves.
+    /// While there is one, the installation's own reader keeps its hands off:
+    /// two readers on one terminal split the keys between them at random.
+    asking: usize,
     /// Every phase is behind us. Nothing announces this any more — the run
     /// simply ends — so the host is what marks the list off and fills the bar.
     finished: bool,
@@ -408,6 +408,7 @@ fn modal(host: &Host, title: &str, lines: Vec<String>, hints: &str) -> bool {
 /// A list drawn over whatever screen is up, for something that is not part of
 /// the form. Returns the chosen row, or None.
 fn modal_choose(host: &Host, title: &str, options: &[String]) -> Option<usize> {
+    let _asking = Asking::new(host);
     let mut cursor = 0usize;
     loop {
         host.draw(|f, _, _| {
@@ -809,7 +810,7 @@ fn watch_keys_while_installing(host: Arc<Host>) {
             if !app.installing {
                 return;
             }
-            if app.asking {
+            if app.asking > 0 {
                 drop(app);
                 std::thread::sleep(Duration::from_millis(50));
                 continue;
@@ -849,18 +850,22 @@ fn widget_key(host: &Host) -> Option<KeyEvent> {
 }
 
 /// Says that a widget is reading the keyboard, for as long as the value lives.
+/// It counts rather than flags, because they nest: a widget that opens a modal
+/// has two of these alive at once, and the inner one going out of scope must
+/// not hand the keyboard back while the outer one is still using it.
 struct Asking<'a>(&'a Host);
 
 impl<'a> Asking<'a> {
     fn new(host: &'a Host) -> Self {
-        host.app.lock().unwrap().asking = true;
+        host.app.lock().unwrap().asking += 1;
         Asking(host)
     }
 }
 
 impl Drop for Asking<'_> {
     fn drop(&mut self) {
-        self.0.app.lock().unwrap().asking = false;
+        let mut app = self.0.app.lock().unwrap();
+        app.asking = app.asking.saturating_sub(1);
     }
 }
 
@@ -1171,6 +1176,7 @@ fn entries_in(at: &str, want: Want) -> Vec<Entry> {
 /// being looked at be the answer; otherwise one file is what is being asked
 /// for, and a directory is only somewhere to walk through.
 fn ui_pick(host: &Host, title: String, prompt: String, start: String, want: Want) -> Option<String> {
+    let _asking = Asking::new(host);
     let mut error = host.take_error();
     let mut at = if std::path::Path::new(&start).is_dir() { start } else { "/".to_string() };
     let mut filter = String::new();
@@ -1408,24 +1414,76 @@ fn verbosity_box(app: &App) -> Vec<Line<'static>> {
     .collect()
 }
 
+/// What there is left to do once there is nothing left to install. It is a box
+/// of its own rather than the last lines of the log, because it is not part of
+/// what happened and has no business being saved with it.
+fn finished_box() -> Vec<Line<'static>> {
+    // The same two columns and the same two colours as the review screen: a key
+    // is read the way a setting is, and there is no reason for the eye to learn
+    // a second arrangement for it.
+    let key = Style::default().fg(Color::Gray);
+    let what = Style::default().fg(Color::White);
+    let note = Style::default().fg(Color::DarkGray);
+
+    let keys = [
+        ("Enter", "reboot into the installed system"),
+        ("F6", "stay here, in the live environment"),
+        ("s", "save the log to a file (all of it, whatever level is shown)"),
+        ("F5", "mount a disk"),
+    ];
+    let width = keys.iter().map(|(pressed, _)| pressed.chars().count()).max().unwrap_or(0);
+    let mut lines: Vec<Line> = keys
+        .into_iter()
+        .map(|(pressed, does)| {
+            Line::from(vec![
+                Span::styled(format!("  {pressed:<width$}   "), key),
+                Span::styled(does, what),
+            ])
+        })
+        .collect();
+
+    // Where to save it is not what a key does, so it is not written beside one.
+    // It is also the thing the operator is least likely to know: the system
+    // they have just installed is still mounted, and saving onto it needs
+    // nothing mounting at all.
+    lines.push(Line::from(""));
+    for line in [
+        "  This filesystem is in RAM. To keep the log, write it to the system just installed,",
+        "  which is mounted at /mnt, or press F5 to mount an external device.",
+    ] {
+        lines.push(Line::from(Span::styled(line, note)));
+    }
+    lines
+}
+
 fn progress_pane(f: &mut Frame, app: &App, area: Rect) {
     // Its own frame rather than the form's: there is no question here, so no
     // room is kept for a prompt or for the note that went with one.
     f.render_widget(Block::default().borders(Borders::ALL).title(" Installing "), area);
     let inner = area.inner(ratatui::layout::Margin { horizontal: 2, vertical: 1 });
     let levels = verbosity_box(app);
+    let ending = if app.finished { finished_box() } else { Vec::new() };
+    let ending_rows = if ending.is_empty() { 0 } else { ending.len() as u16 + 2 };
     let rows = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(3),
             Constraint::Min(0),
+            Constraint::Length(ending_rows),
             Constraint::Length(levels.len() as u16 + 2),
         ])
         .split(inner);
+    if ending_rows > 0 {
+        f.render_widget(
+            Paragraph::new(ending)
+                .block(Block::default().borders(Borders::ALL).title(" Finished ")),
+            rows[2],
+        );
+    }
     f.render_widget(
         Paragraph::new(levels)
             .block(Block::default().borders(Borders::ALL).title(" Verbosity (F4) ")),
-        rows[2],
+        rows[3],
     );
 
     // Always drawn, and never carrying text: how far along the run is, in
@@ -1849,20 +1907,9 @@ async fn run_interactive(
                     .started_at
                     .map(|from| format!(" in {}", how_long(from.elapsed())))
                     .unwrap_or_default();
+                //# the log ends with what happened. What to press about it is
+                //# not what happened, and saving the log should not save it
                 app.push_log(Said::Finished, format!("Installation finished{took}."));
-                // One line per key: four of them run together read as a
-                // sentence to be finished rather than a list to be scanned.
-                app.push_log(Said::Finished, String::new());
-                for line in [
-                    "  Enter   reboot into the installed system",
-                    "  F6      stay here, in the live environment",
-                    "  s       save the log to a file",
-                    "          (all of it, whatever level is shown)",
-                    "  F5      mount a disk",
-                    "          (to persist the log, this filesystem is in RAM)",
-                ] {
-                    app.push_log(Said::Finished, line.into());
-                }
             }
             tokio::task::block_in_place(|| wait_for_the_end(&host));
         }

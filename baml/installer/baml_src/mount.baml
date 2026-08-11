@@ -46,6 +46,18 @@ function mountable_listing_argv() -> Argv {
     Argv { program: "lsblk", args: ["-pnro", "NAME,TYPE,SIZE,FSTYPE,LABEL,MOUNTPOINT"] }
 }
 
+/// What `lsblk` reports under `FSTYPE` that is not a filesystem: a container,
+/// or a member of one. Mounting any of them cannot work.
+///
+/// The disk this installer has just written is the reason this list exists: its
+/// second partition is a LUKS container, so it reads as having a filesystem
+/// while having nothing that can be mounted. What is inside it is reached
+/// through `/dev/mapper`, and during an installation it is already mounted at
+/// the target root anyway.
+function unmountable_types() -> string[] {
+    ["crypto_LUKS", "LVM2_member", "linux_raid_member", "swap"]
+}
+
 /// The partitions worth offering: a filesystem to mount, and not mounted yet.
 ///
 /// A device with no filesystem is left out because mounting it cannot work, and
@@ -62,7 +74,7 @@ function parse_mountable(listing: string) -> MountableDevice[] {
         if (kind != "part" && kind != "rom") {
             continue;
         }
-        if (filesystem == "" || mounted != "") {
+        if (filesystem == "" || mounted != "" || unmountable_types().includes(filesystem)) {
             continue;
         }
         //# raw output writes a space as `\x20`, so a label is put back together
@@ -125,11 +137,31 @@ function sample_listing() -> string {
 test "the partitions offered are the ones that can be mounted and are not" {
     let devices = parse_mountable(sample_listing());
 
-    //# sda1 is mounted, sdc1 has no filesystem, and neither disk is a partition
-    assert.equal(mountable_labels(devices), [
-        "/dev/sda2 (476.4G, crypto_LUKS)",
-        "/dev/sdb1 \"ANDORRA USB\" (28.9G, exfat)",
-    ])
+    //# sda1 is mounted, sda2 is a container rather than a filesystem, sdc1 has
+    //# no filesystem at all, and neither disk is a partition
+    assert.equal(mountable_labels(devices), ["/dev/sdb1 \"ANDORRA USB\" (28.9G, exfat)"])
+}
+
+test "the disk the installer just wrote offers nothing to mount" {
+    //# what a machine looks like once the installation has finished: the ESP
+    //# and every subvolume are mounted under the target, and what is left is a
+    //# LUKS container, which is not something `mount` can be pointed at
+    let devices = parse_mountable(
+        "/dev/sda disk 476.9G  \n"
+            + "/dev/sda1 part 1G vfat  /mnt/boot\n"
+            + "/dev/sda2 part 475.9G crypto_LUKS  \n"
+            + "/dev/mapper/cryptroot crypt 475.9G btrfs  /mnt\n"
+            + "/dev/sdb1 part 28.9G exfat ANDORRA\\x20USB \n");
+
+    assert.equal(mountable_labels(devices), ["/dev/sdb1 \"ANDORRA USB\" (28.9G, exfat)"])
+}
+
+test "a container is not a filesystem, whatever lsblk calls it" {
+    for (let kind in unmountable_types()) {
+        assert.equal(parse_mountable(`/dev/sda2 part 100G ${kind}  ` + "\n"), []);
+    }
+    //# and what is a filesystem is still offered
+    assert.equal(parse_mountable("/dev/sda2 part 100G ext4  \n").length(), 1)
 }
 
 test "a label written the way raw output escapes it is put back together" {
