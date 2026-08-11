@@ -24,7 +24,7 @@ If `custom.cfg` exists after that synchronization, GRUB includes it.
 - `GRUB_TIMEOUT=1`
 - Default boot entry: `OpinionatedArch`
 - Normal startup does not display the menu.
-- Holding `Shift` while powering on the device shows the menu instead of booting directly.
+- Pressing any key while the machine starts shows the menu instead of booting directly.
 
 Entry order:
 1. `OpinionatedArch`
@@ -42,7 +42,8 @@ Entry order:
 - Avoiding `grub-mkconfig` is required because this policy uses reviewed static GRUB configuration assets; if GRUB configuration is generated dynamically, menu content can drift from the project-owned source of truth.
 - One static `grub.cfg` is required because the menu is a designed artifact rather than generated output; if it were generated, menu content could drift from the project-owned source of truth.
 - A hidden timeout is required because a system that normally boots the default entry should reach unlock quickly without showing the boot menu; if the menu is shown or the timeout is long, normal startup becomes slower without benefit.
-- `Shift` interrupt behavior is required so startup still has an explicit operator path to the GRUB menu; if there is no interrupt path, recovery entries become harder to reach.
+- An interrupt path is required so startup still has an explicit operator way into the GRUB menu; if there is none, the recovery entries become harder to reach.
+- The interrupt is any key during the hidden timeout, rather than a modifier held while powering on, because a modifier cannot be read here: `keystatus` needs the firmware to report which modifiers are held, and the UEFI console input this project boots from does not. A menu behind `Shift` is a menu behind nothing, and nothing about it looks broken from the outside. This project targets UEFI and does not support BIOS, so the reading that would work there is not one to keep the promise for.
 - Stable entry order is required because boot menu usage must be predictable under normal and recovery conditions; if order changes, operator error risk increases.
 - `Recovery mode` and `Netboot archiso` entries are required because local recovery and external live-boot recovery are different incident paths; if either is missing, some recovery workflows require separate manual boot handling.
 - `EFI firmware settings`, `Reboot`, and `Shutdown` entries are required because firmware access, restart, and safe power-off should be available without booting Linux; if missing, those operations become less direct.
@@ -55,5 +56,5 @@ Entry order:
 - With `/boot` on EFI, rollback of `@` does not rollback kernel/initramfs.
 - Kernel-update recovery is expected through the recovery workflow and package downgrade when needed.
 - Snapshot restore workflow is external to GRUB menu entries by policy.
-- Startup must boot `OpinionatedArch` directly unless `Shift` is held during power-on.
+- Startup must boot `OpinionatedArch` directly unless a key is pressed while it starts.
 - Any `custom.cfg` content is outside the base static `grub.cfg` source of truth.

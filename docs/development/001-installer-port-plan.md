@@ -9,15 +9,15 @@ The installer is being rewritten in BAML, replacing the earlier Bash and C# impl
 - `baml/return-message-render/` — the renderer. No host: `baml pack` makes it an executable of its own. It owns namespace `root.return_message`, and with it the template package format, the values format and the theme format, which the installer links from here because it asks for what a package declares, validates the same values in its own configuration file, and reads the theme to know how many languages it may offer.
 - Layout and the reason for it: `../decisions/016-baml-repository-layout.md`.
 
-Tests, counted on 2026-08-10: 186 in `baml/installer`, 123 in `baml/return-message-render`, 26 in `baml/utils`. The installer's number moves with the work in progress, so treat it as of that date rather than as a fact about the suite. Every suite runs with `baml test` and needs no host, no bridge, no ImageMagick and no privileges. The counts overlap: a suite also runs the tests of every namespace linked into it.
+Tests, counted on 2026-08-11: 232 in `baml/installer`, 127 in `baml/return-message-render`, 36 in `baml/utils`. Counts move with the work, so treat them as of that date rather than as a fact about the suite. Every suite runs with `baml test` and needs no host, no bridge, no ImageMagick and no privileges. The counts overlap: a suite also runs the tests of every namespace linked into it.
 
 ## Done
 
-**Both ways in.** The terminal interface asks ten screens with back navigation and per-answer validation; `--config` takes the same inputs from a YAML file and reports as plain lines without taking over the terminal. Formats: `../tools/oparch-installer/001-config-file-format.md`.
+**Both ways in.** The terminal interface asks eight screens with back navigation, per-answer validation and a note explaining each question; `--config` takes the same inputs from a YAML file and reports as plain lines without taking over the terminal. Formats: `../tools/oparch-installer/001-config-file-format.md`.
 
 **The template package and the theme.** Manifest parsing with format-version checking, message bodies with `{{field}}` references and `[[optional region]]` removal, and loading either from a local directory or from a URL as a `tar` whose entries are listed and refused before extraction if any would land outside the destination — the same path for both, since a theme is delivered like a package. The return-message screen asks for a package, asks for a theme, then asks the fields the package declares and offers the numbers of languages the theme lays out. Both are read and checked, with the values, before the disk is touched. Formats: `../tools/oparch-return-message-render/001-template-package-format.md`, `002-values-format.md` and `003-theme-format.md`; the decision behind the theme is `../decisions/017-return-message-themes.md`.
 
-**Eight of ten phases**, orchestrated in order and stopping at the first failure: `prepare_layout`, `bootstrap_base_system`, `configure_localization`, `configure_identity`, `configure_users`, `configure_network`, `configure_swap`, `configure_return_message`. Every command's exit status is checked, and a failed file operation is reported by the host and noticed by the orchestrator.
+**Ten of ten phases**, orchestrated in order and stopping at the first failure: `prepare_layout`, `bootstrap_base_system`, `configure_localization`, `configure_identity`, `configure_users`, `configure_network`, `configure_swap`, `configure_return_message`, `configure_initramfs`, `configure_bootloader`. Every command's exit status is checked, and a failed file operation is reported by the host and noticed by the orchestrator.
 
 **The pre-boot message phase.** It downloads the logo, asking the operator what to do when the download fails; writes the values into the target as `/etc/opinionatedarch/return-message.yaml`, composed by the same namespace that parses that format so the two cannot disagree; installs the project's Plymouth theme; runs `oparch-return-message-render` against the file it just wrote, with the theme in the target as its output; and makes that theme the default. It runs before the initramfs is built, and does nothing at all when no return message was asked for.
 
@@ -25,22 +25,26 @@ Tests, counted on 2026-08-10: 186 in `baml/installer`, 123 in `baml/return-messa
 
 **The splash.** The theme under `assets/plymouth/opinionatedarch/` was rewritten for this design: a `.plymouth` file and one script body that draws no text and only places the images. The fragments the earlier implementation concatenated, and the font and box images it drew text with, are deleted. The renderer writes the script the splash runs — seven numeric literals taken from the theme's `screen` values, then that body, read from the project's assets so a re-run cannot stack a second prelude — and copies the theme's background image beside the others when it has one.
 
+**The bootloader.** GRUB on the EFI partition, and the menu `../decisions/008-grub-boot-policy.md` designs, kept in `assets/grub/grub.cfg` and installed exactly as it is — `grub-mkconfig` is not used. What differs by machine is written beside it as `/boot/grub/oparch.cfg`, which the menu's first line reads: the container's UUID, the microcode image, and whether the splash is asked for. The recovery entry keeps its place in the order and says the recovery system is not installed, rather than starting something that is not there.
+
+**The end-to-end harness**, `test/e2e/run.sh`, described in `000-end-to-end-testing.md`. It boots the official Arch ISO under QEMU, drives the serial console, installs from a configuration file, then boots the disk it just built and answers the passphrase. It builds what it tests, because the host embeds the BAML program at compile time and a stale binary answers a question nobody asked.
+
 ## Left to do, in order
 
-1. **Initramfs phase.** The `HOOKS` line and `mkinitcpio -P`. Unblocked: the hooks are now the base list plus `plymouth`, with nothing project-specific, since the splash draws no text.
-2. **End-to-end harness.** `../development/000-end-to-end-testing.md`. Needs `qemu`, `edk2-ovmf` and an Arch ISO.
-3. **Bootloader phase.** Deliberately last: `../decisions/008-grub-boot-policy.md` requires a static `grub.cfg` that does not exist yet, and writing the one path whose failure means the machine does not boot should happen where it can be booted and seen to fail.
+1. **The ISO.** Built with `archiso`, carrying the tools, the assets and its packages in its cache. Last, because everything it would carry now works. Recorded in `../remaining.md`.
 
 ## Open
 
-- The Plymouth script has never run. Its arithmetic, the names it expects above it and the numbers it is handed are asserted as text by the renderer's tests, and read by nothing else until a machine boots it. Step 2 is the first time it executes.
-- What the message looks like on a real panel is still unverified. The project's theme composes at 3840 px wide and the splash scales the images to the `fit` its `screen` section declares; only step 2 shows whether the result reads at the resolutions these machines actually boot at.
+- The Plymouth script has still never run. A machine now boots, but under `-nographic` there is no display for a splash, so unlock fell back to text and the script was not the thing drawing it. Its arithmetic, the names it expects above it and the numbers it is handed remain asserted as text by the renderer's tests and read by nothing else. Watching it needs a harness run with a display attached.
+- What the message looks like on a real panel is still unseen, for the same reason. The project's theme composes at 3840 px wide and the splash scales the images to the `fit` its `screen` section declares, and whether that reads at the resolutions these machines boot at is a question no run has yet been able to answer.
 - `install_mode: keep-homes` is refused by the disk phase, as the earlier implementation also did.
 - What an installed system would need in order to rebuild its message, and what ImageMagick and the fonts need on the ISO and on the target, are recorded in `../remaining.md` and not repeated here.
 - `src/` and `installer/` are deleted once this reaches parity.
 
 ## Working notes
 
-Nothing here is tested against a real disk, and nothing in this chain has ever booted — not the installer, not the theme it installs, not the script the renderer writes. The recording doubles assert which commands would run and what files would be written; they cannot assert that any of it boots. That is what step 2 exists for, and until it runs "done" means "asserted", not "verified".
+It boots. On 2026-08-11 the harness installed from a configuration file and then started the disk it had made: the firmware found `\EFI\OpinionatedArch\grubx64.efi`, GRUB started the kernel the project's menu names, the initramfs asked for the passphrase, and the secret the installation was given opened the container and reached a login on the hostname that was configured.
+
+What that run does not cover: the splash has no display under `-nographic`, so the unlock screen was the text fallback `007` requires rather than the composed images, and how the message reads on a real panel is still unseen. The recording doubles remain what they always were — they assert which commands would run, not that they work.
 
 The installer presumes it runs from the Arch live environment and does not check for the tools it calls. Do not add environment checks to make it runnable elsewhere; give it the environment instead.

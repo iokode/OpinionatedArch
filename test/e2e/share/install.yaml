@@ -1,0 +1,33 @@
+# What the harness installs. The disk is /dev/vda because the guest's disk is
+# virtio; everything else is the smallest complete answer to every question,
+# with a return message so the phase that renders it actually runs.
+disk: /dev/vda
+install_mode: wipe-all
+
+ucode_package: none
+gpu_driver: none
+
+swap:
+  zram_gb: 2
+  swapfile_gb: 0
+
+login_users:
+  - ivan
+shared_secret: "harness secret"
+
+console_keymap: es
+timezone: Europe/Madrid
+hostname: oparch
+
+return_message:
+  template:
+    origin: default
+  theme:
+    origin: default
+  languages:
+    - es
+    - en
+  fields:
+    owner_name: Ivan Montilla
+    phone: "+34 666 555 666"
+    email: ivan@iokode.net

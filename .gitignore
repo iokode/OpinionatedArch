@@ -7,3 +7,12 @@ src/*/obj/
 artifacts/
 *.DotSettings.user
 deploy-to-vm.sh
+
+# The live ISO the end-to-end harness boots. Provided, not built, and far too
+# big to version: see docs/development/000-end-to-end-testing.md.
+/*.iso
+
+# What a harness run builds to boot from: disk images, the kernel it pulls out
+# of the ISO, and a copy of the binaries it hands the guest. Regenerated every
+# run.
+/test/e2e/work/

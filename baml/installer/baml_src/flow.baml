@@ -86,7 +86,11 @@ function run_phases(shell: root.common.Shell, files: root.common.Files, ui: Ui,
     let problem = run_phase(files, configure_return_message(shell, files, ui, config, target, asset_dir));
     if (problem != "") { return problem; }
 
-    run_phase(files, configure_initramfs(shell, files, ui, config, target))
+    let problem = run_phase(files, configure_initramfs(shell, files, ui, config, target));
+    if (problem != "") { return problem; }
+
+    //# last, and the only one whose failure means the machine does not start
+    run_phase(files, configure_bootloader(shell, files, ui, config, target, asset_dir))
 }
 
 function install(shell: root.common.Shell, files: root.common.Files, ui: Ui, asset_dir: string,
@@ -221,6 +225,7 @@ function full_run_files() -> root.common.RecordingFiles {
     let files = root.common.recording_files();
     files.write("/mnt/etc/locale.gen", "#en_US.UTF-8 UTF-8\n");
     files.write("/mnt/etc/mkinitcpio.conf", stock_mkinitcpio_conf());
+    files.write("/assets/grub/grub.cfg", "source ${prefix}/oparch.cfg\n");
     files
 }
 
@@ -261,6 +266,7 @@ test "the phases run in order and the installation reports success" {
         "Enabling the network stack",
         "Configuring swap",
         "Building the initramfs",
+        "Installing the bootloader",
         "Installation finished",
     ])
 }
@@ -272,6 +278,7 @@ function full_run_message_files() -> root.common.RecordingFiles {
     let files = packaged_files();
     files.write("/mnt/etc/locale.gen", "#en_US.UTF-8 UTF-8\n");
     files.write("/mnt/etc/mkinitcpio.conf", stock_mkinitcpio_conf());
+    files.write("/assets/grub/grub.cfg", "source ${prefix}/oparch.cfg\n");
     files
 }
 
@@ -308,6 +315,7 @@ test "a return message adds its phase after swap, and the theme becomes the defa
         "Configuring swap",
         "Rendering the pre-boot return message",
         "Building the initramfs",
+        "Installing the bootloader",
         "Installation finished",
     ]);
     //# plymouth is installed with the base system, and the theme is its own
