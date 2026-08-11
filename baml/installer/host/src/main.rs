@@ -56,6 +56,9 @@ struct App {
     /// Every phase is behind us. Nothing announces this any more — the run
     /// simply ends — so the host is what marks the list off and fills the bar.
     finished: bool,
+    /// When the operator started it, which is F2 and not when the program did:
+    /// what took the time is the installation, not the answering of questions.
+    started_at: Option<Instant>,
     /// How far up the log has been scrolled, in lines. Zero is the bottom,
     /// which is where new lines appear.
     ///
@@ -258,7 +261,9 @@ fn status_bar(f: &mut Frame, app: &App, waiting: usize, area: Rect) {
     entry(&mut spans, "F2", "Install".into(), live && app.on_summary);
     entry(&mut spans, "F3", "About".into(), live && !app.installing && !app.on_splash);
     entry(&mut spans, "F4", format!("Verbose: {}", app.verbose), live);
-    entry(&mut spans, "F5", "Mount media".into(), live && !app.installing);
+    //# and again once it is over, because saving the log needs somewhere to
+    //# save it to
+    entry(&mut spans, "F5", "Mount media".into(), live && (!app.installing || app.finished));
     //# once it is over, leaving is the thing the last line asks for
     entry(&mut spans, "F6", "Exit".into(), live && (!app.installing || app.finished));
     entry(&mut spans, "F7", "Shutdown".into(), live && !app.installing);
@@ -331,6 +336,20 @@ fn content_block(f: &mut Frame, app: &App, area: Rect, title: &str, prompt: &str
         );
     }
     rows[1]
+}
+
+/// How long it took, for someone reading it rather than timing it: minutes and
+/// seconds, and hours when there were any.
+fn how_long(taken: Duration) -> String {
+    let seconds = taken.as_secs();
+    let (hours, minutes, seconds) = (seconds / 3600, (seconds / 60) % 60, seconds % 60);
+    if hours > 0 {
+        format!("{hours}h {minutes}m {seconds}s")
+    } else if minutes > 0 {
+        format!("{minutes}m {seconds}s")
+    } else {
+        format!("{seconds}s")
+    }
 }
 
 fn centered(area: Rect, width: u16, height: u16) -> Rect {
@@ -609,23 +628,23 @@ fn splash(host: &Host) {
 /// What the log is called when it is written out. The directory is chosen, so
 /// only the name has to be typed, and it comes prefilled.
 const LOG_FILE: &str = "oparch-runtime.log";
+/// The same, for the log of the installation itself.
+const INSTALL_LOG_FILE: &str = "oparch-install.log";
 
 /// Writes the log where the operator chooses: a directory picked by walking to
 /// it, and a name typed into a field. Reports where it landed, or why it did
 /// not.
-fn save_log(host: &Host, lines: &[String]) {
-    let Some(directory) =
-        ui_pick(host, "Save the runtime log".into(), "Choose where to write it.".into(),
-                "/".into(), Want::Directory)
+fn save_log(host: &Host, title: &str, suggested: &str, lines: &[String]) {
+    let Some(directory) = ui_pick(host, title.into(), "Choose where to write it.".into(),
+                                  "/".into(), Want::Directory)
     else {
         return;
     };
-    let Some(name) =
-        ui_text(host, "Save the runtime log".into(), "File name".into(), LOG_FILE.into(), false)
+    let Some(name) = ui_text(host, title.into(), "File name".into(), suggested.into(), false)
     else {
         return;
     };
-    let name = if name.trim().is_empty() { LOG_FILE.to_string() } else { name.trim().to_string() };
+    let name = if name.trim().is_empty() { suggested.to_string() } else { name.trim().to_string() };
 
     let at = joined(&directory, &name);
     let written = lines.join("\n") + "\n";
@@ -633,7 +652,25 @@ fn save_log(host: &Host, lines: &[String]) {
         Ok(()) => format!("Written to {at}"),
         Err(e) => format!("Cannot write {at}: {e}"),
     };
-    modal(host, "Save the runtime log", vec![said], "Enter or Esc to close");
+    modal(host, title, vec![said], "Enter or Esc to close");
+}
+
+/// The installation log as a file: everything of it, whatever the screen was
+/// showing, because a level is what one screen is filtered by and not what the
+/// run consisted of. Colour cannot be written down, so the shape carries what
+/// the colour did — a phase at the margin, what it did indented under it, and
+/// what its commands printed indented under that.
+fn log_as_text(log: &[Logged]) -> Vec<String> {
+    log.iter()
+        .map(|line| {
+            let indent = match line.kind {
+                Said::Phase | Said::Finished | Said::Failed => "",
+                Said::Action => "  ",
+                Said::Output => "    ",
+            };
+            format!("{indent}{}", line.text)
+        })
+        .collect()
 }
 
 /// The whole of what the BAML runtime and the program itself printed, over the
@@ -706,7 +743,7 @@ fn show_log(host: &Host) {
             //# for as long as it is the thing on screen
             KeyCode::Char('s') | KeyCode::Char('S') => {
                 host.app.lock().unwrap().overlay = false;
-                save_log(host, &lines);
+                save_log(host, "Save the runtime log", LOG_FILE, &lines);
                 host.app.lock().unwrap().overlay = true;
             }
             _ => {}
@@ -1301,7 +1338,11 @@ fn ui_review(host: &Arc<Host>, title: String, rows: Vec<baml_sdk::SummaryRow>) -
         if key.code == KeyCode::F(2) {
             //# media are detached before anything is written, not at exit
             tokio::runtime::Handle::current().block_on(unmount_media(host));
-            host.app.lock().unwrap().installing = true;
+            {
+                let mut app = host.app.lock().unwrap();
+                app.installing = true;
+                app.started_at = Some(Instant::now());
+            }
             watch_keys_while_installing(host.clone());
             return true;
         }
@@ -1339,15 +1380,53 @@ fn log_window<'a>(
     (walked[end.saturating_sub(height)..end].to_vec(), scrolled)
 }
 
+/// The three levels, each written in the colour of what it adds, so that the
+/// legend is its own example. The one in force is marked rather than named: it
+/// is on screen either way, and a line saying which is a line to read.
+///
+/// It belongs here rather than in the notes the questions carry: the levels and
+/// the colours are the terminal's own vocabulary, and nothing on the other side
+/// of the bridge knows them.
+fn verbosity_box(app: &App) -> Vec<Line<'static>> {
+    [
+        (0u8, Said::Phase, "phases"),
+        (1, Said::Action, "+ what each phase is doing"),
+        (2, Said::Output, "+ what its commands printed"),
+    ]
+    .into_iter()
+    .map(|(level, kind, text)| {
+        let in_force = level == app.verbose;
+        let style = if in_force { kind.style().add_modifier(Modifier::BOLD) } else { kind.style() };
+        Line::from(vec![
+            Span::styled(
+                format!(" {} {level}   ", if in_force { "▸" } else { " " }),
+                Style::default().fg(Color::Gray),
+            ),
+            Span::styled(text, style),
+        ])
+    })
+    .collect()
+}
+
 fn progress_pane(f: &mut Frame, app: &App, area: Rect) {
     // Its own frame rather than the form's: there is no question here, so no
     // room is kept for a prompt or for the note that went with one.
     f.render_widget(Block::default().borders(Borders::ALL).title(" Installing "), area);
     let inner = area.inner(ratatui::layout::Margin { horizontal: 2, vertical: 1 });
+    let levels = verbosity_box(app);
     let rows = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(3), Constraint::Min(0)])
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Min(0),
+            Constraint::Length(levels.len() as u16 + 2),
+        ])
         .split(inner);
+    f.render_widget(
+        Paragraph::new(levels)
+            .block(Block::default().borders(Borders::ALL).title(" Verbosity (F4) ")),
+        rows[2],
+    );
 
     // Always drawn, and never carrying text: how far along the run is, in
     // phases finished, whatever the log below it is doing.
@@ -1392,15 +1471,16 @@ fn progress_pane(f: &mut Frame, app: &App, area: Rect) {
             ListItem::new(Line::from(Span::styled(text, line.kind.style())))
         })
         .collect();
-    let title = if scrolled == 0 {
-        " Log ".to_string()
-    } else {
-        format!(" Log — {scrolled} lines below ")
-    };
-    f.render_widget(
-        List::new(items).block(Block::default().borders(Borders::ALL).title(title)),
-        rows[1],
-    );
+    // The keys belong to the thing they move, which is this box, exactly as
+    // the form's widgets carry theirs. Where the window is sits on the other
+    // end of the same border, so the two never have to share the room.
+    let mut frame = Block::default()
+        .borders(Borders::ALL)
+        .title_top(" Log · ↑/↓ scroll · PgUp/PgDn page · End newest ");
+    if scrolled > 0 {
+        frame = frame.title_top(Line::from(format!(" {scrolled} below ")).right_aligned());
+    }
+    f.render_widget(List::new(items).block(frame), rows[1]);
 }
 
 // --------------------------------------------------------------------- main
@@ -1765,11 +1845,24 @@ async fn run_interactive(
                 //# their own, so they are shown whatever the verbose level is
                 app.push_log(Said::Finished, String::new());
                 app.push_log(Said::Finished, String::new());
-                app.push_log(
-                    Said::Finished,
-                    "Installation finished. Enter reboots; F6 leaves you in the live shell."
-                        .into(),
-                );
+                let took = app
+                    .started_at
+                    .map(|from| format!(" in {}", how_long(from.elapsed())))
+                    .unwrap_or_default();
+                app.push_log(Said::Finished, format!("Installation finished{took}."));
+                // One line per key: four of them run together read as a
+                // sentence to be finished rather than a list to be scanned.
+                app.push_log(Said::Finished, String::new());
+                for line in [
+                    "  Enter   reboot into the installed system",
+                    "  F6      stay here, in the live environment",
+                    "  s       save the log to a file",
+                    "          (all of it, whatever level is shown)",
+                    "  F5      mount a disk",
+                    "          (to persist the log, this filesystem is in RAM)",
+                ] {
+                    app.push_log(Said::Finished, line.into());
+                }
             }
             tokio::task::block_in_place(|| wait_for_the_end(&host));
         }
@@ -1816,6 +1909,13 @@ fn wait_for_the_end(host: &Host) {
                 std::process::exit(0);
             }
             KeyCode::F(6) => return,
+            // Saving it is why mounting has to work here: the medium it is
+            // saved to is one nobody had a reason to mount before now.
+            KeyCode::F(5) => tokio::runtime::Handle::current().block_on(mount_media(host)),
+            KeyCode::Char('s') | KeyCode::Char('S') => {
+                let written = log_as_text(&host.app.lock().unwrap().log);
+                save_log(host, "Save the installation log", INSTALL_LOG_FILE, &written);
+            }
             //# the log is still there to be read, and still worth reading at a
             //# level other than the one it was watched at
             KeyCode::Up => host.app.lock().unwrap().scroll_by(1),
@@ -1895,6 +1995,57 @@ impl FileOps {
     }
 }
 
+/// A line of command output as a terminal would leave it on screen.
+///
+/// What a command writes is not text: pacman colours its output and redraws its
+/// progress in place, so a line arrives carrying escape sequences and carriage
+/// returns. Put in a buffer they are not drawn, they are obeyed — the terminal
+/// moves its cursor out of the box the line belongs to and paints over whatever
+/// is there, which is the step list.
+fn readable(line: &str) -> String {
+    // After a carriage return, only what came after it was ever on screen.
+    let visible = line.rsplit('\r').next().unwrap_or(line);
+    let mut out = String::with_capacity(visible.len());
+    let mut rest = visible.chars().peekable();
+
+    while let Some(c) = rest.next() {
+        if c != '\u{1b}' {
+            if !c.is_control() {
+                out.push(c);
+            }
+            continue;
+        }
+        match rest.peek() {
+            //# a control sequence runs to its final byte
+            Some('[') => {
+                rest.next();
+                for c in rest.by_ref() {
+                    if ('@'..='~').contains(&c) {
+                        break;
+                    }
+                }
+            }
+            //# an operating system command runs to a bell or to ESC \
+            Some(']') => {
+                rest.next();
+                while let Some(c) = rest.next() {
+                    if c == '\u{7}' {
+                        break;
+                    }
+                    if c == '\u{1b}' {
+                        rest.next();
+                        break;
+                    }
+                }
+            }
+            _ => {
+                rest.next();
+            }
+        }
+    }
+    out
+}
+
 /// What a command produced. BAML is given the exit code and standard output,
 /// which is what it reads; standard error is the host's, for the log.
 struct Ran {
@@ -1911,7 +2062,7 @@ fn logged(host: &Host, ran: Ran) -> baml_sdk::common::CommandResult {
             return ran.result;
         }
         for line in ran.result.stdout.lines().chain(ran.stderr.lines()) {
-            app.push_log(Said::Output, line.to_string());
+            app.push_log(Said::Output, readable(line));
         }
     }
     host.draw(progress_pane);
@@ -2014,13 +2165,13 @@ async fn run_streamed(
                     app.total = p.total;
                     app.package = p.package;
                     eta_input = Some((p.current, p.total));
-                    app.push_log(Said::Output, line.clone());
+                    app.push_log(Said::Output, readable(&line));
                 }
                 baml_sdk::PacmanEvent::PhaseMarker(m) => {
-                    app.push_log(Said::Output, format!(":: {}", m.name));
+                    app.push_log(Said::Output, readable(&format!(":: {}", m.name)));
                 }
                 baml_sdk::PacmanEvent::Downloading(_) => {
-                    app.push_log(Said::Output, line.clone());
+                    app.push_log(Said::Output, readable(&line));
                 }
                 baml_sdk::PacmanEvent::Unknown(_) => app.push_log(Said::Output, line.clone()),
             }
@@ -2265,6 +2416,54 @@ mod tests {
         let (view, scrolled) = log_window(&log, 2, 3, 99_999);
         assert_eq!(view[0].kind, Said::Phase);
         assert_eq!(scrolled, 5001 - 3);
+    }
+
+    #[test]
+    fn what_a_command_writes_is_read_as_text_and_never_obeyed() {
+        // pacman colours its output.
+        assert_eq!(readable("\u{1b}[1;32m==>\u{1b}[0m Building image"), "==> Building image");
+
+        // And redraws its progress in place: only the last pass was on screen.
+        assert_eq!(readable("downloading  10%\rdownloading  90%"), "downloading  90%");
+
+        // A sequence that moves the cursor is what painted over the step list.
+        assert_eq!(readable("\u{1b}[2Kleft edge"), "left edge");
+        assert_eq!(readable("a\u{1b}]0;a title\u{7}b"), "ab");
+
+        // Everything else is left exactly as it came.
+        assert_eq!(
+            readable("UUID=2330b40a / btrfs rw,relatime,subvol=/@log 0 0"),
+            "UUID=2330b40a / btrfs rw,relatime,subvol=/@log 0 0"
+        );
+        assert_eq!(readable("tabs\tand\u{8}backspaces"), "tabsandbackspaces");
+    }
+
+    #[test]
+    fn how_long_it_took_reads_as_a_duration_rather_than_a_count() {
+        assert_eq!(how_long(Duration::from_secs(9)), "9s");
+        assert_eq!(how_long(Duration::from_secs(252)), "4m 12s");
+        assert_eq!(how_long(Duration::from_secs(3600)), "1h 0m 0s");
+        assert_eq!(how_long(Duration::from_secs(4271)), "1h 11m 11s");
+    }
+
+    #[test]
+    fn the_saved_log_carries_in_its_shape_what_the_colours_carried() {
+        let log = vec![
+            said(Said::Phase, "Installing packages..."),
+            said(Said::Action, "Installing 12 packages with pacstrap..."),
+            said(Said::Output, "installing linux-firmware"),
+            said(Said::Phase, "Packages installed."),
+        ];
+
+        assert_eq!(
+            log_as_text(&log),
+            vec![
+                "Installing packages...",
+                "  Installing 12 packages with pacstrap...",
+                "    installing linux-firmware",
+                "Packages installed.",
+            ]
+        );
     }
 
     #[test]
