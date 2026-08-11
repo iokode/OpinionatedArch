@@ -30,6 +30,10 @@ Three things about the generated entry point:
 - `baml.fs` has no `symlink` and no `chmod`. `root.common.SystemFiles` runs `ln -s` and `chmod` for those, which is why it needs a shell at all.
 - `baml.sys.exec` takes the program and its arguments separately, so nothing built from a template package or a theme is ever parsed by a shell.
 
+## Building a tool that has a host
+
+`cargo build` is not the whole build. What the host runs is the BAML program embedded in its generated SDK, and only `baml generate` puts a change to `baml_src/` there — so a rebuilt binary happily runs the previous program, with nothing to suggest it. Two end-to-end runs were spent watching a phase that the source had but the binary did not. Anything that builds the installer runs `baml generate` first; `test/e2e/run.sh` does.
+
 ## The formatter
 
 `baml fmt` is not run on this repository. Files that no one has touched are already unformatted by its standards, so running it would rewrite everything and bury the change that was actually made. Match the surrounding style by hand.
