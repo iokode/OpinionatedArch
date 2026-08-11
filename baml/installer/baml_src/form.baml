@@ -6,7 +6,7 @@ function collect_config(shell: root.common.Shell, files: root.common.Files, ui: 
     //# read once: what a question says about itself does not change while it
     //# is being answered
     let tips = load_tips(files, ui, asset_dir);
-    ui.outline(step_names());
+    ui.outline(form_phases());
     let step = 0;
 
     while (step <= 7) {
@@ -51,6 +51,16 @@ function step_names() -> string[] {
         "Target disk", "Data preservation", "Hardware", "Users",
         "Locale and identity", "Dotfiles", "Return message", "Summary",
     ]
+}
+
+/// The same list, as the outline takes it. A screen is answered, not performed,
+/// so it reads the same whether it is ahead, current or behind.
+function form_phases() -> Phase[] {
+    let phases: Phase[] = [];
+    for (let name in step_names()) {
+        phases.push(screen(name));
+    }
+    phases
 }
 
 // ------------------------------------------------------------------ screens
@@ -611,7 +621,7 @@ function fake_live_shell() -> root.common.RecordingShell {
 }
 
 function scripted(answers: string[]) -> ScriptedUi {
-    ScriptedUi { answers: answers, asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] }
+    ScriptedUi { answers: answers, asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] }
 }
 
 test "the form walks every screen and collects the whole config" {

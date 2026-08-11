@@ -32,8 +32,9 @@ function feed_in_target(shell: root.common.Shell, target: root.common.Target,
 function configure_localization(shell: root.common.Shell, files: root.common.Files, ui: Ui,
                                 config: InstallConfig, target: root.common.Target) -> string
         throws baml.errors.InvalidArgument {
-    ui.step("Configuring localization");
+    ui.step("Configuring localization...");
 
+    ui.action("Generating the en_US.UTF-8 locale...");
     let locale_gen = root.common.target_path(target, "/etc/locale.gen");
     if (!root.common.replace_in_file(files, locale_gen, "#en_US.UTF-8 UTF-8", "en_US.UTF-8 UTF-8")) {
         return "/etc/locale.gen is missing from the target.";
@@ -43,12 +44,14 @@ function configure_localization(shell: root.common.Shell, files: root.common.Fil
         return `locale-gen failed with exit code ${generated.exit_code}.`;
     }
 
+    ui.action(`Writing the keymap and the timezone: ${config.console_keymap}, ${config.timezone}...`);
     files.write(root.common.target_path(target, "/etc/locale.conf"), "LANG=en_US.UTF-8" + "\n");
     files.write(root.common.target_path(target, "/etc/vconsole.conf"),
                 `KEYMAP=${config.console_keymap}` + "\n");
     files.symlink(root.common.target_path(target, "/etc/localtime"),
                   `/usr/share/zoneinfo/${config.timezone}`);
 
+    ui.action("Setting the hardware clock to UTC...");
     root.common.must(in_target(shell, target, "hwclock", ["--systohc", "--utc"]), "hwclock")
 }
 
@@ -58,7 +61,8 @@ function configure_localization(shell: root.common.Shell, files: root.common.Fil
 function configure_identity(files: root.common.Files, ui: Ui,
                             config: InstallConfig, target: root.common.Target) -> string
         throws baml.errors.InvalidArgument {
-    ui.step("Configuring system identity");
+    ui.step("Configuring system identity...");
+    ui.action(`Writing /etc/hostname: ${config.hostname}...`);
     files.write(root.common.target_path(target, "/etc/hostname"), config.hostname + "\n");
     ""
 }
@@ -69,8 +73,9 @@ function configure_identity(files: root.common.Files, ui: Ui,
 function configure_users(shell: root.common.Shell, files: root.common.Files, ui: Ui,
                          config: InstallConfig, target: root.common.Target) -> string
         throws baml.errors.InvalidArgument {
-    ui.step("Creating users and groups");
+    ui.step("Creating users and groups...");
 
+    ui.action("Creating the dotfiles and login-users groups...");
     for (let group in ["dotfiles", "login-users"]) {
         let added = root.common.must(in_target(shell, target, "groupadd", [group]),
                                      `creating the ${group} group`);
@@ -82,6 +87,7 @@ function configure_users(shell: root.common.Shell, files: root.common.Files, ui:
     if (shared != "") { return shared; }
 
     for (let user in config.login_users) {
+        ui.action(`Creating the account ${user}...`);
         let created = in_target(shell, target, "useradd",
             ["-M", "-d", `/home/${user}`, "-G", "wheel,dotfiles,login-users",
              "-s", "/bin/bash", user]);
@@ -104,6 +110,7 @@ function configure_users(shell: root.common.Shell, files: root.common.Files, ui:
     }
 
     //# root has no password: administration goes through sudo
+    ui.action("Locking the root account and granting wheel sudo...");
     let locked = root.common.must(in_target(shell, target, "passwd", ["-l", "root"]),
                                   "locking the root account");
     if (locked != "") { return locked; }
@@ -121,8 +128,9 @@ function configure_users(shell: root.common.Shell, files: root.common.Files, ui:
 //# the services that must already be enabled on first boot
 function configure_network(shell: root.common.Shell, ui: Ui,
                            target: root.common.Target) -> string {
-    ui.step("Enabling the network stack");
+    ui.step("Enabling the network stack...");
     for (let service in ["NetworkManager.service", "systemd-resolved.service"]) {
+        ui.action(`Enabling ${service}...`);
         let enabled = in_target(shell, target, "systemctl", ["enable", service]);
         if (enabled.exit_code != 0) {
             return `Enabling ${service} failed with exit code ${enabled.exit_code}.`;
@@ -158,7 +166,7 @@ function target_with_locale_gen() -> root.common.RecordingFiles {
 test "localization uncomments the locale, generates it and sets keymap and time" {
     let shell = plain_shell();
     let files = target_with_locale_gen();
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     assert.equal(
         configure_localization(shell, files, ui, system_config(), root.common.mounted_target("/mnt")),
@@ -176,7 +184,7 @@ test "localization uncomments the locale, generates it and sets keymap and time"
 
 test "localization stops when the target has no locale.gen" {
     let shell = plain_shell();
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     assert.equal(
         configure_localization(shell, root.common.recording_files(), ui, system_config(),
@@ -187,7 +195,7 @@ test "localization stops when the target has no locale.gen" {
 
 test "identity writes the hostname" {
     let files = root.common.recording_files();
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     assert.equal(
         configure_identity(files, ui, system_config(), root.common.mounted_target("/mnt")), "");
@@ -197,7 +205,7 @@ test "identity writes the hostname" {
 test "users creates the groups, the shared dotfiles directory and each account" {
     let shell = plain_shell();
     let files = root.common.recording_files();
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
     let config = system_config();
     config.login_users = ["ivan", "work"];
 
@@ -220,7 +228,7 @@ test "users creates the groups, the shared dotfiles directory and each account" 
 
 test "users never puts the passphrase on a command line" {
     let shell = plain_shell();
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
     let config = system_config();
 
     let _ = configure_users(shell, root.common.recording_files(), ui, config,
@@ -233,7 +241,7 @@ test "users never puts the passphrase on a command line" {
 test "users locks root and restricts the sudoers file" {
     let shell = plain_shell();
     let files = root.common.recording_files();
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     let _ = configure_users(shell, files, ui, system_config(), root.common.mounted_target("/mnt"));
 
@@ -247,7 +255,7 @@ test "users stops when an account cannot be created" {
     let shell = plain_shell();
     let _ = shell.exit_codes.set(
         "arch-chroot /mnt useradd -M -d /home/ivan -G wheel,dotfiles,login-users -s /bin/bash ivan", 9);
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     assert.equal(
         configure_users(shell, root.common.recording_files(), ui, system_config(),
@@ -258,7 +266,7 @@ test "users stops when an account cannot be created" {
 
 test "network enables both services before first boot" {
     let shell = plain_shell();
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     assert.equal(configure_network(shell, ui, root.common.mounted_target("/mnt")), "");
     assert.equal(shell.commands, [
@@ -270,7 +278,7 @@ test "network enables both services before first boot" {
 test "network reports which service could not be enabled" {
     let shell = plain_shell();
     let _ = shell.exit_codes.set("arch-chroot /mnt systemctl enable systemd-resolved.service", 1);
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     assert.equal(configure_network(shell, ui, root.common.mounted_target("/mnt")),
                  "Enabling systemd-resolved.service failed with exit code 1.")
@@ -278,7 +286,7 @@ test "network reports which service could not be enabled" {
 
 test "a local target runs commands directly, with no chroot" {
     let shell = plain_shell();
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     let _ = configure_network(shell, ui, root.common.local_target());
 
@@ -291,7 +299,7 @@ test "a local target runs commands directly, with no chroot" {
 test "users stops when a password cannot be set, before root is locked" {
     let shell = plain_shell();
     let _ = shell.exit_codes.set("arch-chroot /mnt chpasswd", 1);
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     assert.equal(
         configure_users(shell, root.common.recording_files(), ui, system_config(),

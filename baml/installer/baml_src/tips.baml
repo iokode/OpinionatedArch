@@ -69,7 +69,7 @@ function tip_for(tips: Tips, key: string) -> string[] {
 
 function silent() -> ScriptedUi {
     ScriptedUi {
-        answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [],
+        answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [],
         limits: [],
     }
 }

@@ -7,11 +7,34 @@
 //
 // A null answer means "the user went back".
 
+/// A screen of the form, or a phase of the installation, in the three forms it
+/// is read in: the list says what will be done, and the log says what is being
+/// done while it is, and what was done once it is over.
+///
+/// A screen of the form is answered rather than performed, so its three forms
+/// are one and the same; `screen` is what says so.
+class Phase {
+    to_do: string,
+    doing: string,
+    done: string,
+}
+
+function screen(name: string) -> Phase {
+    Phase { to_do: name, doing: name, done: name }
+}
+
 interface Ui {
-    /// The whole list of screens, sent once so the host can show progress
-    /// through the form. The order matches the order they are asked in.
-    function outline(self, names: string[]) -> void throws never
+    /// The whole list, sent once so the host can show progress through it. The
+    /// order matches the order they are asked or run in.
+    function outline(self, phases: Phase[]) -> void throws never
+    /// The phase now under way. There are ten of them, they are what the step
+    /// list shows, and each one ends when the next begins.
     function step(self, title: string) -> void throws never
+    /// What the phase is doing right now, in words rather than as the command
+    /// line that does it: `Wiping the disk`, `Writing /etc/hostname`. Wording
+    /// it is a decision, which is why it is said here and not drawn from what
+    /// the host happens to be running.
+    function action(self, message: string) -> void throws never
     function error(self, message: string) -> void throws never
     /// Something worth recording and not worth interrupting for: it goes to the
     /// runtime log, which the operator opens when they want it, rather than in
@@ -62,8 +85,9 @@ function index_of_option(options: string[], value: string) -> int {
 // ---------------------------------------------------------------- host side
 
 class HostUi {
-    on_outline: (string[]) -> void throws never,
+    on_outline: (Phase[]) -> void throws never,
     on_step: (string) -> void throws never,
+    on_action: (string) -> void throws never,
     on_error: (string) -> void throws never,
     on_warn: (string) -> void throws never,
     on_tip: (string[]) -> void throws never,
@@ -74,11 +98,14 @@ class HostUi {
     on_pick_file: (string, string, string) -> string? throws never,
     on_review: (string, SummaryRow[]) -> bool throws never,
     implements Ui {
-        function outline(self, names: string[]) -> void {
-            self.on_outline(names)
+        function outline(self, phases: Phase[]) -> void {
+            self.on_outline(phases)
         }
         function step(self, title: string) -> void {
             self.on_step(title)
+        }
+        function action(self, message: string) -> void {
+            self.on_action(message)
         }
         function error(self, message: string) -> void {
             self.on_error(message)
@@ -142,6 +169,8 @@ class ScriptedUi {
     answers: string[],
     asked: string[],
     steps: string[],
+    /// What each phase said it was doing, in order.
+    actions: string[],
     errors: string[],
     outline: string[],
     /// Everything sent to the runtime log rather than to the screen.
@@ -158,11 +187,18 @@ class ScriptedUi {
     }
 
     implements Ui {
-        function outline(self, names: string[]) -> void {
+        function outline(self, phases: Phase[]) -> void {
+            let names: string[] = [];
+            for (let phase in phases) {
+                names.push(phase.to_do);
+            }
             self.outline = names
         }
         function step(self, title: string) -> void {
             self.steps.push(title)
+        }
+        function action(self, message: string) -> void {
+            self.actions.push(message)
         }
         function error(self, message: string) -> void {
             self.errors.push(message)

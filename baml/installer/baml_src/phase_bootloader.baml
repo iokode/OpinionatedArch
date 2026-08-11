@@ -60,8 +60,9 @@ function configure_bootloader(shell: root.common.Shell, files: root.common.Files
                               config: InstallConfig, target: root.common.Target,
                               asset_dir: string) -> string
         throws baml.errors.InvalidArgument {
-    ui.step("Installing the bootloader");
+    ui.step("Installing the bootloader...");
 
+    ui.action("Installing GRUB onto the EFI partition...");
     let installed = root.common.must(
         in_target(shell, target, "grub-install",
                   ["--target=x86_64-efi", "--efi-directory=/boot",
@@ -71,6 +72,7 @@ function configure_bootloader(shell: root.common.Shell, files: root.common.Files
         return installed;
     }
 
+    ui.action("Writing the boot menu and its settings...");
     let menu = files.read(grub_asset_path(asset_dir));
     if (menu == null) {
         return `The boot menu is not in the assets: ${grub_asset_path(asset_dir)}`;
@@ -123,7 +125,7 @@ test "the menu is installed exactly as the project keeps it" {
         "arch-chroot /mnt grub-install --target=x86_64-efi --efi-directory=/boot"
             + " --bootloader-id=OpinionatedArch",
     ]);
-    assert.equal(ui.steps, ["Installing the bootloader"])
+    assert.equal(ui.steps, ["Installing the bootloader..."])
 }
 
 test "what the machine needs is written beside the menu, not into it" {

@@ -45,14 +45,15 @@ function bootstrap_packages(config: InstallConfig) -> string[] {
 function bootstrap_base_system(shell: root.common.Shell, files: root.common.Files, ui: Ui,
                                config: InstallConfig, target: root.common.Target) -> string
         throws baml.errors.InvalidArgument {
-    ui.step("Installing base system");
+    ui.step("Installing packages...");
+    ui.action(`Installing ${bootstrap_packages(config).length()} packages with pacstrap...`);
     let install = shell.stream("pacstrap", ["-K", target.root].concat(bootstrap_packages(config)));
     if (install.exit_code != 0) {
         return `Installing the base system failed with exit code ${install.exit_code}.`;
     }
 
     //# the mount table has to describe the layout that was just mounted
-    ui.step("Writing the mount table");
+    ui.action("Writing the mount table...");
     let fstab = shell.capture("genfstab", ["-U", target.root]);
     if (fstab.exit_code != 0) {
         return `Reading the mount table failed with exit code ${fstab.exit_code}.`;
@@ -67,7 +68,7 @@ function bootstrap_base_system(shell: root.common.Shell, files: root.common.File
 function stage_netboot_binary(shell: root.common.Shell, files: root.common.Files, ui: Ui,
                               target: root.common.Target) -> string
         throws baml.errors.InvalidArgument {
-    ui.step("Downloading the Arch netboot binary");
+    ui.action("Downloading the Arch netboot binary...");
     let local = `${live_staging_dir()}/netbootx64.efi`;
     files.mkdir(live_staging_dir());
 
@@ -145,7 +146,7 @@ function bootstrap_shell() -> root.common.RecordingShell {
 test "bootstrap installs, writes fstab and stages the netboot binary" {
     let shell = bootstrap_shell();
     let files = root.common.recording_files();
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
     let config = layout_config();
     config.ucode_package = "amd-ucode";
     config.gpu_driver = "none";
@@ -168,7 +169,7 @@ test "bootstrap stops and says so when pacstrap fails" {
         commands: [], streamed: [], fed: [], replies: {}, exit_codes: {},
     };
     let files = root.common.recording_files();
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
     let config = empty_config();
     config.ucode_package = "none";
     config.gpu_driver = "none";

@@ -6,6 +6,7 @@
 //! and reaches this file only through the callbacks passed to `run_installer`.
 //! See docs/decisions/015-installer-host-bridge.md.
 
+use std::cell::Cell;
 use std::fs::File;
 use std::process::Stdio;
 use std::sync::{Arc, Mutex};
@@ -40,7 +41,7 @@ const VERBOSE_MAX: u8 = 2;
 
 #[derive(Default)]
 struct App {
-    outline: Vec<String>,
+    outline: Vec<baml_sdk::Phase>,
     step: String,
     verbose: u8,
     error: Option<String>,
@@ -48,6 +49,22 @@ struct App {
     installing: bool,
     /// Mount points F5 attached, detached again when the installation starts.
     mounted: Vec<String>,
+    /// A widget is on screen and reading the keyboard for itself. While it is,
+    /// the installation's own reader keeps its hands off: two readers on one
+    /// terminal split the keys between them at random.
+    asking: bool,
+    /// Every phase is behind us. Nothing announces this any more — the run
+    /// simply ends — so the host is what marks the list off and fills the bar.
+    finished: bool,
+    /// How far up the log has been scrolled, in lines. Zero is the bottom,
+    /// which is where new lines appear.
+    ///
+    /// Drawing it is what says how far up it can go — the count of lines the
+    /// verbose level shows, less the height of the box — so drawing it is what
+    /// writes the number back. Without that, pressing up at the top raises a
+    /// number nothing can act on, and coming back down means pressing down
+    /// once for every time it was raised.
+    scrolled: Cell<usize>,
     /// A full-screen view is up, and the status-bar keys do nothing until it
     /// closes. They are drawn dim so that they do not invite a press.
     overlay: bool,
@@ -57,7 +74,6 @@ struct App {
     /// The first screen is up. There is nothing behind it to go back to, and
     /// nothing to tell about that it is not already saying.
     on_splash: bool,
-    phase: String,
     package: String,
     current: i64,
     total: i64,
@@ -65,21 +81,93 @@ struct App {
     /// What the question being asked says about itself. Cleared as soon as it
     /// is answered, so a note never outlives the question it belongs to.
     tip: Vec<String>,
-    /// (minimum verbose level that shows it, text)
-    log: Vec<(u8, String)>,
+    /// Everything the installation has said, in order.
+    log: Vec<Logged>,
 }
 
-impl App {
-    fn push_log(&mut self, level: u8, line: String) {
-        self.log.push((level, line));
-        if self.log.len() > 500 {
-            self.log.remove(0);
+/// A line of the installation log, and what kind of thing it is. The kind is
+/// what gives it its colour, and what decides whether the current verbose level
+/// shows it at all.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Said {
+    /// The phase under way. Always shown: it is the least the operator can be
+    /// told, and at verbose 0 it is the whole of what they are told.
+    Phase,
+    /// What the phase is doing, in words.
+    Action,
+    /// What a command printed while doing it.
+    Output,
+    /// Why the installation stopped. Always shown: it is the one line the
+    /// operator came for.
+    Failed,
+    /// That it is over, and what to press. Always shown, for the same reason.
+    Finished,
+}
+
+impl Said {
+    /// The lowest verbose level that shows this kind.
+    fn level(self) -> u8 {
+        match self {
+            Said::Phase => 0,
+            Said::Action => 1,
+            Said::Output => 2,
+            Said::Failed => 0,
+            Said::Finished => 0,
         }
     }
 
-    fn step_index(&self) -> Option<usize> {
-        self.outline.iter().position(|s| *s == self.step)
+    fn style(self) -> Style {
+        match self {
+            //# the same cyan the step list marks the current phase with: the
+            //# line in the log and the entry in the list are the same thing
+            Said::Phase => Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+            Said::Action => Style::default().fg(Color::White),
+            Said::Output => Style::default().fg(Color::DarkGray),
+            Said::Failed => Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+            Said::Finished => Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+        }
     }
+}
+
+struct Logged {
+    kind: Said,
+    text: String,
+}
+
+impl App {
+    fn scroll_by(&self, lines: i64) {
+        let at = self.scrolled.get() as i64;
+        self.scrolled.set(at.saturating_add(lines).max(0) as usize);
+    }
+
+    /// Nothing is ever dropped. An installation is minutes long and its log is
+    /// measured in megabytes, and a log that forgets its beginning is a log
+    /// that cannot be scrolled back to the phase that went wrong.
+    fn push_log(&mut self, kind: Said, text: String) {
+        self.log.push(Logged { kind, text });
+    }
+
+    /// How far the installation has gone, as phases finished out of phases to
+    /// run. A step the list does not hold is the end of the run, which is every
+    /// phase done.
+    fn phases_done(&self) -> usize {
+        if self.finished {
+            return self.outline.len();
+        }
+        self.outline.iter().position(|p| p.doing == self.step).unwrap_or(self.outline.len())
+    }
+
+    /// The phase that has just ended reads as what was done rather than as what
+    /// was being done. Only the line says so: the list on the left is a list of
+    /// what there is to do, and ticking it is what marks it off.
+    fn close_the_last_phase(&mut self) {
+        let Some(line) = self.log.iter_mut().rev().find(|line| line.kind == Said::Phase) else {
+            return;
+        };
+        let Some(phase) = self.outline.iter().find(|p| p.doing == line.text) else { return };
+        line.text = phase.done.clone();
+    }
+
 }
 
 struct Host {
@@ -124,20 +212,22 @@ impl Host {
 // ------------------------------------------------------------------- chrome
 
 fn steps_pane(f: &mut Frame, app: &App, area: Rect) {
-    let current = app.step_index();
+    let at = app.phases_done();
     let items: Vec<ListItem> = app
         .outline
         .iter()
         .enumerate()
         .map(|(i, name)| {
-            let (mark, style) = match current {
-                Some(c) if i == c => ("▸", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
-                Some(c) if i < c => ("✓", Style::default().fg(Color::Green)),
-                _ => (" ", Style::default().fg(Color::DarkGray)),
+            let (mark, style) = if i < at {
+                ("✓", Style::default().fg(Color::Green))
+            } else if i == at {
+                ("▸", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+            } else {
+                (" ", Style::default().fg(Color::DarkGray))
             };
             ListItem::new(Line::from(vec![
                 Span::styled(format!(" {mark} "), style),
-                Span::styled(name.clone(), style),
+                Span::styled(name.to_do.clone(), style),
             ]))
         })
         .collect();
@@ -156,7 +246,9 @@ fn status_bar(f: &mut Frame, app: &App, waiting: usize, area: Rect) {
     //# nothing on this bar answers while a full-screen view is up, so nothing
     //# on it is drawn as though it would
     let live = !app.overlay;
-    let can_go_back = !app.on_splash && app.step_index().is_some_and(|at| at > 0);
+    //# the first screen of the form has nothing behind it, and neither does an
+    //# installation: F1 leads somewhere only from the second entry onwards
+    let can_go_back = !app.on_splash && app.phases_done() > 0;
     let entry = |spans: &mut Vec<Span<'static>>, k: &str, text: String, enabled: bool| {
         spans.push(Span::styled(format!(" {k} "), if enabled { key } else { dim }));
         spans.push(Span::styled(format!("{text} "), if enabled { label } else { dim }));
@@ -167,7 +259,8 @@ fn status_bar(f: &mut Frame, app: &App, waiting: usize, area: Rect) {
     entry(&mut spans, "F3", "About".into(), live && !app.installing && !app.on_splash);
     entry(&mut spans, "F4", format!("Verbose: {}", app.verbose), live);
     entry(&mut spans, "F5", "Mount media".into(), live && !app.installing);
-    entry(&mut spans, "F6", "Exit".into(), live && !app.installing);
+    //# once it is over, leaving is the thing the last line asks for
+    entry(&mut spans, "F6", "Exit".into(), live && (!app.installing || app.finished));
     entry(&mut spans, "F7", "Shutdown".into(), live && !app.installing);
     // The count is the whole of the notice: without it, a log nothing points
     // at is a log nobody opens.
@@ -264,6 +357,7 @@ fn wrapped_height(lines: &[String], inner: u16) -> u16 {
 const MODAL_WIDTH: u16 = 60;
 
 fn modal(host: &Host, title: &str, lines: Vec<String>, hints: &str) -> bool {
+    let _asking = Asking::new(host);
     loop {
         host.draw(|f, _, _| {
             let height = wrapped_height(&lines, MODAL_WIDTH - 2) + 4;
@@ -335,7 +429,7 @@ fn modal_choose(host: &Host, title: &str, options: &[String]) -> Option<usize> {
 async fn mount_media(host: &Host) {
     let Ok(listing) = baml_sdk::mountable_listing_argv_async().await else { return };
     let found = run_captured(listing.program, listing.args).await;
-    let Ok(devices) = baml_sdk::parse_mountable_async(found.stdout).await else { return };
+    let Ok(devices) = baml_sdk::parse_mountable_async(found.result.stdout).await else { return };
 
     if devices.is_empty() {
         let nothing = baml_sdk::nothing_to_mount_async()
@@ -357,8 +451,8 @@ async fn mount_media(host: &Host) {
 
     let Ok(argv) = baml_sdk::mount_argv_async(path.clone(), at.clone()).await else { return };
     let mounted = run_captured(argv.program, argv.args).await;
-    if mounted.exit_code != 0 {
-        let failure = baml_sdk::mount_failed_async(path, mounted.exit_code)
+    if mounted.result.exit_code != 0 {
+        let failure = baml_sdk::mount_failed_async(path, mounted.result.exit_code)
             .await
             .unwrap_or_else(|_| "Mounting failed.".into());
         modal(host, "Mount media", vec![failure], "Enter or Esc to close");
@@ -667,6 +761,41 @@ fn global_key(host: &Host, key: KeyEvent) -> Option<KeyEvent> {
     }
 }
 
+/// Reads the keyboard while the installation runs, which is the whole of the
+/// time no widget is doing it. Without this the log could not be scrolled and
+/// the verbose level could not be changed, because between F2 and the end
+/// nothing on this side is waiting for a key.
+fn watch_keys_while_installing(host: Arc<Host>) {
+    std::thread::spawn(move || loop {
+        {
+            let app = host.app.lock().unwrap();
+            if !app.installing {
+                return;
+            }
+            if app.asking {
+                drop(app);
+                std::thread::sleep(Duration::from_millis(50));
+                continue;
+            }
+        }
+
+        let Some(key) = next_key() else { continue };
+        {
+            let mut app = host.app.lock().unwrap();
+            match key.code {
+                KeyCode::Up => app.scroll_by(1),
+                KeyCode::Down => app.scroll_by(-1),
+                KeyCode::PageUp => app.scroll_by(10),
+                KeyCode::PageDown => app.scroll_by(-10),
+                KeyCode::End => app.scrolled.set(0),
+                KeyCode::F(4) => app.verbose = (app.verbose + 1) % (VERBOSE_MAX + 1),
+                _ => continue,
+            }
+        }
+        host.draw(progress_pane);
+    });
+}
+
 fn next_key() -> Option<KeyEvent> {
     if !event::poll(Duration::from_millis(100)).unwrap_or(false) {
         return None;
@@ -680,6 +809,22 @@ fn next_key() -> Option<KeyEvent> {
 /// A key from a widget loop, with the global shortcuts already handled.
 fn widget_key(host: &Host) -> Option<KeyEvent> {
     global_key(host, next_key()?)
+}
+
+/// Says that a widget is reading the keyboard, for as long as the value lives.
+struct Asking<'a>(&'a Host);
+
+impl<'a> Asking<'a> {
+    fn new(host: &'a Host) -> Self {
+        host.app.lock().unwrap().asking = true;
+        Asking(host)
+    }
+}
+
+impl Drop for Asking<'_> {
+    fn drop(&mut self) {
+        self.0.app.lock().unwrap().asking = false;
+    }
 }
 
 fn is_back(key: &KeyEvent) -> bool {
@@ -710,6 +855,7 @@ fn filtered(options: &[String], needle: &str) -> Vec<usize> {
 // ------------------------------------------------------------------ widgets
 
 fn ui_choose(host: &Host, title: String, prompt: String, options: Vec<String>, current: i64) -> Option<i64> {
+    let _asking = Asking::new(host);
     let mut error = host.take_error();
     let mut filter = String::new();
     let mut cursor = current.max(0) as usize;
@@ -823,6 +969,7 @@ fn ui_choose_many(
 }
 
 fn ui_text(host: &Host, title: String, prompt: String, initial: String, secret: bool) -> Option<String> {
+    let _asking = Asking::new(host);
     let mut error = host.take_error();
     let mut value = if secret { String::new() } else { initial };
 
@@ -1126,7 +1273,7 @@ fn summary_table(rows: &[baml_sdk::SummaryRow]) -> Vec<ListItem<'static>> {
         .collect()
 }
 
-fn ui_review(host: &Host, title: String, rows: Vec<baml_sdk::SummaryRow>) -> bool {
+fn ui_review(host: &Arc<Host>, title: String, rows: Vec<baml_sdk::SummaryRow>) -> bool {
     let error = host.take_error();
     host.app.lock().unwrap().on_summary = true;
 
@@ -1154,6 +1301,8 @@ fn ui_review(host: &Host, title: String, rows: Vec<baml_sdk::SummaryRow>) -> boo
         if key.code == KeyCode::F(2) {
             //# media are detached before anything is written, not at exit
             tokio::runtime::Handle::current().block_on(unmount_media(host));
+            host.app.lock().unwrap().installing = true;
+            watch_keys_while_installing(host.clone());
             return true;
         }
     });
@@ -1164,50 +1313,92 @@ fn ui_review(host: &Host, title: String, rows: Vec<baml_sdk::SummaryRow>) -> boo
 
 // ----------------------------------------------------------------- progress
 
+/// The slice of the log on screen, and how far from the bottom it really is.
+///
+/// It is walked from the newest line backwards, so what it costs is the height
+/// of the box and how far the operator scrolled, and not how long the log has
+/// grown. Drawn once per line of output, anything else would be quadratic in
+/// the length of an installation.
+fn log_window<'a>(
+    log: &'a [Logged],
+    verbose: u8,
+    height: usize,
+    scrolled: usize,
+) -> (Vec<&'a Logged>, usize) {
+    let mut walked: Vec<&Logged> = log
+        .iter()
+        .rev()
+        .filter(|line| line.kind.level() <= verbose)
+        .take(height + scrolled)
+        .collect();
+    walked.reverse();
+
+    // Scrolled past the oldest line there is: the window stops at the top.
+    let scrolled = scrolled.min(walked.len().saturating_sub(height));
+    let end = walked.len() - scrolled;
+    (walked[end.saturating_sub(height)..end].to_vec(), scrolled)
+}
+
 fn progress_pane(f: &mut Frame, app: &App, area: Rect) {
-    let body = content_block(f, app, area, "Installing", &app.phase, None);
+    // Its own frame rather than the form's: there is no question here, so no
+    // room is kept for a prompt or for the note that went with one.
+    f.render_widget(Block::default().borders(Borders::ALL).title(" Installing "), area);
+    let inner = area.inner(ratatui::layout::Margin { horizontal: 2, vertical: 1 });
     let rows = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(3), Constraint::Min(0)])
-        .split(body);
+        .split(inner);
 
-    let ratio = if app.total > 0 {
-        (app.current as f64 / app.total as f64).clamp(0.0, 1.0)
-    } else {
-        0.0
-    };
-    let label = if app.total > 0 {
-        let eta = app
-            .eta
-            .map(|ms| format!("  ~{}s left", (ms as f64 / 1000.0).ceil() as i64))
-            .unwrap_or_default();
-        format!("{}/{}  {}{}", app.current, app.total, app.package, eta)
-    } else {
-        app.step.clone()
-    };
+    // Always drawn, and never carrying text: how far along the run is, in
+    // phases finished, whatever the log below it is doing.
+    let total = app.outline.len().max(1);
     f.render_widget(
         Gauge::default()
             .block(Block::default().borders(Borders::ALL))
             .gauge_style(Style::default().fg(Color::Cyan))
-            .ratio(ratio)
-            .label(label),
+            .ratio((app.phases_done() as f64 / total as f64).clamp(0.0, 1.0))
+            .label(""),
         rows[0],
     );
 
-    // Verbose 0 shows no output at all; 1 our messages; 2 everything.
-    if app.verbose == 0 || rows[1].height < 3 {
+    if rows[1].height < 3 {
         return;
     }
-    let visible: Vec<&String> =
-        app.log.iter().filter(|(level, _)| *level <= app.verbose).map(|(_, text)| text).collect();
     let height = rows[1].height.saturating_sub(2) as usize;
-    let start = visible.len().saturating_sub(height);
-    let items: Vec<ListItem> = visible[start..]
+    let (view, scrolled) = log_window(&app.log, app.verbose, height, app.scrolled.get());
+    app.scrolled.set(scrolled);
+
+    // What one phase is counting through goes beside its own line, which is the
+    // last blue one on screen. Only one phase has anything to count, so a
+    // column of its own would be empty nine times out of ten. Scrolled back,
+    // the blue line on screen belongs to a phase that is over, and counting
+    // through it is not what is happening.
+    let counting = if app.total > 0 && scrolled == 0 {
+        view.iter().rposition(|line| line.kind == Said::Phase)
+    } else {
+        None
+    };
+    let detail = format!("   {}/{}  {}", app.current, app.total, app.package);
+
+    let items: Vec<ListItem> = view
         .iter()
-        .map(|l| ListItem::new(Line::from(Span::styled((*l).clone(), Style::default().fg(Color::DarkGray)))))
+        .enumerate()
+        .map(|(at, line)| {
+            let text = if counting == Some(at) {
+                format!("{}{detail}", line.text)
+            } else {
+                line.text.clone()
+            };
+            ListItem::new(Line::from(Span::styled(text, line.kind.style())))
+        })
         .collect();
+    let title = if scrolled == 0 {
+        " Log ".to_string()
+    } else {
+        format!(" Log — {scrolled} lines below ")
+    };
     f.render_widget(
-        List::new(items).block(Block::default().borders(Borders::ALL).title(" Output ")),
+        List::new(items).block(Block::default().borders(Borders::ALL).title(title)),
         rows[1],
     );
 }
@@ -1289,18 +1480,20 @@ async fn run_unattended(
     let started = Instant::now();
     let file_ops = Arc::new(FileOps::default());
     let host = Arc::new(PlainHost { started });
-    let (h_stream, h_step) = (host.clone(), host.clone());
+    let (h_stream, h_step, h_action) = (host.clone(), host.clone(), host.clone());
 
     baml_sdk::run_installer_async(
         asset_dir,
         Some(config_text),
-        move |program: String, args: Vec<String>| async move { run_captured(program, args).await },
+        move |program: String, args: Vec<String>| async move {
+            run_captured(program, args).await.result
+        },
         move |program: String, args: Vec<String>| {
             let host = h_stream.clone();
             async move { host.run_streamed(program, args).await }
         },
             move |program: String, args: Vec<String>, input: String| async move {
-                run_fed(program, args, input).await
+                run_fed(program, args, input).await.result
             },
             {
                 let ops = file_ops.clone();
@@ -1330,8 +1523,9 @@ async fn run_unattended(
                 let ops = file_ops.clone();
                 move |path: String, mode: String| ops.chmod(path, mode)
             },
-        move |_names: Vec<String>| {},
+        move |_phases: Vec<baml_sdk::Phase>| {},
         move |title: String| h_step.line(&title),
+        move |message: String| h_action.line(&message),
         move |message: String| eprintln!("error: {message}"),
         move |message: String| eprintln!("warning: {message}"),
         move |_names: Vec<String>| {},
@@ -1444,6 +1638,7 @@ async fn run_interactive(
     let summary = {
         let (h_run, h_outline, h_step, h_err) =
             (host.clone(), host.clone(), host.clone(), host.clone());
+        let (h_action, h_capture, h_feed) = (host.clone(), host.clone(), host.clone());
         let (h_choose, h_many, h_text, h_review) =
             (host.clone(), host.clone(), host.clone(), host.clone());
         let (h_pick_package, h_pick_file) = (host.clone(), host.clone());
@@ -1452,13 +1647,17 @@ async fn run_interactive(
         baml_sdk::run_installer_async(
             asset_dir,
             None,
-            move |program: String, args: Vec<String>| async move { run_captured(program, args).await },
+            move |program: String, args: Vec<String>| {
+                let host = h_capture.clone();
+                async move { logged(&host, run_captured(program, args).await) }
+            },
             move |program: String, args: Vec<String>| {
                 let host = h_run.clone();
                 async move { run_streamed(host, program, args, started).await }
             },
-            move |program: String, args: Vec<String>, input: String| async move {
-                run_fed(program, args, input).await
+            move |program: String, args: Vec<String>, input: String| {
+                let host = h_feed.clone();
+                async move { logged(&host, run_fed(program, args, input).await) }
             },
             {
                 let ops = file_ops.clone();
@@ -1488,15 +1687,45 @@ async fn run_interactive(
                 let ops = file_ops.clone();
                 move |path: String, mode: String| ops.chmod(path, mode)
             },
-            move |names: Vec<String>| h_outline.app.lock().unwrap().outline = names,
+            move |phases: Vec<baml_sdk::Phase>| h_outline.app.lock().unwrap().outline = phases,
             move |title: String| {
-                let mut app = h_step.app.lock().unwrap();
-                app.step = title;
-                app.current = 0;
-                app.total = 0;
-                app.eta = None;
+                {
+                    let mut app = h_step.app.lock().unwrap();
+                    app.step = title.clone();
+                    app.current = 0;
+                    app.total = 0;
+                    app.eta = None;
+                    //# the form has its own screens; a phase is a line in the log
+                    if app.installing {
+                        app.close_the_last_phase();
+                        app.push_log(Said::Phase, title);
+                    }
+                }
+                //# drawn as it is said, so the disk is never wiped behind a
+                //# screen that has not changed since F2
+                if h_step.app.lock().unwrap().installing {
+                    h_step.draw(progress_pane);
+                }
             },
-            move |message: String| h_err.app.lock().unwrap().error = Some(message),
+            move |message: String| {
+                h_action.app.lock().unwrap().push_log(Said::Action, message);
+                h_action.draw(progress_pane);
+            },
+            move |message: String| {
+                let installing = {
+                    let mut app = h_err.app.lock().unwrap();
+                    app.error = Some(message.clone());
+                    if app.installing {
+                        app.push_log(Said::Failed, message);
+                    }
+                    app.installing
+                };
+                //# on a screen that asks, the next question shows it; on one
+                //# that does not, nothing would, so it is drawn here
+                if installing {
+                    h_err.draw(progress_pane);
+                }
+            },
             move |message: String| h_warn.diagnostics.push(message),
             move |names: Vec<String>| h_tip.app.lock().unwrap().tip = names,
             move |title: String, prompt: String, options: Vec<String>, current: i64| {
@@ -1522,6 +1751,43 @@ async fn run_interactive(
         .await
     };
 
+    // It is over, and the screen is held until the operator says what to do
+    // with the machine. Two blank lines before it, because it is not another
+    // line of the log: it is the end of it.
+    if let Ok(done) = &summary {
+        if done.exit_code == 0 {
+            {
+                let mut app = host.app.lock().unwrap();
+                app.close_the_last_phase();
+                app.finished = true;
+                app.scrolled.set(0);
+                //# the blank lines are part of the ending rather than log of
+                //# their own, so they are shown whatever the verbose level is
+                app.push_log(Said::Finished, String::new());
+                app.push_log(Said::Finished, String::new());
+                app.push_log(
+                    Said::Finished,
+                    "Installation finished. Enter reboots; F6 leaves you in the live shell."
+                        .into(),
+                );
+            }
+            tokio::task::block_in_place(|| wait_for_the_end(&host));
+        }
+    }
+
+    // Why it stopped is the one thing worth holding the screen for: past this
+    // point the terminal is handed back and the frame with the reason on it is
+    // gone. It is written down as well, so it survives the screen either way.
+    if let Ok(done) = &summary {
+        if done.exit_code != 0 && done.exit_code != 130 {
+            let said = host.app.lock().unwrap().error.clone().unwrap_or_default();
+            diagnostics.push(format!("installation failed: {said}"));
+            tokio::task::block_in_place(|| {
+                modal(&host, "Installation failed", vec![said], "Enter or Esc to close")
+            });
+        }
+    }
+
     restore_terminal();
     if let Some(saved) = &real_streams {
         restore_stdio(saved);
@@ -1533,6 +1799,37 @@ async fn run_interactive(
         eprintln!("{line}");
     }
     summary
+}
+
+/// Holds the last screen until the operator says what happens next. There is
+/// nothing left to install, so the only two answers are to start the machine
+/// they have just built, or to stay in the live environment.
+fn wait_for_the_end(host: &Host) {
+    let _asking = Asking::new(host);
+    loop {
+        host.draw(progress_pane);
+        let Some(key) = next_key() else { continue };
+        match key.code {
+            KeyCode::Enter => {
+                restore_terminal();
+                let _ = std::process::Command::new("reboot").status();
+                std::process::exit(0);
+            }
+            KeyCode::F(6) => return,
+            //# the log is still there to be read, and still worth reading at a
+            //# level other than the one it was watched at
+            KeyCode::Up => host.app.lock().unwrap().scroll_by(1),
+            KeyCode::Down => host.app.lock().unwrap().scroll_by(-1),
+            KeyCode::PageUp => host.app.lock().unwrap().scroll_by(10),
+            KeyCode::PageDown => host.app.lock().unwrap().scroll_by(-10),
+            KeyCode::End => host.app.lock().unwrap().scrolled.set(0),
+            KeyCode::F(4) => {
+                let mut app = host.app.lock().unwrap();
+                app.verbose = (app.verbose + 1) % (VERBOSE_MAX + 1);
+            }
+            _ => {}
+        }
+    }
 }
 
 /// Filesystem operations for BAML, and the first failure among them.
@@ -1598,46 +1895,78 @@ impl FileOps {
     }
 }
 
+/// What a command produced. BAML is given the exit code and standard output,
+/// which is what it reads; standard error is the host's, for the log.
+struct Ran {
+    result: baml_sdk::common::CommandResult,
+    stderr: String,
+}
+
+/// What a command printed, into the log, so that verbose 2 means the same thing
+/// for every command and not only for the one that streams.
+fn logged(host: &Host, ran: Ran) -> baml_sdk::common::CommandResult {
+    {
+        let mut app = host.app.lock().unwrap();
+        if !app.installing {
+            return ran.result;
+        }
+        for line in ran.result.stdout.lines().chain(ran.stderr.lines()) {
+            app.push_log(Said::Output, line.to_string());
+        }
+    }
+    host.draw(progress_pane);
+    ran.result
+}
+
 /// Runs a command that reads from standard input. The input is written and the
 /// pipe closed, so a command waiting for end-of-input proceeds.
-async fn run_fed(
-    program: String,
-    args: Vec<String>,
-    input: String,
-) -> baml_sdk::common::CommandResult {
+async fn run_fed(program: String, args: Vec<String>, input: String) -> Ran {
+    let failed = |code: i64| Ran {
+        result: baml_sdk::common::CommandResult { exit_code: code, stdout: String::new() },
+        stderr: String::new(),
+    };
     let mut child = match Command::new(&program)
         .args(&args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
+        .stderr(Stdio::piped())
         .spawn()
     {
         Ok(c) => c,
-        Err(_) => return baml_sdk::common::CommandResult { exit_code: 127, stdout: String::new() },
+        Err(_) => return failed(127),
     };
     if let Some(mut stdin) = child.stdin.take() {
         let _ = stdin.write_all(input.as_bytes()).await;
         drop(stdin);
     }
     match child.wait_with_output().await {
-        Ok(out) => baml_sdk::common::CommandResult {
-            exit_code: out.status.code().unwrap_or(-1) as i64,
-            stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
+        Ok(out) => Ran {
+            result: baml_sdk::common::CommandResult {
+                exit_code: out.status.code().unwrap_or(-1) as i64,
+                stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
+            },
+            stderr: String::from_utf8_lossy(&out.stderr).into_owned(),
         },
-        Err(_) => baml_sdk::common::CommandResult { exit_code: -1, stdout: String::new() },
+        Err(_) => failed(-1),
     }
 }
 
 /// Runs a command for its output. No parsing, no redrawing: this is the path
 /// for commands that merely produce data, and it must stay proportional to
 /// running the command itself.
-async fn run_captured(program: String, args: Vec<String>) -> baml_sdk::common::CommandResult {
-    match Command::new(&program).args(&args).stderr(Stdio::null()).output().await {
-        Ok(out) => baml_sdk::common::CommandResult {
-            exit_code: out.status.code().unwrap_or(-1) as i64,
-            stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
+async fn run_captured(program: String, args: Vec<String>) -> Ran {
+    match Command::new(&program).args(&args).output().await {
+        Ok(out) => Ran {
+            result: baml_sdk::common::CommandResult {
+                exit_code: out.status.code().unwrap_or(-1) as i64,
+                stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
+            },
+            stderr: String::from_utf8_lossy(&out.stderr).into_owned(),
         },
-        Err(_) => baml_sdk::common::CommandResult { exit_code: 127, stdout: String::new() },
+        Err(_) => Ran {
+            result: baml_sdk::common::CommandResult { exit_code: 127, stdout: String::new() },
+            stderr: String::new(),
+        },
     }
 }
 
@@ -1651,8 +1980,6 @@ async fn run_streamed(
     args: Vec<String>,
     started: Instant,
 ) -> baml_sdk::common::CommandResult {
-    host.app.lock().unwrap().installing = true;
-
     let mut child = match Command::new(&program)
         .args(&args)
         .stdout(Stdio::piped())
@@ -1661,7 +1988,7 @@ async fn run_streamed(
     {
         Ok(c) => c,
         Err(e) => {
-            host.app.lock().unwrap().push_log(1, format!("cannot run {program}: {e}"));
+            host.app.lock().unwrap().push_log(Said::Action, format!("cannot run {program}: {e}"));
             host.draw(progress_pane);
             return baml_sdk::common::CommandResult { exit_code: 127, stdout: String::new() };
         }
@@ -1687,17 +2014,15 @@ async fn run_streamed(
                     app.total = p.total;
                     app.package = p.package;
                     eta_input = Some((p.current, p.total));
-                    app.push_log(2, line.clone());
+                    app.push_log(Said::Output, line.clone());
                 }
                 baml_sdk::PacmanEvent::PhaseMarker(m) => {
-                    app.phase = m.name.clone();
-                    app.push_log(1, format!(":: {}", m.name));
+                    app.push_log(Said::Output, format!(":: {}", m.name));
                 }
-                baml_sdk::PacmanEvent::Downloading(d) => {
-                    app.phase = format!("downloading {}", d.file);
-                    app.push_log(2, line.clone());
+                baml_sdk::PacmanEvent::Downloading(_) => {
+                    app.push_log(Said::Output, line.clone());
                 }
-                baml_sdk::PacmanEvent::Unknown(_) => app.push_log(2, line.clone()),
+                baml_sdk::PacmanEvent::Unknown(_) => app.push_log(Said::Output, line.clone()),
             }
         }
 
@@ -1712,7 +2037,6 @@ async fn run_streamed(
     }
 
     let status = child.wait().await;
-    host.app.lock().unwrap().installing = false;
     baml_sdk::common::CommandResult {
         exit_code: status.ok().and_then(|s| s.code()).unwrap_or(-1) as i64,
         stdout: captured,
@@ -1912,6 +2236,67 @@ mod tests {
         // A nested row is indented into that same column, not past it.
         assert_eq!(columns[2].0.trim_end(), "  owner_name:");
         assert_eq!(columns[0].1, "/dev/sda", "the value is its own column, unpadded");
+    }
+
+    fn said(kind: Said, text: &str) -> Logged {
+        Logged { kind, text: text.into() }
+    }
+
+    #[test]
+    fn the_log_shows_its_tail_and_scrolls_back_through_all_of_it() {
+        let mut log = vec![said(Said::Phase, "Preparing the disk...")];
+        for i in 0..5000 {
+            log.push(said(Said::Output, &format!("line {i}")));
+        }
+
+        // At the bottom: the last three lines, and nothing claims to be scrolled.
+        let (view, scrolled) = log_window(&log, 2, 3, 0);
+        assert_eq!(view.iter().map(|l| l.text.as_str()).collect::<Vec<_>>(),
+                   vec!["line 4997", "line 4998", "line 4999"]);
+        assert_eq!(scrolled, 0);
+
+        // Scrolled back, the window moves with it.
+        let (view, scrolled) = log_window(&log, 2, 3, 10);
+        assert_eq!(view[2].text, "line 4989");
+        assert_eq!(scrolled, 10);
+
+        // Past the top it stops at the top, and says how far it really got: the
+        // first line is the phase, which is 5001 lines from the bottom.
+        let (view, scrolled) = log_window(&log, 2, 3, 99_999);
+        assert_eq!(view[0].kind, Said::Phase);
+        assert_eq!(scrolled, 5001 - 3);
+    }
+
+    #[test]
+    fn scrolling_past_the_top_does_not_have_to_be_undone() {
+        let mut log = vec![said(Said::Phase, "Preparing the disk...")];
+        for i in 0..20 {
+            log.push(said(Said::Output, &format!("line {i}")));
+        }
+
+        // Held at the top, however far past it the operator pressed.
+        let (_, far) = log_window(&log, 2, 5, 99_999);
+        let (_, once_more) = log_window(&log, 2, 5, far + 1);
+        assert_eq!(once_more, far, "there is nowhere further up to be");
+
+        // So one press down moves one line, rather than undoing the excess.
+        let (view, back) = log_window(&log, 2, 5, far - 1);
+        assert_eq!(back, far - 1);
+        assert_eq!(view.len(), 5);
+    }
+
+    #[test]
+    fn what_the_verbose_level_hides_is_not_scrolled_through_either() {
+        let mut log = vec![said(Said::Phase, "Preparing the disk...")];
+        for i in 0..100 {
+            log.push(said(Said::Output, &format!("line {i}")));
+        }
+        log.push(said(Said::Phase, "Installing packages..."));
+
+        // Showing phases only, the hundred lines between them are not there.
+        let (view, scrolled) = log_window(&log, 0, 3, 0);
+        assert_eq!(view.len(), 2);
+        assert_eq!(scrolled, 0);
     }
 
     #[test]

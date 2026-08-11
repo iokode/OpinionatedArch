@@ -60,7 +60,7 @@ function set_hooks_line(content: string, line: string) -> string? {
 function configure_initramfs(shell: root.common.Shell, files: root.common.Files, ui: Ui,
                              config: InstallConfig, target: root.common.Target) -> string
         throws baml.errors.InvalidArgument {
-    ui.step("Building the initramfs");
+    ui.step("Building the initramfs...");
 
     let path = root.common.target_path(target, mkinitcpio_conf_path());
     let content = files.read(path);
@@ -68,12 +68,14 @@ function configure_initramfs(shell: root.common.Shell, files: root.common.Files,
         return `${mkinitcpio_conf_path()} is not in the target.`;
     }
 
+    ui.action("Setting the HOOKS line in /etc/mkinitcpio.conf...");
     let rewritten = set_hooks_line(content, hooks_line(config));
     if (rewritten == null) {
         return `${mkinitcpio_conf_path()} has no HOOKS line to set.`;
     }
     files.write(path, rewritten);
 
+    ui.action("Running mkinitcpio for every installed kernel...");
     root.common.must(in_target(shell, target, "mkinitcpio", ["-P"]), "mkinitcpio -P")
 }
 
@@ -149,7 +151,7 @@ test "the phase sets the hooks and then builds every image" {
     assert.is_true((files.written.get("/mnt/etc/mkinitcpio.conf") ?? "").includes(
         "HOOKS=(base udev autodetect microcode kms keyboard keymap block plymouth encrypt filesystems)"));
     assert.equal(shell.commands, ["arch-chroot /mnt mkinitcpio -P"]);
-    assert.equal(ui.steps, ["Building the initramfs"])
+    assert.equal(ui.steps, ["Building the initramfs..."])
 }
 
 test "without a return message the image is built without plymouth" {

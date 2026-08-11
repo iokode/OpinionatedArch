@@ -57,9 +57,62 @@ function run_phase(files: root.common.Files, problem: string) -> string {
 }
 
 //# every phase, in order, stopping at the first failure
+/// The phases, in the order they run, each in the three forms it is read in.
+///
+/// The list on the left names the thing without the verb, because the column is
+/// narrow and the verb would be the same in every row; the log says
+/// what is being done while it is being done, and the state it left once the
+/// next phase has begun. A test holds every `ui.step` of a run to this list, so a
+/// phase cannot be added without appearing in it.
+///
+/// The return message is here only when one was asked for, because a list that
+/// shows a phase that will not run is a list that lies about how much is left.
+function install_phases(config: InstallConfig) -> Phase[] {
+    let phases = [
+        Phase { to_do: "Disk", doing: "Preparing the disk...",
+                done: "Disk prepared." },
+        Phase { to_do: "Packages", doing: "Installing packages...",
+                done: "Packages installed." },
+        Phase { to_do: "Localization", doing: "Configuring localization...",
+                done: "Localization configured." },
+        Phase { to_do: "System identity", doing: "Configuring system identity...",
+                done: "System identity configured." },
+        Phase { to_do: "Users and groups", doing: "Creating users and groups...",
+                done: "Users and groups created." },
+        Phase { to_do: "Network stack", doing: "Enabling the network stack...",
+                done: "Network stack enabled." },
+        Phase { to_do: "Swap", doing: "Configuring swap...",
+                done: "Swap configured." },
+    ];
+    if (config.return_message != null) {
+        phases.push(Phase {
+            to_do: "Return message",
+            doing: "Rendering the pre-boot return message...",
+            done: "Pre-boot return message rendered.",
+        });
+    }
+    phases.push(Phase { to_do: "Initramfs", doing: "Building the initramfs...",
+                        done: "Initramfs built." });
+    phases.push(Phase { to_do: "Bootloader", doing: "Installing the bootloader...",
+                        done: "Bootloader installed." });
+    phases
+}
+
+/// What each phase says while it runs, which is what `ui.step` is given.
+function install_phase_names(config: InstallConfig) -> string[] {
+    let names: string[] = [];
+    for (let phase in install_phases(config)) {
+        names.push(phase.doing);
+    }
+    names
+}
+
 function run_phases(shell: root.common.Shell, files: root.common.Files, ui: Ui,
                     config: InstallConfig, target: root.common.Target, asset_dir: string) -> string
         throws baml.errors.InvalidArgument {
+    //# the form is done with, so the step list becomes the installation
+    ui.outline(install_phases(config));
+
     let problem = run_phase(files, prepare_layout(shell, files, ui, config, target));
     if (problem != "") { return problem; }
 
@@ -104,7 +157,6 @@ function install(shell: root.common.Shell, files: root.common.Files, ui: Ui, ass
             ui.error(problem);
             return InstallSummary { disk: config.disk, exit_code: 1 };
         }
-        ui.step("Installation finished");
         InstallSummary { disk: config.disk, exit_code: 0 }
     } else {
         //# a config file that cannot be used. The form itself no longer ends
@@ -129,8 +181,9 @@ function run_installer(
     on_mkdir: (string) -> void throws never,
     on_symlink: (string, string) -> void throws never,
     on_chmod: (string, string) -> void throws never,
-    on_outline: (string[]) -> void throws never,
+    on_outline: (Phase[]) -> void throws never,
     on_step: (string) -> void throws never,
+    on_action: (string) -> void throws never,
     on_error: (string) -> void throws never,
     on_warn: (string) -> void throws never,
     on_tip: (string[]) -> void throws never,
@@ -157,6 +210,7 @@ function run_installer(
         HostUi {
             on_outline: on_outline,
             on_step: on_step,
+            on_action: on_action,
             on_error: on_error,
             on_warn: on_warn,
             on_tip: on_tip,
@@ -182,7 +236,7 @@ test "a config file answers every question and the form is never shown" {
             "timedatectl list-timezones": "Europe/Madrid\nUTC\n",
         },
     };
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     let summary = install(shell, full_run_files(), ui, "/assets", full_config_text());
 
@@ -200,7 +254,7 @@ test "a config file that cannot be used stops before anything runs" {
         exit_codes: {},
         replies: { "timedatectl list-timezones": "Europe/Madrid\n" },
     };
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     let summary = install(shell, root.common.recording_files(), ui, "/assets", "disk: /dev/sda\nwat: 1\n");
 
@@ -244,31 +298,15 @@ function full_run_shell() -> root.common.RecordingShell {
 }
 
 test "the phases run in order and the installation reports success" {
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     let summary = install(full_run_shell(), full_run_files(), ui, "/assets", full_config_text());
 
     assert.equal(summary.exit_code, 0);
-    assert.equal(ui.steps, [
-        "Partitioning /dev/sda",
-        "Formatting EFI partition /dev/sda1",
-        "Creating LUKS2 container on /dev/sda2",
-        "Opening LUKS2 container on /dev/sda2",
-        "Creating Btrfs filesystem",
-        "Mounting the target layout",
-        "Disk layout is ready",
-        "Installing base system",
-        "Writing the mount table",
-        "Downloading the Arch netboot binary",
-        "Configuring localization",
-        "Configuring system identity",
-        "Creating users and groups",
-        "Enabling the network stack",
-        "Configuring swap",
-        "Building the initramfs",
-        "Installing the bootloader",
-        "Installation finished",
-    ])
+    //# the step list and the phases are one list, read in two forms, and the
+    //# run ends past the end of it
+    assert.equal(ui.outline.length(), 9);
+    assert.equal(ui.steps, install_phase_names(parse_config_file(full_config_text()).config));
 }
 
 /// The same run, asking for a return message. The package the values are
@@ -292,32 +330,16 @@ function full_message_config_text() -> string {
 
 test "a return message adds its phase after swap, and the theme becomes the default" {
     let shell = full_run_shell();
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     let summary = install(shell, full_run_message_files(), ui, "/assets", full_message_config_text());
 
     assert.equal(summary.exit_code, 0);
-    assert.equal(ui.steps, [
-        "Partitioning /dev/sda",
-        "Formatting EFI partition /dev/sda1",
-        "Creating LUKS2 container on /dev/sda2",
-        "Opening LUKS2 container on /dev/sda2",
-        "Creating Btrfs filesystem",
-        "Mounting the target layout",
-        "Disk layout is ready",
-        "Installing base system",
-        "Writing the mount table",
-        "Downloading the Arch netboot binary",
-        "Configuring localization",
-        "Configuring system identity",
-        "Creating users and groups",
-        "Enabling the network stack",
-        "Configuring swap",
-        "Rendering the pre-boot return message",
-        "Building the initramfs",
-        "Installing the bootloader",
-        "Installation finished",
-    ]);
+    //# ten with the return message, which is the one phase that is optional
+    assert.equal(ui.outline.length(), 10);
+    assert.is_true(ui.outline.includes("Return message"));
+    assert.equal(ui.steps,
+                 install_phase_names(parse_config_file(full_message_config_text()).config));
     //# plymouth is installed with the base system, and the theme is its own
     assert.is_true(shell.streamed.join(" ").includes(" plymouth"));
     assert.is_true(shell.commands.includes(
@@ -330,7 +352,7 @@ test "a return message adds its phase after swap, and the theme becomes the defa
 test "a phase that fails stops the ones after it" {
     let shell = full_run_shell();
     let _ = shell.exit_codes.set("arch-chroot /mnt locale-gen", 1);
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     let summary = install(shell, full_run_files(), ui, "/assets", full_config_text());
 
@@ -344,11 +366,12 @@ test "a phase that fails stops the ones after it" {
 test "a file operation that fails stops the installation" {
     let files = full_run_files();
     files.fails_with = "cannot write /mnt/etc/fstab: read-only file system";
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     let summary = install(full_run_shell(), files, ui, "/assets", full_config_text());
 
     assert.equal(summary.exit_code, 1);
     assert.equal(ui.errors, ["cannot write /mnt/etc/fstab: read-only file system"]);
-    assert.is_true(!ui.steps.includes("Installation finished"))
+    //# it stopped where it stopped: the phases after the one that failed never ran
+    assert.is_true(!ui.steps.includes("Installing the bootloader..."))
 }

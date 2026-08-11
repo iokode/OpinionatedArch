@@ -166,8 +166,9 @@ function configure_return_message(shell: root.common.Shell, files: root.common.F
                                   asset_dir: string) -> string
         throws baml.errors.InvalidArgument {
     if let message: ReturnMessageInput = config.return_message {
-        ui.step("Rendering the pre-boot return message");
+        ui.step("Rendering the pre-boot return message...");
 
+        ui.action("Bringing the logo here...");
         let logo = resolve_logo(shell, files, ui, message.values.logo);
         if (logo.error != "") {
             return logo.error;
@@ -186,11 +187,13 @@ function configure_return_message(shell: root.common.Shell, files: root.common.F
                 logo: logo.source,
             }));
 
+        ui.action("Installing the Plymouth theme...");
         let installed = install_plymouth_theme(shell, files, target, asset_dir);
         if (installed != "") {
             return installed;
         }
 
+        ui.action("Drawing the message...");
         let rendered = root.common.must(
             shell.capture(return_message_renderer(),
                           render_message_args(target, asset_dir, message,
@@ -222,7 +225,7 @@ function return_message_config(logo: root.common.Source?) -> InstallConfig {
 }
 
 function silent_ui() -> ScriptedUi {
-    ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] }
+    ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] }
 }
 
 function logo_url() -> string {
@@ -286,7 +289,7 @@ test "the theme is installed and the renderer is run against it, in that order" 
         rendered_with_logo(),
         "arch-chroot /mnt plymouth-set-default-theme opinionatedarch",
     ]);
-    assert.equal(ui.steps, ["Rendering the pre-boot return message"]);
+    assert.equal(ui.steps, ["Rendering the pre-boot return message..."]);
     assert.equal(ui.asked, [])
 }
 
