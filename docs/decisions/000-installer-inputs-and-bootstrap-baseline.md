@@ -20,26 +20,25 @@ The installer asks for:
 
 1. target disk
 2. install mode (`wipe-all` or `keep-homes`)
-3. if install mode is `wipe-all`: destructive confirmation
-4. if install mode is `keep-homes`: existing home users to preserve, selected from a multiple-choice list
-5. ucode package (`intel-ucode`, `amd-ucode`, or `none`)
-6. GPU driver (`nvidia`, `nvidia-open`, `nouveau`, or `none`)
-7. zram swap size in GB
-8. disk swapfile size in GB (if 0, do not create any swapfile)
-9. login usernames list (in `keep-homes`, this creates additional users beyond the preserved-home users)
-10. shared secret (used for root LUKS unlock and login-user password)
-11. console keymap
-12. timezone
-13. hostname
-14. public dotfiles package (`yes/no`)
-15. if the public dotfiles package is enabled: where it comes from, as `018-installer-input-sources.md` defines a package source
-16. pre-boot return message inclusion (`yes/no`)
-17. if return message is enabled: where the template package comes from, the project's own among the origins, as `018-installer-input-sources.md` defines a package source
-18. if return message is enabled: where the theme comes from, the project's own among the origins, as the same document defines it and `017-return-message-themes.md` decides it
-19. if return message is enabled: a value for each field the template package declares. The project's own package declares owner name, phone, email and return address
-20. if return message is enabled: return-message languages, selecting as many as the theme accepts
-21. if return message is enabled: logo inclusion (`yes/no`)
-22. if logo is enabled: where the logo file comes from, as `018-installer-input-sources.md` defines a file source (retry or explicit continue-without-logo when it cannot be obtained)
+3. if install mode is `keep-homes`: existing home users to preserve, selected from a multiple-choice list
+4. ucode package (`intel-ucode`, `amd-ucode`, or `none`)
+5. GPU driver (`nvidia`, `nvidia-open`, `nouveau`, or `none`)
+6. zram swap size in GB
+7. disk swapfile size in GB (if 0, do not create any swapfile)
+8. login usernames list (in `keep-homes`, this creates additional users beyond the preserved-home users)
+9. shared secret (used for root LUKS unlock and login-user password)
+10. console keymap
+11. timezone
+12. hostname
+13. public dotfiles package (`yes/no`)
+14. if the public dotfiles package is enabled: where it comes from, as `018-installer-input-sources.md` defines a package source
+15. pre-boot return message inclusion (`yes/no`)
+16. if return message is enabled: where the template package comes from, the project's own among the origins, as `018-installer-input-sources.md` defines a package source
+17. if return message is enabled: where the theme comes from, the project's own among the origins, as the same document defines it and `017-return-message-themes.md` decides it
+18. if return message is enabled: a value for each field the template package declares. The project's own package declares owner name, phone, email and return address
+19. if return message is enabled: return-message languages, selecting as many as the theme accepts
+20. if return message is enabled: logo inclusion (`yes/no`)
+21. if logo is enabled: where the logo file comes from, as `018-installer-input-sources.md` defines a file source (retry or explicit continue-without-logo when it cannot be obtained)
 
 ### Temporary Paths for Installer Staging
 
