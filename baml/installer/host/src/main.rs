@@ -1094,7 +1094,39 @@ fn ui_pick(host: &Host, title: String, prompt: String, start: String, want: Want
     })
 }
 
-fn ui_review(host: &Host, title: String, lines: Vec<String>) -> bool {
+/// How a row's label reads: nested rows sit under the one they belong to, and
+/// the colon is part of the label so that the values line up after it.
+fn summary_label(row: &baml_sdk::SummaryRow) -> String {
+    let indent = if row.nested { "  " } else { "" };
+    format!("{indent}{}:", row.label)
+}
+
+/// The review screen: two columns, two colours. Every value starts at the same
+/// column, whatever the label before it, because a column of values is read
+/// down and a ragged one cannot be.
+fn summary_columns(rows: &[baml_sdk::SummaryRow]) -> Vec<(String, String)> {
+    let width = rows.iter().map(|r| summary_label(r).chars().count()).max().unwrap_or(0);
+    rows.iter()
+        .map(|row| {
+            let label = summary_label(row);
+            (format!("{label:<width$}  "), row.value.clone())
+        })
+        .collect()
+}
+
+fn summary_table(rows: &[baml_sdk::SummaryRow]) -> Vec<ListItem<'static>> {
+    summary_columns(rows)
+        .into_iter()
+        .map(|(label, value)| {
+            ListItem::new(Line::from(vec![
+                Span::styled(label, Style::default().fg(Color::Gray)),
+                Span::styled(value, Style::default().fg(Color::White)),
+            ]))
+        })
+        .collect()
+}
+
+fn ui_review(host: &Host, title: String, rows: Vec<baml_sdk::SummaryRow>) -> bool {
     let error = host.take_error();
     host.app.lock().unwrap().on_summary = true;
 
@@ -1108,9 +1140,9 @@ fn ui_review(host: &Host, title: String, lines: Vec<String>) -> bool {
                 "Review what will be done. F2 starts the installation.",
                 error.as_deref(),
             );
-            let items: Vec<ListItem> = lines.iter().map(|l| ListItem::new(l.clone())).collect();
             f.render_widget(
-                List::new(items).block(Block::default().borders(Borders::ALL).title(" Settings ")),
+                List::new(summary_table(&rows))
+                    .block(Block::default().borders(Borders::ALL).title(" Settings ")),
                 body,
             );
         });
@@ -1320,7 +1352,7 @@ async fn run_unattended(
             unattended_question(&title);
             None
         },
-        move |_title: String, _lines: Vec<String>| true,
+        move |_title: String, _rows: Vec<baml_sdk::SummaryRow>| true,
     )
     .await
 }
@@ -1483,7 +1515,9 @@ async fn run_interactive(
             move |title: String, prompt: String, start: String| {
                 answered(&h_pick_file, ui_pick(&h_pick_file, title, prompt, start, Want::File))
             },
-            move |title: String, lines: Vec<String>| ui_review(&h_review, title, lines),
+            move |title: String, rows: Vec<baml_sdk::SummaryRow>| {
+                ui_review(&h_review, title, rows)
+            },
         )
         .await
     };
@@ -1857,6 +1891,27 @@ mod tests {
 
         // An empty line is still a line.
         assert_eq!(wrapped_height(&[String::new()], 58), 1);
+    }
+
+    fn setting(label: &str, value: &str, nested: bool) -> baml_sdk::SummaryRow {
+        baml_sdk::SummaryRow { label: label.into(), value: value.into(), nested }
+    }
+
+    #[test]
+    fn every_value_on_the_review_screen_starts_at_the_same_column() {
+        let rows = vec![
+            setting("target disk", "/dev/sda", false),
+            setting("disk swapfile size (GB)", "0", false),
+            setting("owner_name", "Ivan", true),
+        ];
+
+        let columns = summary_columns(&rows);
+        let widths: Vec<usize> = columns.iter().map(|(l, _)| l.chars().count()).collect();
+        assert_eq!(widths, vec![26, 26, 26], "the longest label sets the column");
+
+        // A nested row is indented into that same column, not past it.
+        assert_eq!(columns[2].0.trim_end(), "  owner_name:");
+        assert_eq!(columns[0].1, "/dev/sda", "the value is its own column, unpadded");
     }
 
     #[test]

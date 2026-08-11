@@ -587,7 +587,7 @@ function step_return_message(shell: root.common.Shell, files: root.common.Files,
 
 function step_summary(ui: Ui, config: InstallConfig) -> bool {
     ui.step("Summary");
-    ui.review("Summary", summary_lines(config))
+    ui.review("Summary", summary_rows(config))
 }
 
 // -------------------------------------------------------------------- tests

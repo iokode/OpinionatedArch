@@ -43,7 +43,7 @@ interface Ui {
     function pick_file(self, title: string, prompt: string, start: string) -> string? throws never
 
     /// The review screen. True starts the installation, false goes back.
-    function review(self, title: string, lines: string[]) -> bool throws never
+    function review(self, title: string, rows: SummaryRow[]) -> bool throws never
 }
 
 /// Position of `value` in `options`, or 0 when it is not there. Used to
@@ -72,7 +72,7 @@ class HostUi {
     on_text: (string, string, string, bool) -> string? throws never,
     on_pick_package: (string, string, string) -> string? throws never,
     on_pick_file: (string, string, string) -> string? throws never,
-    on_review: (string, string[]) -> bool throws never,
+    on_review: (string, SummaryRow[]) -> bool throws never,
     implements Ui {
         function outline(self, names: string[]) -> void {
             self.on_outline(names)
@@ -124,8 +124,8 @@ class HostUi {
         function pick_file(self, title: string, prompt: string, start: string) -> string? {
             self.on_pick_file(title, prompt, start)
         }
-        function review(self, title: string, lines: string[]) -> bool {
-            self.on_review(title, lines)
+        function review(self, title: string, rows: SummaryRow[]) -> bool {
+            self.on_review(title, rows)
         }
     }
 }
@@ -256,7 +256,7 @@ class ScriptedUi {
             answer
         }
 
-        function review(self, title: string, lines: string[]) -> bool {
+        function review(self, title: string, rows: SummaryRow[]) -> bool {
             self.asked.push(title);
             self.next() == "start"
         }

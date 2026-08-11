@@ -135,7 +135,7 @@ function run_installer(
     on_text: (string, string, string, bool) -> string? throws never,
     on_pick_package: (string, string, string) -> string? throws never,
     on_pick_file: (string, string, string) -> string? throws never,
-    on_review: (string, string[]) -> bool throws never,
+    on_review: (string, SummaryRow[]) -> bool throws never,
 ) -> InstallSummary {
     install(
         root.common.HostShell {

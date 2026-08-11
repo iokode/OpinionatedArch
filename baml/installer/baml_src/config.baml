@@ -81,41 +81,75 @@ function describe_source(source: root.common.Source) -> string {
     `${source.origin}: ${source.location}`
 }
 
-/// The review screen, one line per setting.
-function summary_lines(config: InstallConfig) -> string[] {
-    let lines = [
-        `target disk: ${config.disk}`,
-        `install mode: ${config.install_mode}`,
-        `preserved home users: ${config.preserved_home_users.join(", ")}`,
-        `ucode package: ${config.ucode_package}`,
-        `gpu driver: ${config.gpu_driver}`,
-        `zram size (GB): ${config.swap.zram_gb}`,
-        `disk swapfile size (GB): ${config.swap.swapfile_gb}`,
-        `login users: ${config.login_users.join(", ")}`,
-        `keymap: ${config.console_keymap}`,
-        `timezone: ${config.timezone}`,
-        `hostname: ${config.hostname}`,
+/// One setting on the review screen. The label and the value are kept apart
+/// because the screen draws them apart: aligned in two columns, and in two
+/// colours. Joining them here would also have to be undone there, and a value
+/// like `git: https://…` carries a colon of its own to be undone wrongly by.
+class SummaryRow {
+    label: string,
+    value: string,
+    /// True for a row that belongs to the one above it.
+    nested: bool,
+}
+
+function row(label: string, value: string) -> SummaryRow {
+    SummaryRow { label: label, value: value, nested: false }
+}
+
+function nested_row(label: string, value: string) -> SummaryRow {
+    SummaryRow { label: label, value: value, nested: true }
+}
+
+/// The review screen, one row per setting.
+function summary_rows(config: InstallConfig) -> SummaryRow[] {
+    let rows = [
+        row("target disk", config.disk),
+        row("install mode", config.install_mode),
+        row("preserved home users", config.preserved_home_users.join(", ")),
+        row("ucode package", config.ucode_package),
+        row("gpu driver", config.gpu_driver),
+        row("zram size (GB)", `${config.swap.zram_gb}`),
+        row("disk swapfile size (GB)", `${config.swap.swapfile_gb}`),
+        row("login users", config.login_users.join(", ")),
+        row("keymap", config.console_keymap),
+        row("timezone", config.timezone),
+        row("hostname", config.hostname),
     ];
 
     if let dotfiles: root.common.Source = config.dotfiles {
-        lines.push(`dotfiles package: ${describe_source(dotfiles)}`);
+        rows.push(row("dotfiles package", describe_source(dotfiles)));
     } else {
-        lines.push("dotfiles package: none");
+        rows.push(row("dotfiles package", "none"));
     }
 
     if let message: ReturnMessageInput = config.return_message {
         let values = message.values;
-        lines.push(`return message: ${values.languages.join(", ")}`);
-        lines.push(`  template package: ${describe_source(message.template)}`);
-        lines.push(`  theme: ${describe_source(message.theme)}`);
+        rows.push(row("return message", values.languages.join(", ")));
+        rows.push(nested_row("template package", describe_source(message.template)));
+        rows.push(nested_row("theme", describe_source(message.theme)));
         for (let name in values.fields.keys().sort_by_key((k) -> { k })) {
-            lines.push(`  ${name}: ${values.fields.get(name) ?? ""}`);
+            rows.push(nested_row(name, values.fields.get(name) ?? ""));
         }
         if let logo: root.common.Source = values.logo {
-            lines.push(`  logo: ${describe_source(logo)}`);
+            rows.push(nested_row("logo", describe_source(logo)));
         }
     } else {
-        lines.push("return message: none");
+        rows.push(row("return message", "none"));
+    }
+    rows
+}
+
+/// What a row reads as, for a test that cares about the whole of it rather than
+/// about the two halves.
+function summary_line(at: SummaryRow) -> string {
+    let indent = if (at.nested) { "  " } else { "" };
+    `${indent}${at.label}: ${at.value}`
+}
+
+function summary_lines(config: InstallConfig) -> string[] {
+    let lines: string[] = [];
+    for (let at in summary_rows(config)) {
+        lines.push(summary_line(at));
     }
     lines
 }
