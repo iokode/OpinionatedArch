@@ -65,7 +65,7 @@ test "zram_config asks for the size in megabytes and compresses with zstd" {
 test "swap configures both when both are asked for" {
     let shell = plain_shell();
     let files = target_with_fstab();
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     assert.equal(
         configure_swap(shell, files, ui, swap_config(8, 16), root.common.mounted_target("/mnt")), "");
@@ -81,7 +81,7 @@ test "swap configures both when both are asked for" {
 test "swap writes no zram configuration when none is asked for" {
     let shell = plain_shell();
     let files = target_with_fstab();
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     let _ = configure_swap(shell, files, ui, swap_config(0, 4), root.common.mounted_target("/mnt"));
 
@@ -93,7 +93,7 @@ test "swap writes no zram configuration when none is asked for" {
 test "swap creates no swap file when none is asked for" {
     let shell = plain_shell();
     let files = target_with_fstab();
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     let _ = configure_swap(shell, files, ui, swap_config(4, 0), root.common.mounted_target("/mnt"));
 
@@ -106,7 +106,7 @@ test "swap creates no swap file when none is asked for" {
 test "swap does nothing at all when neither is asked for" {
     let shell = plain_shell();
     let files = target_with_fstab();
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     assert.equal(
         configure_swap(shell, files, ui, swap_config(0, 0), root.common.mounted_target("/mnt")), "");
@@ -121,7 +121,7 @@ test "swap stops when the swap file cannot be created" {
     let _ = shell.exit_codes.set(
         "arch-chroot /mnt btrfs filesystem mkswapfile --size 16G /swap/swapfile", 1);
     let files = target_with_fstab();
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     assert.equal(
         configure_swap(shell, files, ui, swap_config(0, 16), root.common.mounted_target("/mnt")),

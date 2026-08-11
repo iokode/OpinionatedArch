@@ -6,3 +6,4 @@ src/*/obj/
 .idea/
 artifacts/
 *.DotSettings.user
+deploy-to-vm.sh

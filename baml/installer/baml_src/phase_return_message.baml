@@ -222,7 +222,7 @@ function return_message_config(logo: root.common.Source?) -> InstallConfig {
 }
 
 function silent_ui() -> ScriptedUi {
-    ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], limits: [] }
+    ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] }
 }
 
 function logo_url() -> string {

@@ -145,7 +145,7 @@ function bootstrap_shell() -> root.common.RecordingShell {
 test "bootstrap installs, writes fstab and stages the netboot binary" {
     let shell = bootstrap_shell();
     let files = root.common.recording_files();
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
     let config = layout_config();
     config.ucode_package = "amd-ucode";
     config.gpu_driver = "none";
@@ -168,7 +168,7 @@ test "bootstrap stops and says so when pacstrap fails" {
         commands: [], streamed: [], fed: [], replies: {}, exit_codes: {},
     };
     let files = root.common.recording_files();
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
     let config = empty_config();
     config.ucode_package = "none";
     config.gpu_driver = "none";

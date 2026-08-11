@@ -29,6 +29,9 @@ use tokio::process::Command;
 type Term = Terminal<CrosstermBackend<File>>;
 
 const TITLE: &str = " OpinionatedArch ";
+/// The step list says what it is. The product's name is on the first screen and
+/// on F3, where it means something; over a column of steps it means nothing.
+const STEPS_TITLE: &str = " Steps ";
 const STEPS_WIDTH: u16 = 26;
 
 /// Verbose levels, as in the previous installer: 0 shows the current step
@@ -51,11 +54,17 @@ struct App {
     /// The step list is hidden, because what is on screen is not a step of the
     /// form. Seeing it come back reads as having returned to the installer.
     full_screen: bool,
+    /// The first screen is up. There is nothing behind it to go back to, and
+    /// nothing to tell about that it is not already saying.
+    on_splash: bool,
     phase: String,
     package: String,
     current: i64,
     total: i64,
     eta: Option<i64>,
+    /// What the question being asked says about itself. Cleared as soon as it
+    /// is answered, so a note never outlives the question it belongs to.
+    tip: Vec<String>,
     /// (minimum verbose level that shows it, text)
     log: Vec<(u8, String)>,
 }
@@ -133,7 +142,7 @@ fn steps_pane(f: &mut Frame, app: &App, area: Rect) {
         })
         .collect();
     f.render_widget(
-        List::new(items).block(Block::default().borders(Borders::ALL).title(TITLE)),
+        List::new(items).block(Block::default().borders(Borders::ALL).title(STEPS_TITLE)),
         area,
     );
 }
@@ -147,14 +156,15 @@ fn status_bar(f: &mut Frame, app: &App, waiting: usize, area: Rect) {
     //# nothing on this bar answers while a full-screen view is up, so nothing
     //# on it is drawn as though it would
     let live = !app.overlay;
+    let can_go_back = !app.on_splash && app.step_index().is_some_and(|at| at > 0);
     let entry = |spans: &mut Vec<Span<'static>>, k: &str, text: String, enabled: bool| {
         spans.push(Span::styled(format!(" {k} "), if enabled { key } else { dim }));
         spans.push(Span::styled(format!("{text} "), if enabled { label } else { dim }));
     };
 
-    entry(&mut spans, "F1", "Back".into(), live && !app.installing);
+    entry(&mut spans, "F1", "Back".into(), live && !app.installing && can_go_back);
     entry(&mut spans, "F2", "Install".into(), live && app.on_summary);
-    entry(&mut spans, "F3", "About".into(), live && !app.installing);
+    entry(&mut spans, "F3", "About".into(), live && !app.installing && !app.on_splash);
     entry(&mut spans, "F4", format!("Verbose: {}", app.verbose), live);
     entry(&mut spans, "F5", "Mount media".into(), live && !app.installing);
     entry(&mut spans, "F6", "Exit".into(), live && !app.installing);
@@ -168,17 +178,49 @@ fn status_bar(f: &mut Frame, app: &App, waiting: usize, area: Rect) {
 
 /// Content pane: bordered, titled with the step, with the prompt on top.
 /// Returns the area left for the widget itself.
-fn content_block(f: &mut Frame, area: Rect, title: &str, prompt: &str, error: Option<&str>) -> Rect {
+fn content_block(f: &mut Frame, app: &App, area: Rect, title: &str, prompt: &str,
+                 error: Option<&str>) -> Rect {
     f.render_widget(
         Block::default().borders(Borders::ALL).title(format!(" {title} ")),
         area,
     );
     let inner = area.inner(ratatui::layout::Margin { horizontal: 2, vertical: 1 });
 
+    // The note sits under the widget rather than over it: what is being
+    // answered stays where the eye already is, and the explanation waits below.
+    //
+    // Each entry is a paragraph, wrapped to the box, so the height is what the
+    // wrapping makes of it and not how many entries there are. Breaking the
+    // text where it was written instead would leave a ragged edge far short of
+    // the border, which is what reads as broken.
+    let note = if app.tip.is_empty() {
+        0
+    } else {
+        wrapped_height(&app.tip, inner.width.saturating_sub(2)) + 2
+    };
     let rows = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(2), Constraint::Min(1), Constraint::Length(1)])
+        .constraints([
+            Constraint::Length(2),
+            Constraint::Min(1),
+            Constraint::Length(note),
+            Constraint::Length(1),
+        ])
         .split(inner);
+
+    if note > 0 {
+        let lines: Vec<Line> = app
+            .tip
+            .iter()
+            .map(|l| Line::from(Span::styled(l.clone(), Style::default().fg(Color::Gray))))
+            .collect();
+        f.render_widget(
+            Paragraph::new(lines).wrap(Wrap { trim: true }).block(
+                Block::default().borders(Borders::ALL).title(" What this means "),
+            ),
+            rows[2],
+        );
+    }
 
     f.render_widget(
         Paragraph::new(prompt.to_string())
@@ -192,7 +234,7 @@ fn content_block(f: &mut Frame, area: Rect, title: &str, prompt: &str, error: Op
                 message.to_string(),
                 Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
             ))),
-            rows[2],
+            rows[3],
         );
     }
     rows[1]
@@ -340,6 +382,134 @@ async fn unmount_media(host: &Host) {
     }
 }
 
+// ------------------------------------------------------------------- splash
+
+/// The wordmark, in block letters: 75 columns, which a console 80 wide
+/// takes with room to spare. Two lines, because the name does not fit on
+/// one, and every row is the same width so that centring them lines them up.
+const WORDMARK: [&str; 11] = [
+    " ███   ████   █████  █   █  █████   ███   █   █   ███   █████  █████  ████",
+    "█   █  █   █    █    ██  █    █    █   █  ██  █  █   █    █    █      █   █",
+    "█   █  ████     █    █ █ █    █    █   █  █ █ █  █████    █    ████   █   █",
+    "█   █  █        █    █  ██    █    █   █  █  ██  █   █    █    █      █   █",
+    " ███   █      █████  █   █  █████   ███   █   █  █   █    █    █████  ████",
+    "",
+    " ███   ████    ████  █   █",
+    "█   █  █   █  █      █   █",
+    "█████  ████   █      █████",
+    "█   █  █  █   █      █   █",
+    "█   █  █   █   ████  █   █",
+];
+
+/// What the About box says, which is what the first screen says too: it is the
+/// same text, and this is where it is read rather than where it is looked up.
+fn about_lines() -> Vec<String> {
+    vec![
+        "OpinionatedArch is an Arch-based distribution for one".into(),
+        "person juggling multiple work contexts.".into(),
+        String::new(),
+        "Created by Ivan Montilla (@montyclt)".into(),
+        "Part of the IOKode Project — iokode.blog".into(),
+        String::new(),
+        "Website: oparch.iokode.net".into(),
+        "Licensed under the BSD 2-Clause License".into(),
+    ]
+}
+
+/// The first screen: the wordmark, what this is, and one key to go on.
+///
+/// The wordmark is dropped on a console too short to hold it, rather than the
+/// text being cut: what the screen is for is the words, and the picture is what
+/// can be spared.
+fn splash_lines(height: u16, footer: &str) -> Vec<Line<'static>> {
+    let cyan = Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD);
+    let mut lines: Vec<Line> = Vec::new();
+
+    let with_wordmark = height >= WORDMARK.len() as u16 + about_lines().len() as u16 + 7;
+    if with_wordmark {
+        for row in WORDMARK {
+            lines.push(Line::from(Span::styled(row, cyan)).centered());
+        }
+        lines.push(Line::from(""));
+    } else {
+        lines.push(Line::from(Span::styled("OpinionatedArch", cyan)).centered());
+        lines.push(Line::from(""));
+    }
+
+    for text in about_lines() {
+        lines.push(Line::from(text).centered());
+    }
+    lines.push(Line::from(""));
+    lines.push(
+        Line::from(Span::styled(
+            footer.to_string(),
+            Style::default().fg(Color::Black).bg(Color::Cyan),
+        ))
+        .centered(),
+    );
+    lines
+}
+
+/// Draws that screen. The first screen and F3 are the same view, so they are
+/// the same drawing: only the line at the bottom differs, because only what to
+/// press next differs.
+fn draw_about(host: &Host, footer: &str) {
+    host.draw(|f, _, area| {
+        f.render_widget(Clear, area);
+        let rows = area.height.saturating_sub(2);
+        f.render_widget(
+            Paragraph::new(splash_lines(rows, footer))
+                .block(Block::default().borders(Borders::ALL).title(TITLE)),
+            area,
+        );
+    });
+}
+
+/// What F3 shows: the first screen again, and a way back to where it was
+/// pressed. Esc rather than F1, because while this is up the bar answers
+/// nothing and F1 is drawn dim along with the rest.
+fn about_view(host: &Host) {
+    {
+        let mut app = host.app.lock().unwrap();
+        app.full_screen = true;
+        app.overlay = true;
+    }
+
+    loop {
+        draw_about(host, "Press Esc to go back");
+        let Some(key) = next_key() else { continue };
+        if matches!(key.code, KeyCode::Esc | KeyCode::F(1) | KeyCode::F(3) | KeyCode::Enter) {
+            let mut app = host.app.lock().unwrap();
+            app.full_screen = false;
+            app.overlay = false;
+            return;
+        }
+    }
+}
+
+/// Holds the screen until the operator says to start. Leaving is F6, which is
+/// the one way out of the installer and is now the only one: backing out of a
+/// screen never ends the program by accident.
+fn splash(host: &Host) {
+    {
+        let mut app = host.app.lock().unwrap();
+        app.full_screen = true;
+        app.on_splash = true;
+    }
+
+    tokio::task::block_in_place(|| loop {
+        draw_about(host, "Press Enter to begin");
+
+        let Some(key) = widget_key(host) else { continue };
+        if key.code == KeyCode::Enter {
+            let mut app = host.app.lock().unwrap();
+            app.full_screen = false;
+            app.on_splash = false;
+            return;
+        }
+    })
+}
+
 // --------------------------------------------------------------- runtime log
 
 /// What the log is called when it is written out. The directory is chosen, so
@@ -450,6 +620,12 @@ fn show_log(host: &Host) {
     }
 }
 
+/// A question has been answered, so what it said about itself goes with it.
+fn answered<T>(host: &Host, answer: T) -> T {
+    host.app.lock().unwrap().tip.clear();
+    answer
+}
+
 /// Keys that work on every screen. Returns None when the key was consumed.
 fn global_key(host: &Host, key: KeyEvent) -> Option<KeyEvent> {
     match key.code {
@@ -464,21 +640,7 @@ fn global_key(host: &Host, key: KeyEvent) -> Option<KeyEvent> {
             None
         }
         KeyCode::F(3) => {
-            modal(
-                host,
-                "About",
-                vec![
-                    "OpinionatedArch is an Arch-based distribution for one".into(),
-                    "person juggling multiple work contexts.".into(),
-                    String::new(),
-                    "Created by Ivan Montilla (@montyclt)".into(),
-                    "Part of the IOKode Project — iokode.blog".into(),
-                    String::new(),
-                    "Website: oparch.iokode.net".into(),
-                    "Licensed under the BSD 2-Clause License".into(),
-                ],
-                "Enter or Esc to close",
-            );
+            about_view(host);
             None
         }
         KeyCode::F(4) => {
@@ -556,8 +718,8 @@ fn ui_choose(host: &Host, title: String, prompt: String, options: Vec<String>, c
         let visible = filtered(&options, &filter);
         cursor = if visible.is_empty() { 0 } else { cursor.min(visible.len() - 1) };
 
-        host.draw(|f, _, area| {
-            let body = content_block(f, area, &title, &prompt, error.as_deref());
+        host.draw(|f, app, area| {
+            let body = content_block(f, app, area, &title, &prompt, error.as_deref());
             let mut state = ListState::default();
             state.select((!visible.is_empty()).then_some(cursor));
             let items: Vec<ListItem> = visible.iter().map(|i| ListItem::new(options[*i].clone())).collect();
@@ -617,8 +779,8 @@ fn ui_choose_many(
     let mut cursor = 0usize;
 
     tokio::task::block_in_place(|| loop {
-        host.draw(|f, _, area| {
-            let body = content_block(f, area, &title, &prompt, error.as_deref());
+        host.draw(|f, app, area| {
+            let body = content_block(f, app, area, &title, &prompt, error.as_deref());
             let mut state = ListState::default();
             state.select(Some(cursor));
             let items: Vec<ListItem> = options
@@ -665,8 +827,8 @@ fn ui_text(host: &Host, title: String, prompt: String, initial: String, secret: 
     let mut value = if secret { String::new() } else { initial };
 
     tokio::task::block_in_place(|| loop {
-        host.draw(|f, _, area| {
-            let body = content_block(f, area, &title, &prompt, error.as_deref());
+        host.draw(|f, app, area| {
+            let body = content_block(f, app, area, &title, &prompt, error.as_deref());
             // A field, not a wall: one line, at the top of the pane.
             let field = Rect {
                 x: body.x,
@@ -843,9 +1005,9 @@ fn ui_pick(host: &Host, title: String, prompt: String, start: String, want: Want
             Want::File => "↑/↓ move · → open · ← up · Enter takes the file",
             Want::Directory => "↑/↓ move · → open · ← up · Enter opens a directory",
         };
-        host.draw(|f, _, area| {
-            let body =
-                content_block(f, area, &title, &format!("{prompt}\n{keys_hint}"), error.as_deref());
+        host.draw(|f, app, area| {
+            let body = content_block(f, app, area, &title,
+                                     &format!("{prompt}\n{keys_hint}"), error.as_deref());
             let mut state = ListState::default();
             state.select((!visible.is_empty()).then_some(cursor));
             let items: Vec<ListItem> = visible
@@ -937,9 +1099,10 @@ fn ui_review(host: &Host, title: String, lines: Vec<String>) -> bool {
     host.app.lock().unwrap().on_summary = true;
 
     let answer = tokio::task::block_in_place(|| loop {
-        host.draw(|f, _, area| {
+        host.draw(|f, app, area| {
             let body = content_block(
                 f,
+                app,
                 area,
                 &title,
                 "Review what will be done. F2 starts the installation.",
@@ -970,7 +1133,7 @@ fn ui_review(host: &Host, title: String, lines: Vec<String>) -> bool {
 // ----------------------------------------------------------------- progress
 
 fn progress_pane(f: &mut Frame, app: &App, area: Rect) {
-    let body = content_block(f, area, "Installing", &app.phase, None);
+    let body = content_block(f, app, area, "Installing", &app.phase, None);
     let rows = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(3), Constraint::Min(0)])
@@ -1019,6 +1182,15 @@ fn progress_pane(f: &mut Frame, app: &App, area: Rect) {
 
 // --------------------------------------------------------------------- main
 
+/// Where the assets are. They are deployed beside the binary, so that is where
+/// they are read from, and where the installer happens to be started from does
+/// not enter into it. Anywhere else is `--assets`, said out loud.
+fn default_asset_dir() -> String {
+    let exe = std::env::current_exe().expect("the running binary has a path");
+    let beside = exe.parent().expect("the binary is in a directory").join("assets");
+    beside.to_string_lossy().into_owned()
+}
+
 /// The value following `name` on the command line, if it is there.
 fn arg_value(name: &str) -> Option<String> {
     std::env::args().skip_while(|a| a != name).nth(1)
@@ -1026,7 +1198,7 @@ fn arg_value(name: &str) -> Option<String> {
 
 #[tokio::main]
 async fn main() {
-    let asset_dir = arg_value("--assets").unwrap_or_else(|| "assets".to_string());
+    let asset_dir = arg_value("--assets").unwrap_or_else(default_asset_dir);
 
     // `--config <file>` answers every question from the file instead of asking.
     // Reading it is the host's job; deciding what it means is BAML's.
@@ -1129,6 +1301,8 @@ async fn run_unattended(
         move |_names: Vec<String>| {},
         move |title: String| h_step.line(&title),
         move |message: String| eprintln!("error: {message}"),
+        move |message: String| eprintln!("warning: {message}"),
+        move |_names: Vec<String>| {},
         move |title: String, _p: String, _o: Vec<String>, _c: i64| unattended_question(&title),
         move |title: String, _p: String, _o: Vec<String>, _s: Vec<String>, _min: i64, _max: i64| {
             unattended_question(&title);
@@ -1230,6 +1404,8 @@ async fn run_interactive(
         app: Mutex::new(App::default()),
         diagnostics: diagnostics.clone(),
     });
+    splash(&host);
+
     let started = Instant::now();
     let file_ops = Arc::new(FileOps::default());
 
@@ -1239,6 +1415,7 @@ async fn run_interactive(
         let (h_choose, h_many, h_text, h_review) =
             (host.clone(), host.clone(), host.clone(), host.clone());
         let (h_pick_package, h_pick_file) = (host.clone(), host.clone());
+        let (h_tip, h_warn) = (host.clone(), host.clone());
 
         baml_sdk::run_installer_async(
             asset_dir,
@@ -1288,20 +1465,23 @@ async fn run_interactive(
                 app.eta = None;
             },
             move |message: String| h_err.app.lock().unwrap().error = Some(message),
+            move |message: String| h_warn.diagnostics.push(message),
+            move |names: Vec<String>| h_tip.app.lock().unwrap().tip = names,
             move |title: String, prompt: String, options: Vec<String>, current: i64| {
-                ui_choose(&h_choose, title, prompt, options, current)
+                answered(&h_choose, ui_choose(&h_choose, title, prompt, options, current))
             },
             move |title: String, prompt: String, options: Vec<String>, selected: Vec<String>, min: i64, max: i64| {
-                ui_choose_many(&h_many, title, prompt, options, selected, min, max)
+                answered(&h_many, ui_choose_many(&h_many, title, prompt, options, selected, min, max))
             },
             move |title: String, prompt: String, initial: String, secret: bool| {
-                ui_text(&h_text, title, prompt, initial, secret)
+                answered(&h_text, ui_text(&h_text, title, prompt, initial, secret))
             },
             move |title: String, prompt: String, start: String| {
-                ui_pick(&h_pick_package, title, prompt, start, Want::Package)
+                answered(&h_pick_package,
+                         ui_pick(&h_pick_package, title, prompt, start, Want::Package))
             },
             move |title: String, prompt: String, start: String| {
-                ui_pick(&h_pick_file, title, prompt, start, Want::File)
+                answered(&h_pick_file, ui_pick(&h_pick_file, title, prompt, start, Want::File))
             },
             move |title: String, lines: Vec<String>| ui_review(&h_review, title, lines),
         )
@@ -1517,6 +1697,13 @@ struct Diagnostics(Arc<Mutex<Vec<String>>>);
 impl Diagnostics {
     fn lines(&self) -> Vec<String> {
         self.0.lock().unwrap().clone()
+    }
+
+    /// A line the installer itself wants recorded, rather than one read off the
+    /// pipe. It lands beside the runtime's own, because to whoever opens F8
+    /// they are the same thing: what happened that nobody was asked about.
+    fn push(&self, line: String) {
+        self.0.lock().unwrap().push(line);
     }
 }
 

@@ -185,7 +185,7 @@ test "prepare_layout runs the whole sequence in order" {
         replies: { "blkid -s UUID -o value /dev/sda2": "5f3a-uuid\n" },
     };
     let files = root.common.recording_files();
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
     let config = layout_config();
 
     assert.equal(prepare_layout(shell, files, ui, config, root.common.mounted_target("/mnt")), "");
@@ -228,7 +228,7 @@ test "prepare_layout keeps the passphrase off every command line" {
     let shell = root.common.RecordingShell {
         commands: [], streamed: [], fed: [], exit_codes: {}, replies: {},
     };
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
     let config = layout_config();
 
     let _ = prepare_layout(shell, root.common.recording_files(), ui, config,
@@ -246,7 +246,7 @@ test "prepare_layout creates the directories the layout needs" {
     let shell = root.common.RecordingShell {
         commands: [], streamed: [], fed: [], exit_codes: {}, replies: {},
     };
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     let _ = prepare_layout(shell, files, ui, layout_config(), root.common.mounted_target("/mnt"));
 
@@ -267,7 +267,7 @@ test "prepare_layout records the root partition UUID for later phases" {
     };
     let config = layout_config();
     config.disk = "/dev/nvme0n1";
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     let _ = prepare_layout(shell, root.common.recording_files(), ui, config,
                            root.common.mounted_target("/mnt"));
@@ -281,7 +281,7 @@ test "prepare_layout gives every login user a home subvolume and a mount" {
     };
     let config = layout_config();
     config.login_users = ["ivan", "work"];
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     let _ = prepare_layout(shell, root.common.recording_files(), ui, config,
                            root.common.mounted_target("/mnt"));
@@ -297,7 +297,7 @@ test "prepare_layout refuses keep-homes without touching the disk" {
     };
     let config = layout_config();
     config.install_mode = "keep-homes";
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     assert.equal(prepare_layout(shell, root.common.recording_files(), ui, config,
                                 root.common.mounted_target("/mnt")),
@@ -308,7 +308,7 @@ test "prepare_layout refuses keep-homes without touching the disk" {
 test "prepare_layout stops at the first destructive command that fails" {
     let shell = plain_shell();
     let _ = shell.exit_codes.set("wipefs -af /dev/sda", 1);
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     assert.equal(
         prepare_layout(shell, root.common.recording_files(), ui, layout_config(),
@@ -322,7 +322,7 @@ test "prepare_layout stops at the first destructive command that fails" {
 test "prepare_layout stops when the partition table cannot be written" {
     let shell = plain_shell();
     let _ = shell.exit_codes.set("sgdisk -n 2:0:0 -t 2:8300 -c 2:CRYPTROOT /dev/sda", 4);
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     assert.equal(
         prepare_layout(shell, root.common.recording_files(), ui, layout_config(),
@@ -335,7 +335,7 @@ test "prepare_layout stops when the container cannot be created" {
     let shell = plain_shell();
     let _ = shell.exit_codes.set(
         "cryptsetup luksFormat --type luks2 --batch-mode --key-file - /dev/sda2", 1);
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     assert.equal(
         prepare_layout(shell, root.common.recording_files(), ui, layout_config(),
@@ -347,7 +347,7 @@ test "prepare_layout stops when the container cannot be created" {
 test "prepare_layout stops when the filesystem cannot be mounted" {
     let shell = plain_shell();
     let _ = shell.exit_codes.set("mount /dev/mapper/cryptroot /mnt", 32);
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     assert.equal(
         prepare_layout(shell, root.common.recording_files(), ui, layout_config(),

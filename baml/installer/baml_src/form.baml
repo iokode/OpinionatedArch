@@ -3,24 +3,27 @@
 function collect_config(shell: root.common.Shell, files: root.common.Files, ui: Ui,
                         asset_dir: string) -> InstallConfig? {
     let config = empty_config();
+    //# read once: what a question says about itself does not change while it
+    //# is being answered
+    let tips = load_tips(files, ui, asset_dir);
     ui.outline(step_names());
     let step = 0;
 
     while (step <= 7) {
         let advanced = if (step == 0) {
-            step_disk(shell, ui, config)
+            step_disk(shell, ui, tips, config)
         } else if (step == 1) {
-            step_data_preservation(ui, config)
+            step_data_preservation(ui, tips, config)
         } else if (step == 2) {
-            step_hardware(ui, config)
+            step_hardware(ui, tips, config)
         } else if (step == 3) {
-            step_users(ui, config)
+            step_users(ui, tips, config)
         } else if (step == 4) {
-            step_locale_and_identity(shell, ui, config)
+            step_locale_and_identity(shell, ui, tips, config)
         } else if (step == 5) {
-            step_dotfiles(ui, config)
+            step_dotfiles(ui, tips, config)
         } else if (step == 6) {
-            step_return_message(shell, files, ui, config, asset_dir)
+            step_return_message(shell, files, ui, tips, config, asset_dir)
         } else {
             step_summary(ui, config)
         };
@@ -31,9 +34,10 @@ function collect_config(shell: root.common.Shell, files: root.common.Files, ui: 
             } else {
                 step - 1
             };
-        //# backing out of the first screen cancels
+        //# there is nothing behind the first screen. Leaving is F6, explicitly,
+        //# so that a key meant to step back never ends the installation
         if (step < 0) {
-            return null;
+            step = 0;
         }
     }
 
@@ -51,7 +55,7 @@ function step_names() -> string[] {
 
 // ------------------------------------------------------------------ screens
 
-function step_disk(shell: root.common.Shell, ui: Ui, config: InstallConfig) -> bool {
+function step_disk(shell: root.common.Shell, ui: Ui, tips: Tips, config: InstallConfig) -> bool {
     ui.step("Target disk");
     let disks = list_disks(shell);
     if (disks.length() == 0) {
@@ -59,6 +63,7 @@ function step_disk(shell: root.common.Shell, ui: Ui, config: InstallConfig) -> b
         return false;
     }
 
+    ui.tip(tip_for(tips, "disk"));
     let labels = disk_labels(disks);
     let current = 0;
     let index = 0;
@@ -69,15 +74,16 @@ function step_disk(shell: root.common.Shell, ui: Ui, config: InstallConfig) -> b
         index = index + 1;
     }
 
-    if let picked: int = ui.choose("Target disk", "Everything on the selected disk will be erased.", labels, current) {
+    if let picked: int = ui.choose("Target disk", "Where the system will be installed. How much of it is kept is the next question.", labels, current) {
         config.disk = (disks.at(picked))?.path ?? "";
         return true;
     }
     false
 }
 
-function step_data_preservation(ui: Ui, config: InstallConfig) -> bool {
+function step_data_preservation(ui: Ui, tips: Tips, config: InstallConfig) -> bool {
     ui.step("Data preservation");
+    ui.tip(tip_for(tips, "data_preservation"));
     let options = ["wipe-all", "keep-homes"];
     if let picked: int = ui
         .choose(
@@ -92,7 +98,7 @@ function step_data_preservation(ui: Ui, config: InstallConfig) -> bool {
     false
 }
 
-function step_hardware(ui: Ui, config: InstallConfig) -> bool {
+function step_hardware(ui: Ui, tips: Tips, config: InstallConfig) -> bool {
     ui.step("Hardware");
     let ucodes = ["intel-ucode", "amd-ucode", "none"];
     let gpus = ["nvidia", "nvidia-open", "nouveau", "none"];
@@ -100,6 +106,7 @@ function step_hardware(ui: Ui, config: InstallConfig) -> bool {
 
     while (field < 4) {
         if (field == 0) {
+            ui.tip(tip_for(tips, "ucode"));
             if let picked: int = ui
                 .choose(
                     "Hardware",
@@ -113,6 +120,7 @@ function step_hardware(ui: Ui, config: InstallConfig) -> bool {
                 return false;
             }
         } else if (field == 1) {
+            ui.tip(tip_for(tips, "gpu"));
             if let picked: int = ui.choose("Hardware", "GPU driver.", gpus, index_of_option(gpus, config.gpu_driver)) {
                 config.gpu_driver = gpus.at(picked) ?? "";
                 field = 2;
@@ -120,6 +128,7 @@ function step_hardware(ui: Ui, config: InstallConfig) -> bool {
                 field = 0;
             }
         } else if (field == 2) {
+            ui.tip(tip_for(tips, "zram"));
             if let answer: string = ui.text("Hardware", "zram size in GB", `${config.swap.zram_gb}`, false) {
                 if let size: int = parse_size_gb(answer) {
                     config.swap.zram_gb = size;
@@ -131,6 +140,7 @@ function step_hardware(ui: Ui, config: InstallConfig) -> bool {
                 field = 1;
             }
         } else {
+            ui.tip(tip_for(tips, "swapfile"));
             if let answer: string = ui.text("Hardware", "disk swapfile size in GB",
                                             `${config.swap.swapfile_gb}`, false) {
                 if let size: int = parse_size_gb(answer) {
@@ -147,7 +157,7 @@ function step_hardware(ui: Ui, config: InstallConfig) -> bool {
     true
 }
 
-function step_users(ui: Ui, config: InstallConfig) -> bool {
+function step_users(ui: Ui, tips: Tips, config: InstallConfig) -> bool {
     ui.step("Users");
     let users_csv = config.login_users.join(",");
     let secret = "";
@@ -155,6 +165,7 @@ function step_users(ui: Ui, config: InstallConfig) -> bool {
 
     while (field < 3) {
         if (field == 0) {
+            ui.tip(tip_for(tips, "usernames"));
             if let answer: string = ui.text("Users", "Login usernames (comma-separated)", users_csv, false) {
                 users_csv = answer;
                 let parsed = parse_login_users_csv(answer);
@@ -168,6 +179,7 @@ function step_users(ui: Ui, config: InstallConfig) -> bool {
                 return false;
             }
         } else if (field == 1) {
+            ui.tip(tip_for(tips, "shared_secret"));
             if let answer: string = ui.text("Users", "Shared secret", "", true) {
                 if (answer == "") {
                     ui.error("Shared secret is required.");
@@ -179,9 +191,15 @@ function step_users(ui: Ui, config: InstallConfig) -> bool {
                 field = 0;
             }
         } else {
+            ui.tip(tip_for(tips, "confirm_secret"));
             if let answer: string = ui.text("Users", "Confirm shared secret", "", true) {
                 if (answer != secret) {
+                    //# what did not match is the pair, so the pair is asked
+                    //# again: retyping the confirmation of a secret that was
+                    //# mistyped in the first place can only fail again
                     ui.error("Shared secret values do not match.");
+                    secret = "";
+                    field = 1;
                 } else {
                     config.shared_secret = secret;
                     field = 3;
@@ -194,7 +212,7 @@ function step_users(ui: Ui, config: InstallConfig) -> bool {
     true
 }
 
-function step_locale_and_identity(shell: root.common.Shell, ui: Ui,
+function step_locale_and_identity(shell: root.common.Shell, ui: Ui, tips: Tips,
                                   config: InstallConfig) -> bool {
     ui.step("Locale and identity");
     let title = "Locale and identity";
@@ -204,6 +222,7 @@ function step_locale_and_identity(shell: root.common.Shell, ui: Ui,
 
     while (field < 3) {
         if (field == 0) {
+            ui.tip(tip_for(tips, "keymap"));
             if let picked: int = ui
                 .choose(
                     title,
@@ -217,6 +236,7 @@ function step_locale_and_identity(shell: root.common.Shell, ui: Ui,
                 return false;
             }
         } else if (field == 1) {
+            ui.tip(tip_for(tips, "timezone"));
             if let picked: int = ui
                 .choose(
                     title,
@@ -230,6 +250,7 @@ function step_locale_and_identity(shell: root.common.Shell, ui: Ui,
                 field = 0;
             }
         } else {
+            ui.tip(tip_for(tips, "hostname"));
             if let answer: string = ui.text(title, "Hostname", config.hostname, false) {
                 if (validate_hostname(answer)) {
                     config.hostname = answer;
@@ -324,7 +345,12 @@ test "a picker starts where the last choice was, or at the top" {
 ///
 /// Nothing is deduced from the answer. Backing out of the location returns to
 /// the origin, so a wrong choice is one keystroke to undo.
-function ask_source(ui: Ui, title: string, prompt: string, origins: string[], packages: bool,
+/// `note` is the key the note is read under. It names what is being asked for
+/// — the dotfiles package, the return message's — rather than which half of the
+/// question is on screen, because the operator is answering the one and not
+/// the other.
+function ask_source(ui: Ui, tips: Tips, note: string, title: string, prompt: string,
+                    origins: string[], packages: bool,
                     current: root.common.Source) -> SourceAnswer {
     let refused = SourceAnswer { source: root.common.default_source(), answered: false };
     let labels = origin_labels(origins);
@@ -332,6 +358,7 @@ function ask_source(ui: Ui, title: string, prompt: string, origins: string[], pa
     let location = current.location;
 
     while (true) {
+        ui.tip(tip_for(tips, note));
         if let picked: int = ui.choose(title, prompt, labels, at) {
             let origin = origins.at(picked) ?? "";
             if (origin == "default") {
@@ -339,6 +366,7 @@ function ask_source(ui: Ui, title: string, prompt: string, origins: string[], pa
             }
             at = picked;
 
+            ui.tip(tip_for(tips, note));
             let given = if (origin == "local") {
                 if (packages) {
                     ui.pick_package(title, location_prompt(origin), picker_start(location))
@@ -366,7 +394,7 @@ function ask_source(ui: Ui, title: string, prompt: string, origins: string[], pa
     refused
 }
 
-function step_dotfiles(ui: Ui, config: InstallConfig) -> bool {
+function step_dotfiles(ui: Ui, tips: Tips, config: InstallConfig) -> bool {
     ui.step("Dotfiles");
     let options = ["yes", "no"];
     let current = if (config.dotfiles == null) { 1 } else { 0 };
@@ -375,6 +403,7 @@ function step_dotfiles(ui: Ui, config: InstallConfig) -> bool {
 
     while (field < 2) {
         if (field == 0) {
+            ui.tip(tip_for(tips, "dotfiles"));
             if let picked: int = ui
                 .choose("Dotfiles", "Install a public dotfiles package?", options, current) {
                 //# where it comes from is only asked for when there is one
@@ -388,7 +417,8 @@ function step_dotfiles(ui: Ui, config: InstallConfig) -> bool {
             }
         } else {
             //# the project ships no dotfiles, so its own is not among the origins
-            let answered = ask_source(ui, "Dotfiles", "Where the dotfiles package comes from.",
+            let answered = ask_source(ui, tips, "dotfiles_source", "Dotfiles",
+                                      "Where the dotfiles package comes from.",
                                       root.common.supplied_package_origins(), true, existing);
             if (answered.answered) {
                 config.dotfiles = answered.source;
@@ -404,7 +434,7 @@ function step_dotfiles(ui: Ui, config: InstallConfig) -> bool {
 //# the template decides what is asked here, and the theme how many languages
 //# may be answered, so both are loaded before asking
 function step_return_message(shell: root.common.Shell, files: root.common.Files, ui: Ui,
-                             config: InstallConfig, asset_dir: string) -> bool {
+                             tips: Tips, config: InstallConfig, asset_dir: string) -> bool {
     ui.step("Return message");
     let yes_no = ["yes", "no"];
     let existing = config.return_message;
@@ -423,6 +453,7 @@ function step_return_message(shell: root.common.Shell, files: root.common.Files,
 
     while (true) {
         if (field == 0) {
+            ui.tip(tip_for(tips, "return_message"));
             if let picked: int = ui.choose("Return message", "Include a pre-boot return message?",
                     yes_no, if (existing == null) { 1 } else { 0 }) {
                 if ((yes_no.at(picked) ?? "") == "no") {
@@ -434,7 +465,7 @@ function step_return_message(shell: root.common.Shell, files: root.common.Files,
                 return false;
             }
         } else if (field == 1) {
-            let answered = ask_source(ui, "Return message",
+            let answered = ask_source(ui, tips, "return_message_source", "Return message",
                                       "Where the template package comes from.",
                                       root.common.package_origins(), true, message.template);
             if (!answered.answered) {
@@ -456,7 +487,8 @@ function step_return_message(shell: root.common.Shell, files: root.common.Files,
                 }
             }
         } else if (field == 2) {
-            let answered = ask_source(ui, "Return message", "Where the theme comes from.",
+            let answered = ask_source(ui, tips, "return_message_source", "Return message",
+                                      "Where the theme comes from.",
                                       root.common.package_origins(), true, message.theme);
             if (!answered.answered) {
                 field = 1;
@@ -536,7 +568,8 @@ function step_return_message(shell: root.common.Shell, files: root.common.Files,
                 //# around something that needs none
                 //# one file, walked to rather than typed when it is on this
                 //# machine, and typed when it is not
-                let answered = ask_source(ui, "Return message", "Where the logo comes from.",
+                let answered = ask_source(ui, tips, "return_message_source", "Return message",
+                                          "Where the logo comes from.",
                                           root.common.file_origins(), false,
                                           values.logo ?? root.common.source_at("url", ""));
                 if (answered.answered) {
@@ -578,7 +611,7 @@ function fake_live_shell() -> root.common.RecordingShell {
 }
 
 function scripted(answers: string[]) -> ScriptedUi {
-    ScriptedUi { answers: answers, asked: [], steps: [], errors: [], outline: [], limits: [] }
+    ScriptedUi { answers: answers, asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] }
 }
 
 test "the form walks every screen and collects the whole config" {
@@ -801,6 +834,28 @@ test "the languages the picker takes are the ones the theme lays out" {
     }
 }
 
+test "a screen offers the note the assets hold for the question it is asking" {
+    let ui = scripted(
+        [
+            "/dev/sda (476,9G, Samsung SSD 860)", "wipe-all", "none", "none", "0", "0",
+            "ivan", "s", "s", "es", "UTC", "oparch", "no", "no", "start",
+        ],
+    );
+    let files = packaged_files();
+    files.write("/assets/installer-tips.yaml",
+                "gpu:\n  - \"which driver, and why\"\nhostname:\n  - \"what to call it\"\n");
+
+    let _ = collect_config(fake_live_shell(), files, ui, "/assets");
+
+    //# one note per question asked, whether or not the assets hold one
+    assert.equal(ui.tips.length(), ui.asked.length() - 1);
+    //# the fourth question is the GPU driver, and the twelfth the hostname
+    assert.equal(ui.tips.at(3), "which driver, and why");
+    assert.equal(ui.tips.at(11), "what to call it");
+    //# a question the file says nothing about is asked without a note
+    assert.equal(ui.tips.at(0), "")
+}
+
 test "going back re-asks the previous screen" {
     let ui = scripted(
         [
@@ -830,9 +885,19 @@ test "going back re-asks the previous screen" {
     assert.equal(ui.steps.slice(0, 3), ["Target disk", "Data preservation", "Target disk"])
 }
 
-test "backing out of the first screen cancels the installer" {
-    let ui = scripted(["<back>"]);
-    assert.is_true(collect_config(fake_live_shell(), packaged_files(), ui, "/assets") == null)
+test "backing out of the first screen asks it again rather than leaving" {
+    let ui = scripted(
+        [
+            "<back>", // there is nowhere behind it
+            "/dev/sda (476,9G, Samsung SSD 860)", "wipe-all", "none", "none", "0", "0",
+            "ivan", "s", "s", "es", "UTC", "oparch", "no", "no", "start",
+        ],
+    );
+
+    let config = collect_config(fake_live_shell(), packaged_files(), ui, "/assets");
+
+    assert.not_null(config);
+    assert.equal(ui.steps.slice(0, 2), ["Target disk", "Target disk"])
 }
 
 test "an invalid hostname is rejected and asked again" {
@@ -878,8 +943,9 @@ test "swap sizes must be integers, and users must confirm the secret" {
             "0", // swap: one rejection
             "ivan",
             "one",
-            "other",
-            "one", // secret mismatch, then confirmed
+            "other", // the confirmation does not match
+            "one",
+            "one", // so both are asked again, and this time they agree
             "es",
             "UTC",
             "oparch",

@@ -103,7 +103,8 @@ function install(shell: root.common.Shell, files: root.common.Files, ui: Ui, ass
         ui.step("Installation finished");
         InstallSummary { disk: config.disk, exit_code: 0 }
     } else {
-        //# cancelled at the first screen, or a config file that cannot be used
+        //# a config file that cannot be used. The form itself no longer ends
+        //# this way: nothing behind its first screen means nothing to back out to
         InstallSummary { disk: "", exit_code: 130 }
     }
 }
@@ -127,6 +128,8 @@ function run_installer(
     on_outline: (string[]) -> void throws never,
     on_step: (string) -> void throws never,
     on_error: (string) -> void throws never,
+    on_warn: (string) -> void throws never,
+    on_tip: (string[]) -> void throws never,
     on_choose: (string, string, string[], int) -> int? throws never,
     on_choose_many: (string, string, string[], string[], int, int) -> string[]? throws never,
     on_text: (string, string, string, bool) -> string? throws never,
@@ -151,6 +154,8 @@ function run_installer(
             on_outline: on_outline,
             on_step: on_step,
             on_error: on_error,
+            on_warn: on_warn,
+            on_tip: on_tip,
             on_choose: on_choose,
             on_choose_many: on_choose_many,
             on_text: on_text,
@@ -173,7 +178,7 @@ test "a config file answers every question and the form is never shown" {
             "timedatectl list-timezones": "Europe/Madrid\nUTC\n",
         },
     };
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     let summary = install(shell, full_run_files(), ui, "/assets", full_config_text());
 
@@ -191,7 +196,7 @@ test "a config file that cannot be used stops before anything runs" {
         exit_codes: {},
         replies: { "timedatectl list-timezones": "Europe/Madrid\n" },
     };
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     let summary = install(shell, root.common.recording_files(), ui, "/assets", "disk: /dev/sda\nwat: 1\n");
 
@@ -234,7 +239,7 @@ function full_run_shell() -> root.common.RecordingShell {
 }
 
 test "the phases run in order and the installation reports success" {
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     let summary = install(full_run_shell(), full_run_files(), ui, "/assets", full_config_text());
 
@@ -280,7 +285,7 @@ function full_message_config_text() -> string {
 
 test "a return message adds its phase after swap, and the theme becomes the default" {
     let shell = full_run_shell();
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     let summary = install(shell, full_run_message_files(), ui, "/assets", full_message_config_text());
 
@@ -317,7 +322,7 @@ test "a return message adds its phase after swap, and the theme becomes the defa
 test "a phase that fails stops the ones after it" {
     let shell = full_run_shell();
     let _ = shell.exit_codes.set("arch-chroot /mnt locale-gen", 1);
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     let summary = install(shell, full_run_files(), ui, "/assets", full_config_text());
 
@@ -331,7 +336,7 @@ test "a phase that fails stops the ones after it" {
 test "a file operation that fails stops the installation" {
     let files = full_run_files();
     files.fails_with = "cannot write /mnt/etc/fstab: read-only file system";
-    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], limits: [] };
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     let summary = install(full_run_shell(), files, ui, "/assets", full_config_text());
 

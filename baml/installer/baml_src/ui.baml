@@ -13,6 +13,18 @@ interface Ui {
     function outline(self, names: string[]) -> void throws never
     function step(self, title: string) -> void throws never
     function error(self, message: string) -> void throws never
+    /// Something worth recording and not worth interrupting for: it goes to the
+    /// runtime log, which the operator opens when they want it, rather than in
+    /// front of the question they are answering.
+    function warn(self, message: string) -> void throws never
+
+    /// A note beside the question: what the answer means, or how to tell one
+    /// option from another. It is shown until the next answer is given, so a
+    /// question with nothing worth saying simply does not ask for one.
+    ///
+    /// What it says is a decision, which is why it is written where the
+    /// questions are and not where they are drawn.
+    function tip(self, lines: string[]) -> void throws never
 
     function choose(self, title: string, prompt: string, options: string[], current: int) -> int? throws never
     function choose_many(self, title: string, prompt: string, options: string[],
@@ -53,6 +65,8 @@ class HostUi {
     on_outline: (string[]) -> void throws never,
     on_step: (string) -> void throws never,
     on_error: (string) -> void throws never,
+    on_warn: (string) -> void throws never,
+    on_tip: (string[]) -> void throws never,
     on_choose: (string, string, string[], int) -> int? throws never,
     on_choose_many: (string, string, string[], string[], int, int) -> string[]? throws never,
     on_text: (string, string, string, bool) -> string? throws never,
@@ -68,6 +82,12 @@ class HostUi {
         }
         function error(self, message: string) -> void {
             self.on_error(message)
+        }
+        function warn(self, message: string) -> void {
+            self.on_warn(message)
+        }
+        function tip(self, lines: string[]) -> void {
+            self.on_tip(lines)
         }
         function choose(
             self,
@@ -124,6 +144,11 @@ class ScriptedUi {
     steps: string[],
     errors: string[],
     outline: string[],
+    /// Everything sent to the runtime log rather than to the screen.
+    warnings: string[],
+    /// Every note offered beside a question, one entry each, in the order they
+    /// were offered. A test can hold a screen to explaining what it asks.
+    tips: string[],
     /// What each multi-select was allowed to take, as `min to max`. The bounds
     /// are a decision of the screen, so a test can hold them to it.
     limits: string[],
@@ -141,6 +166,12 @@ class ScriptedUi {
         }
         function error(self, message: string) -> void {
             self.errors.push(message)
+        }
+        function warn(self, message: string) -> void {
+            self.warnings.push(message)
+        }
+        function tip(self, lines: string[]) -> void {
+            self.tips.push(lines.join(" "))
         }
 
         function choose(
