@@ -9,7 +9,7 @@ path = "src/main.rs"
 
 [dependencies]
 baml_sdk = { path = "baml_sdk" }
-baml_bridge = "=0.15.1-nightly.20260731.a"
+baml_bridge = "=0.15.1-nightly.20260810.b"
 crossterm = "0.29"
 ratatui = "0.29"
 tokio = { version = "1", features = ["full"] }
