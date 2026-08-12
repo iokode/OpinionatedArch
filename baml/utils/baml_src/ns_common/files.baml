@@ -107,8 +107,15 @@ class RecordingFiles {
         function read(self, path: string) -> string? {
             self.written.get(path)
         }
+        /// Everything this double has been told about counts as being there,
+        /// including a directory it was asked to make. Anything else would have
+        /// it answer that what it just created is not there, which no
+        /// filesystem does and no caller should have to work around.
         function exists(self, path: string) -> bool {
-            self.present.includes(path) || self.written.get(path) != null
+            self.present.includes(path)
+                || self.written.get(path) != null
+                || self.directories.includes(path)
+                || self.symlinks.get(path) != null
         }
         /// A listing assembled from what this double has been told about. A
         /// directory it has never heard of cannot be listed, which is what a
