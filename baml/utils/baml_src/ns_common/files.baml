@@ -1,20 +1,31 @@
-// Writing into a filesystem the tool does not necessarily own.
+// Writing into a filesystem the caller does not necessarily own.
 //
-// An installer works on two roots at once: the live system it runs from, and
-// the system it is building. `Target` names which one a path belongs to, so a
-// path is never accidentally written to the wrong root.
+// A program can have more than one root in play at once: the system it is
+// running on, and a system mounted somewhere else. `Target` names which of
+// them a path belongs to, so a path is never written to the wrong one.
 
 class Target {
-    /// "/" for the live system, or the mount point of the system being built.
+    /// "/" for the system this program runs on, or the mount point of another.
     root: string,
+    /// Whether a command aimed at this target has to be run inside it.
+    ///
+    /// It is answered rather than derived from the root, because the two are
+    /// different questions about the same volume: a mounted system is written
+    /// to and read from directly whatever the answer, and only a command that
+    /// has to see it as its own root is entered with `arch-chroot`. A volume
+    /// can be inspected without being entered, and a root of "/" is never
+    /// entered at all.
+    uses_chroot: bool,
 }
 
+/// The system this program is running on.
 function local_target() -> Target {
-    Target { root: "/" }
+    Target { root: "/", uses_chroot: false }
 }
 
-function mounted_target(root: string) -> Target {
-    Target { root: root }
+/// A system mounted elsewhere, whose commands are run inside it.
+function chroot_target(root: string) -> Target {
+    Target { root: root, uses_chroot: true }
 }
 
 /// Resolves an absolute path inside a target. Paths are always written as
@@ -61,25 +72,6 @@ interface Files {
     function chmod(self, path: string, mode: string) -> void throws never
 }
 
-class HostFiles {
-    on_failure: () -> string? throws never,
-    on_write: (string, string) -> void throws never,
-    on_read: (string) -> string? throws never,
-    on_exists: (string) -> bool throws never,
-    on_mkdir: (string) -> void throws never,
-    on_symlink: (string, string) -> void throws never,
-    on_chmod: (string, string) -> void throws never,
-    implements Files {
-        function failure(self) -> string? { self.on_failure() }
-        function write(self, path: string, content: string) -> void { self.on_write(path, content) }
-        function read(self, path: string) -> string? { self.on_read(path) }
-        function exists(self, path: string) -> bool { self.on_exists(path) }
-        function mkdir(self, path: string) -> void { self.on_mkdir(path) }
-        function symlink(self, path: string, points_to: string) -> void { self.on_symlink(path, points_to) }
-        function chmod(self, path: string, mode: string) -> void { self.on_chmod(path, mode) }
-    }
-}
-
 /// Records what would be written instead of writing it, so a phase can be
 /// verified by the contents it produces.
 class RecordingFiles {
@@ -122,12 +114,12 @@ function recording_files() -> RecordingFiles {
 
 test "target_path prefixes a mounted root and leaves the local one alone" {
     assert.equal(target_path(local_target(), "/etc/hostname"), "/etc/hostname");
-    assert.equal(target_path(mounted_target("/mnt"), "/etc/hostname"), "/mnt/etc/hostname");
-    assert.equal(target_path(mounted_target("/mnt/"), "/etc/hostname"), "/mnt/etc/hostname")
+    assert.equal(target_path(chroot_target("/mnt"), "/etc/hostname"), "/mnt/etc/hostname");
+    assert.equal(target_path(chroot_target("/mnt/"), "/etc/hostname"), "/mnt/etc/hostname")
 }
 
 test "target_path refuses a relative path" {
-    let failed = target_path(mounted_target("/mnt"), "etc/hostname")
+    let failed = target_path(chroot_target("/mnt"), "etc/hostname")
         catch (e) { baml.errors.InvalidArgument => "refused" };
     assert.equal(failed, "refused")
 }

@@ -2,7 +2,7 @@
 //
 // Nothing here is a constant of this tool. The arrangement, the widths, the
 // gaps and the sizes all come from the theme, as decided in
-// `docs/decisions/017-return-message-themes.md`.
+// `docs/tools/oparch-return-message-render/004-themes.md`.
 
 class MagickStep {
     args: string[],

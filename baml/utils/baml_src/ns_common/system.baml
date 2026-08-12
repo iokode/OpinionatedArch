@@ -7,30 +7,34 @@
 // rest of the code is written against, and stay testable with the recording
 // doubles beside them.
 //
-// The installer keeps its host for the reasons in
-// `docs/decisions/015-installer-host-bridge.md`.
+// A caller that does need one of those two things keeps a host program, and its
+// commands arrive through `HostShell` instead, for the reasons in
+// `docs/development/004-host-bridge.md`. Only commands do: touching a file needs
+// neither a terminal nor output read as it is produced, so `SystemFiles` is what
+// every caller uses, host or no host. Nothing here knows which is which, and
+// nothing here should.
 
 /// Runs commands with `baml.sys.exec`. A command that cannot be started at all
 /// is reported as exit code 127, which is the shell's own code for it, so a
 /// caller never has to tell "did not run" from "ran and failed".
+/// Commands run with the environment this process was started in. Giving one
+/// its own variables is `with_env`'s job, and it adds to that environment;
+/// `baml.sys.ProcessOptions.env` replaces it whole, which leaves a command
+/// without the `PATH`, `HOME` and locale it was never meant to lose.
 class SystemShell {
-    /// Added to what a command runs with. Empty leaves the environment this
-    /// process was started in, which is what almost everything wants; a value
-    /// here replaces it, so anything the command still needs has to be in the
-    /// map. It exists because a program can need to be told where to look for
-    /// something that is not installed — a font a theme carries, for instance.
-    env: map<string, string>,
-
     function run(self, program: string, args: string[], input: string?) -> CommandResult {
-        let environment = if (self.env.keys().length() == 0) { null } else { self.env };
         let output = baml.sys.exec(program, args, baml.sys.ProcessOptions {
-            cwd: null, env: environment, timeout_ms: null, stdin: input,
+            cwd: null, env: null, timeout_ms: null, stdin: input,
         }) catch (e) {
             _ => {
-                return CommandResult { exit_code: 127, stdout: "" };
+                return CommandResult { exit_code: 127, stdout: "", stderr: "" };
             }
         };
-        CommandResult { exit_code: output.exit_code, stdout: output.stdout.to_string() }
+        CommandResult {
+            exit_code: output.exit_code,
+            stdout: output.stdout.to_string(),
+            stderr: output.stderr.to_string(),
+        }
     }
 
     implements Shell {
@@ -46,6 +50,34 @@ class SystemShell {
             self.run(program, args, input)
         }
     }
+}
+
+/// Runs the command that stands in for a filesystem operation `baml.fs` does
+/// not have yet, and fails the way `baml.fs` fails: by throwing `Io` with what
+/// went wrong in its message.
+///
+/// It exists so that an operation implemented with a command reads like one
+/// implemented with `baml.fs` — same shape, same error, same `catch`. The day
+/// `baml.fs` covers the operation, the call is replaced and its `catch` is not
+/// touched. Returning `int` is part of that: it is what `baml.fs.write` and
+/// `baml.fs.mkdir` return, so the handler ends the same way theirs does.
+///
+/// What the command wrote on standard error is the message, joined into one
+/// line because that is what an error message is. The exit code is the message
+/// only when the command went quietly, which leaves it as the only thing known.
+function fs_command(program: string, args: string[]) -> int throws baml.errors.Io {
+    let result = system_shell().capture(program, args);
+    if (result.ok()) {
+        return 0;
+    }
+    let said = nonempty_lines(result.stderr);
+    throw baml.errors.Io {
+        message: if (said.length() == 0) {
+            `${program} failed with exit code ${result.exit_code}`
+        } else {
+            said.join("; ")
+        },
+    };
 }
 
 /// Touches files with `baml.fs`, remembering the first failure rather than
@@ -99,27 +131,32 @@ class SystemFiles {
         }
 
         /// `baml.fs` has neither this nor `chmod` yet, so both go through the
-        /// commands that do exactly what they say. Each is still one operation,
-        /// and a failure still lands in `failure()`.
+        /// commands that do exactly what they say, by way of `fs_command`. Each
+        /// is still one operation, and a failure still lands in `failure()` —
+        /// and neither reads any differently from the five above.
         function symlink(self, path: string, points_to: string) -> void {
-            let result = system_shell().capture("ln", ["-s", points_to, path]);
-            if (result.exit_code != 0) {
-                self.fail(`cannot link ${path} to ${points_to}: exit code ${result.exit_code}`);
-            }
+            let _ = fs_command("ln", ["-s", points_to, path]) catch (e) {
+                _ => {
+                    self.fail(`cannot link ${path} to ${points_to}: ${e.message}`);
+                    0
+                }
+            };
         }
 
         function chmod(self, path: string, mode: string) -> void {
-            let result = system_shell().capture("chmod", [mode, path]);
-            if (result.exit_code != 0) {
-                self.fail(`cannot set mode ${mode} on ${path}: exit code ${result.exit_code}`);
-            }
+            let _ = fs_command("chmod", [mode, path]) catch (e) {
+                _ => {
+                    self.fail(`cannot set mode ${mode} on ${path}: ${e.message}`);
+                    0
+                }
+            };
         }
     }
 }
 
 /// A shell that runs commands the way this process was started.
 function system_shell() -> SystemShell {
-    SystemShell { env: {} }
+    SystemShell {}
 }
 
 function system_files() -> SystemFiles {
@@ -140,6 +177,22 @@ test "SystemShell reports a program that cannot be run as 127" {
 
 test "SystemShell feeds standard input to the command" {
     assert.equal(system_shell().feed("cat", [], "secret\n").stdout, "secret\n")
+}
+
+test "SystemShell keeps the two streams apart and keeps both" {
+    let result = system_shell().capture("sh", ["-c", "printf out; printf err >&2; exit 3"]);
+
+    assert.equal(result.stdout, "out");
+    assert.equal(result.stderr, "err");
+    assert.equal(result.exit_code, 3);
+    assert.is_true(!result.ok())
+}
+
+test "a command that says nothing on standard error reports it as empty" {
+    let result = system_shell().capture("echo", ["hello"]);
+
+    assert.equal(result.stderr, "");
+    assert.is_true(result.ok())
 }
 
 test "SystemFiles keeps the first failure and only the first" {
@@ -166,6 +219,25 @@ test "SystemFiles reads back what it wrote" {
     let _ = baml.fs.remove(path) catch (e) { _ => null }
 }
 
+test "an operation that runs a command reads like one that does not" {
+    let files = system_files();
+    let opening = "cannot set mode 0644 on /oparch/not/there: ";
+
+    files.chmod("/oparch/not/there", "0644");
+    let said = files.failure() ?? "";
+
+    //# the same shape `write` and `mkdir` produce: what was being done, then
+    //# what went wrong. What `chmod` says is localized, so what is asserted is
+    //# that its words are carried at all rather than which words they are
+    assert.is_true(said.starts_with(opening));
+    assert.is_true(said.length() > opening.length())
+}
+
+test "a command that fails without a word is still reported" {
+    let failed = fs_command("sh", ["-c", "exit 3"]) catch (e) { _ => e.message };
+    assert.equal(failed, "sh failed with exit code 3")
+}
+
 test "SystemFiles reports an absent file as absent, not as a failure" {
     let files = system_files();
 
@@ -174,10 +246,6 @@ test "SystemFiles reports an absent file as absent, not as a failure" {
     assert.equal(files.failure(), null)
 }
 
-test "a shell given an environment passes it to the command" {
-    let shell = SystemShell { env: { "OPARCH_TEST": "here" } };
-    assert.equal(shell.capture("sh", ["-c", "printf %s \"$OPARCH_TEST\""]).stdout, "here");
-
-    //# and one given none leaves the environment alone
+test "a shell left alone runs commands in the environment this process has" {
     assert.equal(system_shell().capture("sh", ["-c", "test -n \"$PATH\""]).exit_code, 0)
 }

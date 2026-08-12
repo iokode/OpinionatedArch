@@ -8,7 +8,7 @@ Each was asked for as one line of text, and what the line meant was deduced from
 
 `oparch-return-message-render` reads the same locations from the other side. It is given a values file that names a `template` and a `theme`, and resolves them itself, downloading and unpacking when they are URLs. Its own command document already states the opposite rule for the logo: *"The logo arrives as a file, not as the URL the configuration names. Obtaining it — downloading it, or letting the operator pick one from disk — belongs to whoever calls this tool."*
 
-## Decision
+## Specification
 
 ### An input is a package or a file, and its origin is asked for
 

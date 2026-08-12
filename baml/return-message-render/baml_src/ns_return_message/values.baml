@@ -347,7 +347,7 @@ test "check_values requires what the package marks required" {
 
 /// How many languages may be shown is the theme's, since the theme is what has
 /// an arrangement for each number, as decided in
-/// `docs/decisions/017-return-message-themes.md`.
+/// `docs/tools/oparch-return-message-render/004-themes.md`.
 function check_language_count(theme: Theme, message: ReturnMessageConfig) -> string {
     if (arrangement_for(theme, message.languages.length()) != null) {
         return "";

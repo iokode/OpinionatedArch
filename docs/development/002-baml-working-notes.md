@@ -6,7 +6,7 @@ This is a working document. An entry disappears when the toolchain stops needing
 
 ## Packaging a tool as an executable
 
-`baml pack <function>` produces a standalone binary. For `oparch-return-message-render` it came out at 18 MB linked against `libc`, `libm` and `libgcc` only: no shared library to find and nothing downloaded on first run. That is not the situation of a tool with a generated SDK, described in `../decisions/015-installer-host-bridge.md`, where the host loads a ~25 MB library.
+`baml pack <function>` produces a standalone binary. For `oparch-return-message-render` it came out at 18 MB linked against `libc`, `libm` and `libgcc` only: no shared library to find and nothing downloaded on first run. That is not the situation of a tool with a generated SDK, described in `004-host-bridge.md`, where the host loads a ~25 MB library.
 
 Three things about the generated entry point:
 

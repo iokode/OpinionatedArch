@@ -2,7 +2,7 @@
 // independent; asking for neither is a valid answer.
 
 /// `zram-generator` reads sizes in megabytes. The compression algorithm is
-/// decided in `decisions/003-swap-strategy.md`.
+/// decided in `docs/decisions/002-swap-strategy.md`.
 function zram_config(gigabytes: int) -> string {
     `[zram0]` + "\n"
         + `zram-size = ${gigabytes * 1024}` + "\n"
@@ -33,10 +33,10 @@ function configure_swap(shell: root.common.Shell, files: root.common.Files, ui: 
     //# the swap file lives on its own subvolume, mounted at /swap
     if (config.swap.swapfile_gb > 0) {
         ui.action(`Creating the swapfile: ${config.swap.swapfile_gb} GB...`);
-    let created = in_target(shell, target, "btrfs",
+    let created = root.common.run_in(shell, target, "btrfs",
             ["filesystem", "mkswapfile", "--size", `${config.swap.swapfile_gb}G`, "/swap/swapfile"]);
         if (created.exit_code != 0) {
-            return `Creating the swap file failed with exit code ${created.exit_code}.`;
+            return root.common.must(created, "Creating the swap file");
         }
         root.common.append_to_file(files, root.common.target_path(target, "/etc/fstab"),
                                    swapfile_fstab_entry());
@@ -70,7 +70,7 @@ test "swap configures both when both are asked for" {
     let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     assert.equal(
-        configure_swap(shell, files, ui, swap_config(8, 16), root.common.mounted_target("/mnt")), "");
+        configure_swap(shell, files, ui, swap_config(8, 16), root.common.chroot_target("/mnt")), "");
 
     assert.equal(files.written.get("/mnt/etc/systemd/zram-generator.conf"),
                  "[zram0]\nzram-size = 8192\ncompression-algorithm = zstd\n");
@@ -85,7 +85,7 @@ test "swap writes no zram configuration when none is asked for" {
     let files = target_with_fstab();
     let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
-    let _ = configure_swap(shell, files, ui, swap_config(0, 4), root.common.mounted_target("/mnt"));
+    let _ = configure_swap(shell, files, ui, swap_config(0, 4), root.common.chroot_target("/mnt"));
 
     assert.is_true(files.written.get("/mnt/etc/systemd/zram-generator.conf") == null);
     assert.equal(shell.commands,
@@ -97,7 +97,7 @@ test "swap creates no swap file when none is asked for" {
     let files = target_with_fstab();
     let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
-    let _ = configure_swap(shell, files, ui, swap_config(4, 0), root.common.mounted_target("/mnt"));
+    let _ = configure_swap(shell, files, ui, swap_config(4, 0), root.common.chroot_target("/mnt"));
 
     assert.equal(shell.commands, []);
     assert.equal(files.written.get("/mnt/etc/fstab"), "UUID=5f3a / btrfs subvol=@ 0 0\n");
@@ -111,7 +111,7 @@ test "swap does nothing at all when neither is asked for" {
     let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     assert.equal(
-        configure_swap(shell, files, ui, swap_config(0, 0), root.common.mounted_target("/mnt")), "");
+        configure_swap(shell, files, ui, swap_config(0, 0), root.common.chroot_target("/mnt")), "");
 
     assert.equal(shell.commands, []);
     assert.equal(ui.steps, []);
@@ -126,7 +126,7 @@ test "swap stops when the swap file cannot be created" {
     let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     assert.equal(
-        configure_swap(shell, files, ui, swap_config(0, 16), root.common.mounted_target("/mnt")),
+        configure_swap(shell, files, ui, swap_config(0, 16), root.common.chroot_target("/mnt")),
         "Creating the swap file failed with exit code 1.");
     assert.equal(files.written.get("/mnt/etc/fstab"), "UUID=5f3a / btrfs subvol=@ 0 0\n")
 }

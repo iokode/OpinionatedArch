@@ -6,7 +6,7 @@
 
 The return message is defined by a template package that declares its own fields, so the file must be able to carry values whose names the installer does not know in advance.
 
-The inputs themselves are decided in `../../decisions/000-installer-inputs-and-bootstrap-baseline.md`, and the return message in `../../decisions/007-preboot-ownership-message.md`. This document defines how they are written down.
+The inputs themselves are decided in `002-inputs-and-bootstrap-baseline.md`, and the return message in `../../decisions/006-preboot-ownership-message.md`. This document defines how they are written down.
 
 ## Specification
 
@@ -92,7 +92,7 @@ Three of the inputs are not values but content held elsewhere: the dotfiles pack
 
 The logo is one file rather than a set of them, so its origins are `url` and `local`, and its location is a URL or the path of a file.
 
-The origin is written down rather than deduced from the location, as decided in `../../decisions/018-installer-input-sources.md`: a repository and an archive are both URLs, and a rule guessing between them fetches the wrong thing. Whether a `local` location is a directory or an archive is not read from the text but from the filesystem.
+The origin is written down rather than deduced from the location, as decided in `003-input-sources.md`: a repository and an archive are both URLs, and a rule guessing between them fetches the wrong thing. Whether a `local` location is a directory or an archive is not read from the text but from the filesystem.
 
 Every source this file names is brought into the installer's staging directory when the configuration is checked, before a single value has been validated against the live system and long before anything is written. That is the unattended counterpart of the pickers copying what the operator chooses: there is nobody choosing, so the moment the installer learns what the content is, is the moment it takes it. A `local` path may name content on the very disk the installation is about to erase, and a source that cannot be brought here stops the run before the disk has even been looked at.
 

@@ -2,11 +2,11 @@
 //
 // A live system shows only what is mounted, so a package on a USB stick is
 // unreachable to the pickers until somebody mounts it. F5 does that from any
-// screen, as decided in `docs/decisions/018-installer-input-sources.md`.
+// screen, as decided in `docs/tools/oparch-installer/003-input-sources.md`.
 //
 // The widget that draws this runs nothing. Every command it causes is decided
 // here and every line it reads is read here, which is the line
-// `015-installer-host-bridge.md` draws: the host owns the terminal and the
+// `docs/development/004-host-bridge.md` draws: the host owns the terminal and the
 // running of processes, and nothing else.
 
 /// A command, for a caller that runs commands but decides none.

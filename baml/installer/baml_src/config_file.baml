@@ -581,8 +581,8 @@ test "a source that cannot be brought here stops the run before anything is chec
     let parsed = parse_config_file(text);
 
     assert.equal(check_config(shell, packaged_files(), parsed.config, "/assets"),
-                 "Cloning the dotfiles package failed with exit code 128:"
-                     + " https://example.invalid/gone.git");
+                 "Cloning the dotfiles package from https://example.invalid/gone.git"
+                     + " failed with exit code 128.");
     //# the disk was never even looked at
     assert.is_true(!shell.commands.includes("test -b /dev/sda"))
 }

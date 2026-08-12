@@ -34,7 +34,7 @@ function script_body_path(assets: string) -> string {
 
 /// The line asking for the secret that unlocks the machine. It names neither
 /// the disk nor the passphrase, for the reason recorded in
-/// `docs/decisions/007-preboot-ownership-message.md`: this screen is read by
+/// `docs/decisions/006-preboot-ownership-message.md`: this screen is read by
 /// whoever finds the machine, and it has nothing to tell them.
 function prompt_text() -> string {
     "Enter your password"
@@ -480,9 +480,8 @@ function main() -> null {
     //# fontconfig looks in `$XDG_DATA_HOME/fonts`, so pointing it at the theme
     //# is what makes a font the theme carries the font that gets drawn with,
     //# instead of whatever fontconfig would have substituted in silence
-    let drawing = root.common.SystemShell {
-        env: { "XDG_DATA_HOME": prepared.theme.directory },
-    };
+    let drawing = root.common.with_env(root.common.system_shell(),
+                                       { "XDG_DATA_HOME": prepared.theme.directory });
     let problem = draw_and_install(drawing, files, prepared, options);
     if (problem != "") {
         baml.io.eprintln(problem);

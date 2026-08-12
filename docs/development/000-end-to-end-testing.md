@@ -51,7 +51,7 @@ None of this applies to the ISO this project will ship, which carries its own pa
 
 ### What this harness cannot see
 
-Its guest runs with `-nographic`, so there is no display for a splash. Plymouth falls back to the text prompt `../decisions/007-preboot-ownership-message.md` requires, which is worth knowing works, but the harness therefore never draws the composed message and never runs the script the renderer writes.
+Its guest runs with `-nographic`, so there is no display for a splash. Plymouth falls back to the text prompt `../decisions/006-preboot-ownership-message.md` requires, which is worth knowing works, but the harness therefore never draws the composed message and never runs the script the renderer writes.
 
 That is a limit of this harness. The splash itself was seen on 2026-08-11, on VMware and by hand: the machine booted to the return message screen, and Escape moved between it and the text prompt. A run with a display attached is what would bring that under the harness.
 

@@ -4,7 +4,7 @@
 // or a single file. What they have in common is that the place they come from
 // has a kind — a directory, an archive, a repository — and that the kind is
 // answered rather than guessed, because a repository and an archive are both
-// URLs. See `docs/decisions/018-installer-input-sources.md`.
+// URLs.
 //
 // This is the shape alone. Bringing the content here belongs to whoever asks
 // for it: nothing in this file reaches the network or the filesystem.

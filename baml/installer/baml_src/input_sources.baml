@@ -3,7 +3,7 @@
 // The dotfiles package, the return message's template package and its theme are
 // not values: they are content held elsewhere. Bringing it here belongs to the
 // installer and to nothing else, as decided in
-// `docs/decisions/018-installer-input-sources.md` — `oparch-return-message-render`
+// `docs/tools/oparch-installer/003-input-sources.md` — `oparch-return-message-render`
 // is handed directories and resolves none of this.
 //
 // Every origin but the project's own ends in the same place: a directory under
@@ -39,7 +39,7 @@ function unpack_archive(shell: root.common.Shell, files: root.common.Files,
     files.mkdir(destination);
     let extracted = shell.capture("tar", ["-xf", archive, "-C", destination]);
     if (extracted.exit_code != 0) {
-        return `Unpacking the ${noun} failed with exit code ${extracted.exit_code}.`;
+        return root.common.must(extracted, `Unpacking the ${noun}`);
     }
     ""
 }
@@ -60,11 +60,7 @@ function bring_here(shell: root.common.Shell, files: root.common.Files,
     if (source.origin == "git") {
         //# one revision is all that is read, and a history is not the content
         let cloned = shell.capture("git", ["clone", "--depth", "1", source.location, destination]);
-        if (cloned.exit_code != 0) {
-            return `Cloning the ${noun} failed with exit code ${cloned.exit_code}:`
-                + ` ${source.location}`;
-        }
-        return "";
+        return root.common.must(cloned, `Cloning the ${noun} from ${source.location}`);
     }
 
     if (source.origin == "tar") {
@@ -73,9 +69,9 @@ function bring_here(shell: root.common.Shell, files: root.common.Files,
         let archive = `${destination}.tar`;
         let downloaded = shell.capture("curl",
             ["-fL", "--retry", "2", "--connect-timeout", "10", "-o", archive, source.location]);
-        if (downloaded.exit_code != 0) {
-            return `Downloading the ${noun} failed with exit code ${downloaded.exit_code}:`
-                + ` ${source.location}`;
+        let fetched = root.common.must(downloaded, `Downloading the ${noun} from ${source.location}`);
+        if (fetched != "") {
+            return fetched;
         }
         return unpack_archive(shell, files, archive, destination, noun);
     }
@@ -86,11 +82,7 @@ function bring_here(shell: root.common.Shell, files: root.common.Files,
         files.mkdir(destination);
         //# the contents, not the directory: what lands here is the package
         let copied = shell.capture("cp", ["-r", `${source.location}/.`, destination]);
-        if (copied.exit_code != 0) {
-            return `Copying the ${noun} failed with exit code ${copied.exit_code}:`
-                + ` ${source.location}`;
-        }
-        return "";
+        return root.common.must(copied, `Copying the ${noun} from ${source.location}`);
     }
     if (!files.exists(source.location)) {
         return `The ${noun} is not there: ${source.location}`;
@@ -243,7 +235,8 @@ test "a clone that failed is reported with what was asked for" {
         bring_here(shell, root.common.recording_files(),
                    root.common.source_at("git", "https://example.invalid/gone.git"),
                    "/tmp/oparch", "/tmp/oparch/dotfiles", "dotfiles package"),
-        "Cloning the dotfiles package failed with exit code 128: https://example.invalid/gone.git")
+        "Cloning the dotfiles package from https://example.invalid/gone.git"
+            + " failed with exit code 128.")
 }
 
 test "a remote archive is downloaded, inspected and unpacked in that order" {
@@ -273,7 +266,8 @@ test "a download that failed is reported and nothing is unpacked" {
         bring_here(shell, root.common.recording_files(),
                    root.common.source_at("tar", "https://example.invalid/theme.tar"),
                    "/tmp/oparch", "/tmp/oparch/theme", "theme"),
-        "Downloading the theme failed with exit code 22: https://example.invalid/theme.tar");
+        "Downloading the theme from https://example.invalid/theme.tar"
+            + " failed with exit code 22.");
     assert.equal(shell.commands.length(), 1)
 }
 

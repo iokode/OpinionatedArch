@@ -150,7 +150,7 @@ function install(shell: root.common.Shell, files: root.common.Files, ui: Ui, ass
                  config_text: string?) -> InstallSummary {
     if let config: InstallConfig = resolve_config(shell, files, ui, asset_dir, config_text) {
         let problem = run_phases(shell, files, ui, config,
-                                 root.common.mounted_target(install_root()), asset_dir)
+                                 root.common.chroot_target(install_root()), asset_dir)
             catch (e) { baml.errors.InvalidArgument => e.message };
 
         if (problem != "") {
@@ -174,13 +174,6 @@ function run_installer(
     on_capture: (string, string[]) -> root.common.CommandResult throws never,
     on_stream: (string, string[]) -> root.common.CommandResult throws never,
     on_feed: (string, string[], string) -> root.common.CommandResult throws never,
-    on_file_failure: () -> string? throws never,
-    on_write: (string, string) -> void throws never,
-    on_read: (string) -> string? throws never,
-    on_exists: (string) -> bool throws never,
-    on_mkdir: (string) -> void throws never,
-    on_symlink: (string, string) -> void throws never,
-    on_chmod: (string, string) -> void throws never,
     on_outline: (Phase[]) -> void throws never,
     on_step: (string) -> void throws never,
     on_action: (string) -> void throws never,
@@ -194,19 +187,17 @@ function run_installer(
     on_pick_file: (string, string, string) -> string? throws never,
     on_review: (string, SummaryRow[]) -> bool throws never,
 ) -> InstallSummary {
+    //# Only commands arrive from the host. Touching files needs neither a
+    //# terminal nor output read while it is produced, which is all a host is
+    //# for, as `docs/development/004-host-bridge.md` decides — so `baml.fs`
+    //# does it here. `system_files()` is built once for the whole run: the
+    //# first failure among the operations is asked for once per phase, and it
+    //# has to survive until it is asked.
     install(
         root.common.HostShell {
             on_capture: on_capture, on_stream: on_stream, on_feed: on_feed,
         },
-        root.common.HostFiles {
-            on_failure: on_file_failure,
-            on_write: on_write,
-            on_read: on_read,
-            on_exists: on_exists,
-            on_mkdir: on_mkdir,
-            on_symlink: on_symlink,
-            on_chmod: on_chmod,
-        },
+        root.common.system_files(),
         HostUi {
             on_outline: on_outline,
             on_step: on_step,

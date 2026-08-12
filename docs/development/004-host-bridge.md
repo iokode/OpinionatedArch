@@ -1,14 +1,12 @@
-# Installer Host Bridge
+# Host Bridge
 
-## Context
+BAML has no TUI in its standard library yet, and `baml.sys.exec` returns process output buffered, with no incremental access. A tool that draws a terminal interface, or that shows what a long command is doing while it is still doing it, needs both.
 
-BAML has no TUI in its standard library yet, and `baml.sys.exec` returns process output buffered, with no incremental access. The installer needs both: a terminal interface, and live output from long-running commands such as `pacstrap` in order to render a progress bar and an ETA.
-
-Until BAML covers those, a host language is required. BAML calls it through a generated SDK ("the bridge"), declared as a `[generator.<name>]` in `baml.toml`. Ten targets exist: `python/pydantic`, `python/pydantic/v1`, `typescript/node`, `typescript/web`, `swift`, `go`, `rust`, `java`, `cpp`, `csharp`.
+Until BAML covers them, such a tool needs a host language. BAML calls it through a generated SDK ("the bridge"), declared as a `[generator.<name>]` in `baml.toml`. Ten targets exist: `python/pydantic`, `python/pydantic/v1`, `typescript/node`, `typescript/web`, `swift`, `go`, `rust`, `java`, `cpp`, `csharp`.
 
 The BAML team has stated they are working on TUI support in the standard library, so whatever is chosen here is temporary.
 
-## Decision
+## The bridge, and what keeps it disposable
 
 The bridge is **`rust`**, with the host kept as a thin, disposable shim over the terminal and process execution.
 
@@ -18,15 +16,22 @@ Because the host is disposable, the selection criterion is not which host is bes
 
 A host exists to own a terminal and to read a command's output while it is still running. A tool that needs neither has no host and no bridge: `baml.sys` runs commands and `baml.fs` touches files, and `baml pack` turns the tool into the executable it ships as.
 
-`oparch-return-message-render` is the first tool built that way. Of the built-in tools, only the installer is known to need a host.
+Which tools need one is not settled by this document and is not expected to stay as it is. Today `oparch-installer` is the only one that has a host, and `oparch-return-message-render` the first built without one; a terminal interface is the kind of thing more tools will want, and each of them arrives at the same bridge by the same argument.
 
-What such a tool uses instead of the host are the same `Shell` and `Files` ports the installer is written against, implemented over `baml.sys` and `baml.fs` and living beside the recording doubles in `baml/utils/`. Nothing above the port can tell which implementation is underneath, so the tests do not change and neither does the code being tested.
+What a tool without a host uses instead are the same `Shell` and `Files` ports every tool is written against, implemented over `baml.sys` and `baml.fs` and living beside the recording doubles in `005-baml-repository-layout.md`. Nothing above the port can tell which implementation is underneath, so the tests do not change and neither does the code being tested.
+
+### Only commands cross the bridge
+
+A host that exists is given the commands and nothing else. Touching a file is neither of the two things a host is for, so `Files` is implemented over `baml.fs` in every tool, hosted or not, and there is no host-side implementation of it to choose between.
+
+There is one operation this costs: `baml.fs` has no `symlink` and no `chmod`, so the implementation over it runs `ln` and `chmod` as commands, and their failures arrive as an exit code where every other filesystem failure arrives as a message saying what went wrong. A host could call both as syscalls. That is not reason enough to put the filesystem behind a language boundary — it would move six operations across it to improve two — and the gap belongs to `baml.fs`, where it has been asked for.
 
 ## Why
 
-- A host language is used at all because BAML currently provides neither a TUI nor streaming process output; if `baml.sys.exec` is used directly, the installer cannot show progress until each command has already finished.
+- A host language is used at all because BAML currently provides neither a TUI nor streaming process output; if `baml.sys.exec` is used directly, a tool cannot show progress until each command has already finished.
 - A tool that needs neither of those has no host because a host is then pure cost: a second language, a generated SDK, a build step and a runtime library, all to forward calls that `baml.sys` and `baml.fs` already make. It would also be cost paid for something already scheduled for deletion.
 - The port is kept even where there is no host to hide, because what the ports buy is the recording doubles: a tool that called `baml.sys.exec` directly could only be tested by running the commands for real.
+- One bridge target is chosen for the project rather than per tool, because the reasons below are properties of the boundary and not of any one tool; a second target would mean a second set of them to keep in mind, for no gain.
 - The bridge is treated as disposable because BAML's standard library will cover this ground; if the host is designed as a permanent component, its constraints get baked into code that outlives it.
 - `rust` is chosen over `go` because Go has no sum types, so a BAML union reaches the Go SDK as `any`. Working around that means flattening unions into tagged classes *in BAML* — permanent code written to serve a disposable host. Rust receives a generated `enum` and needs no such workaround.
 - `rust`'s own limitations are accepted because they land entirely on the host side: function-type aliases cannot cross the boundary (inline closure types work), and reentrant calls must use the `_async` API. Neither deforms the BAML data model.
@@ -38,7 +43,7 @@ What such a tool uses instead of the host are the same `Shell` and `Files` ports
 
 ### Evidence
 
-The decision is based on a spike, not on documentation. A BAML project exercising every boundary shape the installer needs was generated for all ten targets, and host programs were built and executed for `rust`, `go` and `python`. All results below are against toolchain `0.15.1-nightly.20260731.a`.
+The decision is based on a spike, not on documentation. A BAML project exercising every boundary shape a host needs was generated for all ten targets, and host programs were built and executed for `rust`, `go` and `python`. All results below are against toolchain `0.15.1-nightly.20260731.a`.
 
 #### What each target accepts
 
@@ -85,22 +90,15 @@ Rust's constraints, by contrast, are confined to the disposable side: write clos
 
 #### Measurements
 
-- A host-to-BAML call costs roughly 28 µs (5000 calls in 140 ms, release build). Calling BAML once per output line of `pacstrap` is not a performance concern.
+- A host-to-BAML call costs roughly 28 µs (5000 calls in 140 ms, release build). Calling BAML once per output line of a long command is not a performance concern.
 - The host binary is not self-contained: it loads a ~25 MB shared library, downloaded on first run unless shipped in the archiso with `BAML_LIBRARY_PATH` pointing at it. `BAML_LIBRARY_DISABLE_DOWNLOAD` turns a missing library into a failure instead of a silent download, which is the wanted behaviour inside the ISO.
 - The runtime logs to stdout as it starts, which lands on top of a TUI. `BAML_LOG` controls it.
 - The bridge package is pinned to the exact toolchain build. The `rust` and `go` generators write that pin themselves; with Python it must be pinned by hand, and a mismatch surfaces as `Failed to deserialize BAML bytecode: Unexpected variant tag: 7`.
 
-#### A packed tool and a hosted one ship differently
-
-`baml pack` produced an 18 MB executable linked against nothing but `libc`, `libm` and `libgcc`, which ran and drove ImageMagick with no library to find and nothing to download. That is the opposite of the hosted case measured above, where the host binary loads a ~25 MB shared library and fetches it on first run unless the ISO carries it.
-
-Two further findings shape how such a tool is written:
-
-- Parameters declared on the packed entry point become **mandatory** flags in the generated CLI, `string?` included: an optional `--config` has to be written as `--config null`. A tool with optional options therefore declares no parameters and reads `baml.sys.argv()` itself, which also puts the wording of its own errors back in its hands.
-- The entry point's return value is printed, not used as the exit status. `baml.sys.exit` is what sets it.
+A tool with a host and a packed tool therefore ship differently, and what `baml pack` produces instead is measured in `002-baml-working-notes.md`.
 
 ### Consequences of the choice
 
 - Classes with function-typed fields do not cross the boundary, so host closures must arrive flat at the entrypoint. They are wrapped there by a BAML class that implements the interface, and every other function sees only the interface.
-- The installer flow stays testable without the bridge: a BAML implementation of the same interface substitutes for the host, so `baml test` exercises the full flow with no host binary involved. The bridge is a production-only dependency.
+- A hosted flow stays testable without the bridge: a BAML implementation of the same interface substitutes for the host, so `baml test` exercises the full flow with no host binary involved. The bridge is a production-only dependency.
 - What would change this decision: BAML shipping a TUI and streaming process execution removes the need for a host entirely, which is the expected end state. Short of that, Go becomes preferable only if Rust's boundary limitations grow to affect the BAML side rather than the host side.

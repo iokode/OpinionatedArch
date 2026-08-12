@@ -1,14 +1,12 @@
 # BAML Repository Layout
 
-## Context
-
 More than one tool is written in BAML, and they have code in common — running external commands, reading command output, and the test doubles that go with those.
 
 BAML has no dependency mechanism between projects. A project is a `baml.toml` plus a `baml_src/` directory, and it cannot reference another one: `[dependencies]` is answered with `warning: ignoring unrecognized top-level key 'dependencies' in baml.toml`, and an extra sources key with `warning: ignoring unrecognized key 'sources' in [package]`. Sharing therefore has to happen at the filesystem level.
 
 What BAML does have is namespaces: a directory named `ns_<name>/` under `baml_src/` puts its files in namespace `<name>`, reachable from elsewhere in the project as `root.<name>.<symbol>`, with no imports.
 
-## Decision
+## One project per tool, sharing by symlinked namespace
 
 One BAML project per tool, plus a project of generic code under `baml/utils/`. A namespace directory is symlinked into every tool that uses it, whether it belongs to `utils/` or to another tool:
 
@@ -37,7 +35,7 @@ Code that exists because of one tool belongs to that tool, in a namespace of its
 
 The return-message template package and its values format are the case: they exist because `oparch-return-message-render` renders them, and they are specified under that tool in `docs/`. They live in `baml/return-message-render/baml_src/ns_return_message/`, and the installer links them from there, because it asks for the fields a package declares and validates the same values in its own configuration file.
 
-A tool with no host declares no generator and has no `host/`. It ships as what `baml pack` makes of its entry point, and its `baml.toml` is the `[package]` name alone. Which tools have a host, and why, is decided in `015-installer-host-bridge.md`.
+A tool with no host declares no generator and has no `host/`. It ships as what `baml pack` makes of its entry point, and its `baml.toml` is the `[package]` name alone. Which tools have a host, and why, is decided in `004-host-bridge.md`.
 
 ## Why
 

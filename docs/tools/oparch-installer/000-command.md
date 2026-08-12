@@ -2,7 +2,7 @@
 
 ## Description
 
-`oparch-installer` installs OpinionatedArch onto a target disk. It runs from the live environment, collects every installation input, and then performs the installation defined in `../../decisions/000-installer-inputs-and-bootstrap-baseline.md`.
+`oparch-installer` installs OpinionatedArch onto a target disk. It runs from the live environment, collects every installation input, and then performs the installation defined in `002-inputs-and-bootstrap-baseline.md`.
 
 Inputs are collected in one of two ways, and both produce the same configuration:
 

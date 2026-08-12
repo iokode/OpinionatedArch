@@ -15,7 +15,7 @@ Two explicit groups are used:
 - `dotfiles`: grants access to shared dotfiles according to the dotfiles policy.
 - `login-users`: marks accounts intended for interactive login.
 
-As specified in `002-disk-layout.md`, each login user home is a dedicated subvolume. This applies both during initial installation and when adding a new login user later on an already installed system.
+As specified in `001-disk-layout.md`, each login user home is a dedicated subvolume. This applies both during initial installation and when adding a new login user later on an already installed system.
 
 Authentication is unified: the installer asks one password and uses it both for disk encryption and for all login users.
 
@@ -40,7 +40,7 @@ The `root` account has no password set and is not intended for interactive login
 - Root recovery procedures must be documented and available.
 - Login usernames should be validated before creation.
 - Logical users must not be enabled for interactive login unless explicitly requested.
-- Login users should not be created through raw `useradd` flows that bypass the provisioning model defined in `002-disk-layout.md`.
+- Login users should not be created through raw `useradd` flows that bypass the provisioning model defined in `001-disk-layout.md`.
 
 ## Critical Notes With Replies (Copy of Discussion)
 

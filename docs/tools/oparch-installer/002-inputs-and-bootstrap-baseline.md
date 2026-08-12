@@ -4,7 +4,7 @@
 
 Installer prompts, the bootstrap package set, and the services enabled before first boot are each consumed by separate parts of the installer and referenced by several other decision documents.
 
-## Decision
+## Specification
 
 The installer flow assumes the known baseline state from a clean Arch live environment. It must not add defensive pre-existence handling for install paths that are impossible in that baseline.
 
@@ -31,14 +31,14 @@ The installer asks for:
 11. timezone
 12. hostname
 13. public dotfiles package (`yes/no`)
-14. if the public dotfiles package is enabled: where it comes from, as `018-installer-input-sources.md` defines a package source
+14. if the public dotfiles package is enabled: where it comes from, as `003-input-sources.md` defines a package source
 15. pre-boot return message inclusion (`yes/no`)
-16. if return message is enabled: where the template package comes from, the project's own among the origins, as `018-installer-input-sources.md` defines a package source
-17. if return message is enabled: where the theme comes from, the project's own among the origins, as the same document defines it and `017-return-message-themes.md` decides it
+16. if return message is enabled: where the template package comes from, the project's own among the origins, as `003-input-sources.md` defines a package source
+17. if return message is enabled: where the theme comes from, the project's own among the origins, as the same document defines it and `../oparch-return-message-render/004-themes.md` decides it
 18. if return message is enabled: a value for each field the template package declares. The project's own package declares owner name, phone, email and return address
 19. if return message is enabled: return-message languages, selecting as many as the theme accepts
 20. if return message is enabled: logo inclusion (`yes/no`)
-21. if logo is enabled: where the logo file comes from, as `018-installer-input-sources.md` defines a file source (retry or explicit continue-without-logo when it cannot be obtained)
+21. if logo is enabled: where the logo file comes from, as `003-input-sources.md` defines a file source (retry or explicit continue-without-logo when it cannot be obtained)
 
 ### Temporary Paths for Installer Staging
 
@@ -47,7 +47,7 @@ The installer asks for:
 
 ### Public Dotfiles Package
 
-When a public dotfiles package is enabled, the installer puts its content into `/dotfiles` and then runs `oparch-dotfiles-sync`. Where that content comes from — a directory, an archive or a repository — is defined in `018-installer-input-sources.md`.
+When a public dotfiles package is enabled, the installer puts its content into `/dotfiles` and then runs `oparch-dotfiles-sync`. Where that content comes from — a directory, an archive or a repository — is defined in `003-input-sources.md`.
 
 ### Bootstrap Package List
 
@@ -65,12 +65,19 @@ Installed with `pacstrap`:
 - `efibootmgr`
 - `sudo`
 - `networkmanager`
+- `ipxe`
 - `zram-generator` (if the zram swap size is greater than zero)
 - `intel-ucode` (if selected as the ucode package)
 - `amd-ucode` (if selected as the ucode package)
 - `nvidia` (if GPU driver is `nvidia`)
 - `nvidia-open` (if GPU driver is `nvidia-open`)
 - `plymouth` (if pre-boot return message is enabled)
+
+### Netboot Recovery Binary
+
+The `Netboot archiso` entry required by [GRUB Boot Policy](../../decisions/007-grub-boot-policy.md) chainloads `/EFI/OpinionatedArch/netbootx64.efi` on the EFI system partition.
+
+That file is copied from the `ipxe` package, which `pacstrap` installs into the target as `/usr/share/ipxe/x86_64/ipxe-arch.efi`. It is not downloaded, and it is not staged in the live environment.
 
 ### Minimum Services Enabled in Chroot
 
@@ -89,6 +96,7 @@ These services must be enabled in the target system before first boot, not only 
 - A public dotfiles package is requested during installation so public dotfiles can be placed in `/dotfiles` and synchronized before first boot.
 - Return-message language selection is requested during installation so the pre-boot return message is available on first boot instead of requiring post-install setup.
 - The minimum service baseline is enabled before first boot so baseline system functionality is available immediately.
+- The netboot recovery binary comes from the `ipxe` package rather than from a download because the package ships the same Arch-scripted `ipxe-arch.efi` the project would otherwise fetch, and taking it from there keeps every artifact on one source and one verification. A downloaded file is vouched for only by the transport that carried it, adds a network failure path of its own to a run that must complete in full, and pins the machine to whichever build the static file happens to be — an older one than the package carries.
 
 ## Considerations
 
