@@ -1,0 +1,30 @@
+oparch dotfiles map
+version = '0.1'
+
+include 'common.dfmap'
+include 'hosts/desktop.dfmap' for host 'desktop'
+
+[packages]
+hyprland
+uwsm
+nvidia for host 'desktop'
+brightnessctl for host 'laptop'
+
+[aur-packages]
+opencode
+
+[values.github]
+# At work, a different github account created by the company is used.
+username = 'personal-account' for user 'personal'
+username = 'work-account'     for user 'work'
+
+[secrets.github]
+# The personal access token differs by user, because the accounts differ.
+token with scope 'user'
+
+[dotfiles.opencode]
+link 'opencode/agent/' to '&HOME/.config/opencode/agent/'
+render 'opencode/mcp/common.conf.tpl' + 'opencode/mcp/github.conf.tpl' to '&HOME/.config/opencode/mcp.conf' with mode '0600'
+
+[dotfiles.boot]
+copy 'grub/' to '/boot/'

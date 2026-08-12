@@ -1,0 +1,6 @@
+oparch dotfiles map
+version = '0.1'
+
+[dotfiles.hypr]
+link 'hypr/keybindings.lua' to '&HOME/.config/hypr/keybindings.lua'
+link 'hypr/animations.lua' to '&HOME/.config/hypr/animations.lua' except host 'laptop' # Animations are disabled on the laptop.
