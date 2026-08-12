@@ -121,6 +121,27 @@ class SystemFiles {
             }
         }
 
+        /// The listing carried into the port's own entry, so that nothing above
+        /// the port names the filesystem module the entries came from.
+        function read_dir(self, path: string) -> DirEntry[]? {
+            let listed = baml.fs.read_dir(path) catch (e) {
+                _ => {
+                    return null;
+                }
+            };
+            listed
+                .map(
+                    (entry) -> {
+                        DirEntry {
+                            name: entry.name,
+                            is_dir: entry.is_dir,
+                            is_file: entry.is_file,
+                            is_symlink: entry.is_symlink,
+                        }
+                    },
+                )
+        }
+
         function mkdir(self, path: string) -> void {
             let _ = baml.fs.mkdir(path, baml.fs.MkdirOptions { recursive: true }) catch (e) {
                 _ => {

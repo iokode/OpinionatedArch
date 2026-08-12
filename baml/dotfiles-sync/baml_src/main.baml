@@ -103,6 +103,10 @@ function print_plan(plan: Plan, document: MapDocument, machine: Machine, options
 
 function main() -> null {
     let diag = new_diagnostics();
+    //# the ports, built once for the whole run: the port keeps the first file
+    //# failure, and it has to survive until it is folded into the diagnostics
+    let shell = root.common.system_shell();
+    let files = root.common.system_files();
     let options = parse_options(baml.sys.argv(), diag);
     let source_root = path_normalize(options.source);
     let map_path = path_normalize(options.map_path);
@@ -111,15 +115,15 @@ function main() -> null {
         baml.sys.exit(2);
     }
     //# 1-3: parse the map, validate its version, expand the include graph
-    let document = load_map_document(map_path, source_root, diag);
+    let document = load_map_document(files, map_path, source_root, diag);
     if (document == null) {
         print_errors(diag);
         baml.sys.exit(1);
     }
     //# 4: resolve the current hostname and the members of the dotfiles group
-    let machine = detect_machine(diag);
+    let machine = detect_machine(shell, files, diag);
     //# 5-11: selectors, placeholders, paths, values, secrets, conflicts, packages
-    let plan = build_plan(document, machine, source_root, default_secrets_root(), diag);
+    let plan = build_plan(files, document, machine, source_root, default_secrets_root(), diag);
     if (diag.has_errors()) {
         print_errors(diag);
         baml.sys.exit(1);
@@ -137,16 +141,19 @@ function main() -> null {
     };
     let state_root = default_state_root();
     //# renders are staged and validated before any managed target changes
-    let staged = stage_renders(plan, catalog, machine, state_root, diag);
+    let staged = stage_renders(shell, files, plan, catalog, machine, state_root, diag);
+    absorb_file_failure(files, diag);
     if (diag.has_errors()) {
         print_errors(diag);
         baml.sys.exit(1);
     }
     //# application order: remove stale targets, apply targets, install packages
-    let removed = remove_stale_targets(plan, state_root, diag);
-    let applied = apply_targets(plan, staged, diag);
-    let installed = install_packages(plan, diag);
+    let removed = remove_stale_targets(shell, files, plan, state_root, diag);
+    let applied = apply_targets(shell, files, plan, staged, diag);
+    let installed = install_packages(shell, plan, diag);
     write_sync_state(
+        shell,
+        files,
         state_root,
         plan.targets
             .map(
@@ -164,6 +171,8 @@ function main() -> null {
     if (plan.aur_packages.length() > 0) {
         baml.io.println(`aur-packages not applied: ${plan.aur_packages.join(" ")}`);
     }
+    //# whatever the port recorded while the targets were applied
+    absorb_file_failure(files, diag);
     if (diag.has_errors()) {
         print_errors(diag);
         baml.sys.exit(1);

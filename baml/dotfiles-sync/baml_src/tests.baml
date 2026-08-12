@@ -2,6 +2,12 @@
 // The fixture map under `tests/fixtures/dotfiles` mirrors the example in
 // `docs/tools/oparch-dotfiles-sync/001-map-format.md`.
 
+/// The fixtures are real files on disk, so the tests read them through the
+/// real port rather than through a double pretending to be one.
+function fixture_files() -> root.common.Files {
+    root.common.system_files()
+}
+
 function fixture_source_root() -> string {
     "tests/fixtures/dotfiles"
 }
@@ -176,7 +182,7 @@ test "map version acceptance" {
 
 test "expand the fixture include graph into a plan" {
     let diag = new_diagnostics();
-    let document = load_map_document(`${fixture_source_root()}/main.dfmap`, fixture_source_root(), diag);
+    let document = load_map_document(fixture_files(), `${fixture_source_root()}/main.dfmap`, fixture_source_root(), diag);
     assert.not_null(document);
 
     let map = document
@@ -190,7 +196,7 @@ test "expand the fixture include graph into a plan" {
         };
     assert.equal(map.files.length(), 3);
 
-    let plan = build_plan(map, fixture_machine(), fixture_source_root(), fixture_secrets_root(), diag);
+    let plan = build_plan(fixture_files(), map, fixture_machine(), fixture_source_root(), fixture_secrets_root(), diag);
     assert.equal(diag.errors, []);
     //# host selectors keep the laptop-only package out of the desktop plan
     assert.equal(plan.packages, ["hyprland", "uwsm", "nvidia"]);
@@ -246,7 +252,7 @@ test "expand the fixture include graph into a plan" {
 
 test "the fixture plan renders with the staged secret store" {
     let diag = new_diagnostics();
-    let document = load_map_document(`${fixture_source_root()}/main.dfmap`, fixture_source_root(), diag);
+    let document = load_map_document(fixture_files(), `${fixture_source_root()}/main.dfmap`, fixture_source_root(), diag);
     let map = document
         ?? MapDocument {
             version: MapVersion { major: 0, minor: 0 },
@@ -257,7 +263,7 @@ test "the fixture plan renders with the staged secret store" {
             operations: [],
         };
     let machine = fixture_machine();
-    let plan = build_plan(map, machine, fixture_source_root(), fixture_secrets_root(), diag);
+    let plan = build_plan(fixture_files(), map, machine, fixture_source_root(), fixture_secrets_root(), diag);
     let catalog = Catalog { values: map.values, secrets: map.secrets, secrets_root: fixture_secrets_root() };
 
     let render = plan
@@ -268,6 +274,7 @@ test "the fixture plan renders with the staged secret store" {
             },
         );
     let content = render_target_content(
+        fixture_files(),
         render ?? plan.targets.at(0)
             ?? PlannedTarget {
                 action: "render",
@@ -331,7 +338,7 @@ test "reject conflicting and out-of-bounds rules" {
         hostname: "desktop",
         users: [DotfilesUser { name: "personal", home: "/home/personal", group: "personal" }],
     };
-    let _ = build_plan(document, single_user, fixture_source_root(), fixture_secrets_root(), diag);
+    let _ = build_plan(fixture_files(), document, single_user, fixture_source_root(), fixture_secrets_root(), diag);
 
     let joined = diag.errors.join("\n");
     assert.is_true(joined.includes("is already produced by the active operation"));
@@ -339,4 +346,62 @@ test "reject conflicting and out-of-bounds rules" {
     assert.is_true(joined.includes("escapes the source directory"));
     assert.is_true(joined.includes("does not resolve to an absolute path"));
     assert.is_true(joined.includes("unknown placeholder '&NOPE'"))
+}
+
+// ---------------------------------------------- failures folded into the diag
+
+function failing_files(problem: string) -> root.common.RecordingFiles {
+    root.common.RecordingFiles {
+        fails_with: problem,
+        written: {},
+        directories: [],
+        symlinks: {},
+        modes: {},
+        present: [],
+    }
+}
+
+function silent_shell() -> root.common.RecordingShell {
+    root.common.RecordingShell { commands: [], streamed: [], fed: [], replies: {}, exit_codes: {} }
+}
+
+test "what the filesystem port recorded becomes a diagnostic" {
+    let diag = new_diagnostics();
+
+    absorb_file_failure(failing_files("cannot write /etc/x: Permission denied"), diag);
+
+    assert.equal(diag.errors, ["cannot write /etc/x: Permission denied"])
+}
+
+test "a port with nothing to report adds nothing" {
+    let diag = new_diagnostics();
+
+    absorb_file_failure(root.common.recording_files(), diag);
+
+    assert.is_true(!diag.has_errors())
+}
+
+test "a write that failed is held by the port until it is folded in" {
+    let diag = new_diagnostics();
+    let problem = "cannot write /var/lib/oparch/dotfiles-sync/state.json: Permission denied";
+    let files = failing_files(problem);
+
+    write_sync_state(silent_shell(), files, "/var/lib/oparch/dotfiles-sync", ["/etc/x"], diag);
+
+    //# the operation says nothing on its own: that is the contract of the port
+    assert.is_true(!diag.has_errors());
+
+    absorb_file_failure(files, diag);
+    assert.equal(diag.errors, [problem])
+}
+
+test "a command that failed is reported where it happened, with what it said" {
+    let diag = new_diagnostics();
+    let shell = silent_shell();
+    let _ = shell.exit_codes.set("rm -f /etc/x", 1);
+
+    let gone = remove_target(shell, "/etc/x", diag);
+
+    assert.is_true(!gone);
+    assert.equal(diag.errors, ["removing '/etc/x' failed with exit code 1."])
 }

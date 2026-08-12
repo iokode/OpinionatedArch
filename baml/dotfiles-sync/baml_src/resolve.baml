@@ -155,8 +155,8 @@ class Catalog {
 
 /// Reads a secret value from the store. One trailing newline is stripped, with
 /// no other transformation.
-function read_secret_value(path: string) -> Resolution {
-    if let text: string = read_text_file(path) {
+function read_secret_value(files: root.common.Files, path: string) -> Resolution {
+    if let text: string = files.read(path) {
         if (text.ends_with("\n")) {
             Resolved { text: text.substring(0, text.length() - 1) }
         } else {

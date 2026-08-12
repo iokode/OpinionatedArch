@@ -34,3 +34,20 @@ class Diagnostics {
 function new_diagnostics() -> Diagnostics {
     Diagnostics { errors: [] }
 }
+
+/// Moves what the filesystem port recorded into the diagnostics.
+///
+/// The port keeps failures rather than returning them one by one, and keeps
+/// only the first, which is the one that caused whatever followed. This tool
+/// collects its errors in one place and prints them from one place, so the
+/// port's is folded into that before anything is printed rather than being a
+/// second thing to remember to look at.
+///
+/// It is called once. Calling it twice would report the same failure twice:
+/// what the port holds, it holds until it is dropped.
+function absorb_file_failure(files: root.common.Files, diag: Diagnostics) -> null {
+    if let problem: string = files.failure() {
+        diag.report(problem);
+    }
+    null
+}

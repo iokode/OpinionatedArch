@@ -27,8 +27,9 @@ function check_map_version(version: MapVersion, diag: Diagnostics) -> null {
 }
 
 /// Reads and parses one map file.
-function load_map_file(path: string, diag: Diagnostics) -> MapFile? {
-    if let text: string = read_text_file(path) {
+function load_map_file(files: root.common.Files, path: string,
+                       diag: Diagnostics) -> MapFile? {
+    if let text: string = files.read(path) {
         parse_map_text(text, path, diag)
     } else {
         diag.report(`cannot read map file '${path}'`);
@@ -40,6 +41,7 @@ function load_map_file(path: string, diag: Diagnostics) -> MapFile? {
 /// includes depth-first. `inherited` are the selectors every entry of this
 /// file carries from the include entries that led here.
 function merge_map_file(
+    files: root.common.Files,
     file: MapFile,
     inherited: Selector[],
     document: MapDocument,
@@ -89,11 +91,12 @@ function merge_map_file(
                 );
             } else if (stack.includes(resolved)) {
                 diag.at(include.loc, `include cycle: '${resolved}' is already being included`);
-            } else if (!file_exists(resolved)) {
+            } else if (!files.exists(resolved)) {
                 diag.at(include.loc, `included file '${resolved}' does not exist`);
             } else {
-                if let included: MapFile = load_map_file(resolved, diag) {
+                if let included: MapFile = load_map_file(files, resolved, diag) {
                     merge_map_file(
+                        files,
                         included,
                         inherited.concat(include.selectors),
                         document,
@@ -110,11 +113,12 @@ function merge_map_file(
 
 /// Parses the top-level map and expands its complete include graph.
 function load_map_document(
+    files: root.common.Files,
     map_path: string,
     source_root: string,
     diag: Diagnostics,
 ) -> MapDocument? {
-    let root_file = load_map_file(map_path, diag);
+    let root_file = load_map_file(files, map_path, diag);
     if (root_file == null) {
         return null;
     }
@@ -126,7 +130,8 @@ function load_map_document(
         secrets: [],
         operations: [],
     };
-    merge_map_file(root_file, [], document, source_root, [path_normalize(map_path)], diag);
+    merge_map_file(files, root_file, [], document, source_root,
+                   [path_normalize(map_path)], diag);
     check_map_version(document.version, diag);
     document
 }

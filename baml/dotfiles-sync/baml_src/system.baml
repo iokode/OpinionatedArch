@@ -15,31 +15,19 @@ class Machine {
     users: DotfilesUser[],
 }
 
-// Running commands and reading files is `root.common`'s, and so are the tests
-// that hold it up. What is left here are three names in this tool's own words,
-// so its callers read as what they do rather than as where the code lives.
+// Running commands and touching files is `root.common`'s, and so are the tests
+// that hold it up. Both arrive as ports, carried down from the entry point:
+// nothing here reaches for the machine on its own, which is what lets the whole
+// tool be run against doubles.
 //
 // This tool has no host and no log: the message it prints is the only place an
-// operator learns why a command failed, which is why every caller below reads
-// `stderr` off the result instead of leaving it to a pane nobody has.
-
-/// Runs a program without a shell, so no argument is ever re-parsed.
-function run_command(program: string, args: string[]) -> root.common.CommandResult {
-    root.common.system_shell().capture(program, args)
-}
-
-function read_text_file(path: string) -> string? {
-    root.common.system_files().read(path)
-}
-
-function file_exists(path: string) -> bool {
-    root.common.system_files().exists(path)
-}
+// operator learns why something failed, which is why a failure is never left
+// as an exit code.
 
 /// The login users of the `dotfiles` group, with their home directory and
 /// their own primary group.
-function read_dotfiles_users(diag: Diagnostics) -> DotfilesUser[] {
-    let group = run_command("getent", ["group", "dotfiles"]);
+function read_dotfiles_users(shell: root.common.Shell, diag: Diagnostics) -> DotfilesUser[] {
+    let group = shell.capture("getent", ["group", "dotfiles"]);
     if (!group.ok()) {
         diag.report("the 'dotfiles' group does not exist on this machine");
         return [];
@@ -52,28 +40,28 @@ function read_dotfiles_users(diag: Diagnostics) -> DotfilesUser[] {
             },
         );
 
-    members
-        .map(
-            (name) -> {
-                let passwd = run_command("getent", ["passwd", name]);
-                let home = passwd.stdout.trim().split(":").at(5) ?? "";
-                let primary_group = run_command("id", ["-gn", name]).stdout.trim();
-                if (!passwd.ok() || home == "") {
-                    diag.report(`cannot resolve the home directory of login user '${name}'`);
-                }
-                if (primary_group == "") {
-                    diag.report(`cannot resolve the primary group of login user '${name}'`);
-                }
-                DotfilesUser { name: name, home: home, group: primary_group }
-            },
-        )
+    let users: DotfilesUser[] = [];
+    for (let name in members) {
+        let passwd = shell.capture("getent", ["passwd", name]);
+        let home = passwd.stdout.trim().split(":").at(5) ?? "";
+        let primary_group = shell.capture("id", ["-gn", name]).stdout.trim();
+        if (!passwd.ok() || home == "") {
+            diag.report(`cannot resolve the home directory of login user '${name}'`);
+        }
+        if (primary_group == "") {
+            diag.report(`cannot resolve the primary group of login user '${name}'`);
+        }
+        users.push(DotfilesUser { name: name, home: home, group: primary_group });
+    }
+    users
 }
 
-function detect_machine(diag: Diagnostics) -> Machine {
+function detect_machine(shell: root.common.Shell, files: root.common.Files,
+                        diag: Diagnostics) -> Machine {
     //# host selectors are evaluated against /etc/hostname
-    let hostname = (read_text_file("/etc/hostname") ?? "").trim();
+    let hostname = (files.read("/etc/hostname") ?? "").trim();
     if (hostname == "") {
         diag.report("cannot read the hostname from /etc/hostname");
     }
-    Machine { hostname: hostname, users: read_dotfiles_users(diag) }
+    Machine { hostname: hostname, users: read_dotfiles_users(shell, diag) }
 }

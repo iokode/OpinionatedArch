@@ -56,6 +56,17 @@ test "in_directory joins with exactly one slash" {
     assert.equal(in_directory("/pkg/", "manifest.yaml"), "/pkg/manifest.yaml")
 }
 
+/// One entry of a directory listing. Its own class rather than the one the
+/// filesystem module returns, so that what implements the port is not named by
+/// the port itself. What is asked of an entry is what it is, and a caller that
+/// must not follow a link needs to be told about one before it does.
+class DirEntry {
+    name: string,
+    is_dir: bool,
+    is_file: bool,
+    is_symlink: bool,
+}
+
 interface Files {
     /// The first operation that failed, if any. File operations do not report
     /// failure one by one, because a phase would then have to check every
@@ -66,6 +77,11 @@ interface Files {
     function write(self, path: string, content: string) -> void throws never
     function read(self, path: string) -> string? throws never
     function exists(self, path: string) -> bool throws never
+    /// What a directory holds, or null when it cannot be listed. Being unable
+    /// to list one is not recorded as a failure, for the reason `read` is not:
+    /// asking what is in a directory is how a caller finds out whether it is
+    /// there at all.
+    function read_dir(self, path: string) -> DirEntry[]? throws never
     function mkdir(self, path: string) -> void throws never
     function symlink(self, path: string, points_to: string) -> void throws never
     /// Mode as an octal string, as `chmod` takes it: "0755".
@@ -94,6 +110,50 @@ class RecordingFiles {
         function exists(self, path: string) -> bool {
             self.present.includes(path) || self.written.get(path) != null
         }
+        /// A listing assembled from what this double has been told about. A
+        /// directory it has never heard of cannot be listed, which is what a
+        /// real one answers for a path that is not there.
+        ///
+        /// What a child is, is decided by which list it came from: one that was
+        /// made a directory, or that has anything below it, is a directory; one
+        /// that was linked is a link; anything else that is known is a file.
+        function read_dir(self, path: string) -> DirEntry[]? {
+            if (!self.directories.includes(path)) {
+                return null;
+            }
+            let prefix = if (path.ends_with("/")) { path } else { path + "/" };
+            let known = self
+                .directories
+                .concat(self.present)
+                .concat(self.written.keys())
+                .concat(self.symlinks.keys());
+
+            let named: string[] = [];
+            let out: DirEntry[] = [];
+            for (let entry in known) {
+                if (!entry.starts_with(prefix)) {
+                    continue;
+                }
+                let rest = entry.substring(prefix.length(), entry.length());
+                let name = (rest.split("/").at(0)) ?? "";
+                if (name == "" || named.includes(name)) {
+                    continue;
+                }
+                named.push(name);
+
+                let child = prefix + name;
+                let is_dir = self.directories.includes(child) || rest.includes("/");
+                let is_symlink = self.symlinks.get(child) != null;
+                out.push(DirEntry {
+                    name: name,
+                    is_dir: is_dir,
+                    is_file: !is_dir && !is_symlink,
+                    is_symlink: is_symlink,
+                });
+            }
+            out
+        }
+
         function mkdir(self, path: string) -> void {
             if (!self.directories.includes(path)) { self.directories.push(path); }
         }
@@ -137,6 +197,33 @@ test "RecordingFiles remembers what a phase produced" {
     assert.equal(files.modes.get("/root/script.sh"), "0755");
     assert.is_true(files.exists("/etc/hostname"));
     assert.is_true(!files.exists("/etc/fstab"))
+}
+
+test "RecordingFiles lists what it was told a directory holds" {
+    let files = recording_files();
+    files.mkdir("/dotfiles");
+    files.mkdir("/dotfiles/hypr");
+    files.write("/dotfiles/main.dfmap", "[map]\n");
+    files.symlink("/dotfiles/link", "/elsewhere");
+    files.write("/other/thing", "x");
+
+    let empty: DirEntry[] = [];
+    let listed = files.read_dir("/dotfiles") ?? empty;
+    let names = listed.map((entry) -> { entry.name });
+
+    assert.equal(names, ["hypr", "main.dfmap", "link"]);
+    assert.is_true(listed.find((e) -> { e.name == "hypr" })?.is_dir ?? false);
+    assert.is_true(listed.find((e) -> { e.name == "main.dfmap" })?.is_file ?? false);
+    assert.is_true(listed.find((e) -> { e.name == "link" })?.is_symlink ?? false)
+}
+
+test "a directory nothing knows about cannot be listed" {
+    let files = recording_files();
+    files.write("/dotfiles/main.dfmap", "[map]\n");
+
+    //# writing into it never said it was there, and a listing that answered
+    //# with nothing would be a directory that exists and is empty
+    assert.equal(files.read_dir("/dotfiles"), null)
 }
 
 /// Rewrites a file, replacing the first occurrence of `from`. Returns false

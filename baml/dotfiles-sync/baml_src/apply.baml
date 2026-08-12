@@ -26,8 +26,8 @@ class StagedRender {
     staged_path: string,
 }
 
-function read_sync_state(state_root: string) -> SyncState {
-    if let text: string = read_text_file(state_file_path(state_root)) {
+function read_sync_state(files: root.common.Files, state_root: string) -> SyncState {
+    if let text: string = files.read(state_file_path(state_root)) {
         baml.json.from_string<SyncState>(text) catch_all (e) {
             _ => SyncState { version: 1, targets: [] }
         }
@@ -36,25 +36,26 @@ function read_sync_state(state_root: string) -> SyncState {
     }
 }
 
-function write_sync_state(state_root: string, targets: string[], diag: Diagnostics) -> null {
+function write_sync_state(shell: root.common.Shell, files: root.common.Files,
+                          state_root: string, targets: string[], diag: Diagnostics) -> null {
     let state = SyncState { version: 1, targets: targets };
-    let result = run_command("install", ["-d", "-m", "0700", "-o", "root", "-g", "root", state_root]);
-    if (!result.ok()) {
-        diag.report(`cannot create the state directory '${state_root}': ${result.stderr.trim()}`);
+    let made = root.common.must(
+        shell.capture("install", ["-d", "-m", "0700", "-o", "root", "-g", "root", state_root]),
+        `creating the state directory '${state_root}'`);
+    if (made != "") {
+        diag.report(made);
         return null;
     }
-    let written = baml.fs.write(state_file_path(state_root), baml.json.to_string(state)) catch_all (e) {
-        _ => -1
-    };
-    if (written < 0) {
-        diag.report(`cannot write synchronization state to '${state_file_path(state_root)}'`);
-    }
+    //# whatever this fails with lands in the port, and is absorbed once
+    files.write(state_file_path(state_root), baml.json.to_string(state));
     null
 }
 
 /// Creates every missing parent directory of `target`, owned by the target's
 /// user, or by `root:root` for a global target.
 function ensure_parent_directories(
+    shell: root.common.Shell,
+    files: root.common.Files,
     target: string,
     owner: string,
     group: string,
@@ -62,10 +63,12 @@ function ensure_parent_directories(
 ) -> bool {
     let ok = true;
     for (let directory in path_ancestors(path_dirname(target))) {
-        if (!file_exists(directory)) {
-            let created = run_command("install", ["-d", "-o", owner, "-g", group, directory]);
-            if (!created.ok()) {
-                diag.report(`cannot create directory '${directory}': ${created.stderr.trim()}`);
+        if (!files.exists(directory)) {
+            let created = root.common.must(
+                shell.capture("install", ["-d", "-o", owner, "-g", group, directory]),
+                `creating directory '${directory}'`);
+            if (created != "") {
+                diag.report(created);
                 ok = false;
             }
         }
@@ -73,42 +76,47 @@ function ensure_parent_directories(
     ok
 }
 
-function remove_target(target: string, diag: Diagnostics) -> bool {
-    let removed = run_command("rm", ["-f", target]);
-    if (!removed.ok()) {
-        diag.report(`cannot remove '${target}': ${removed.stderr.trim()}`);
+function remove_target(shell: root.common.Shell, target: string, diag: Diagnostics) -> bool {
+    let removed = root.common.must(shell.capture("rm", ["-f", target]), `removing '${target}'`);
+    if (removed != "") {
+        diag.report(removed);
     }
-    removed.ok()
+    removed == ""
 }
 
-function apply_link(planned: PlannedTarget, diag: Diagnostics) -> bool {
+function apply_link(shell: root.common.Shell, files: root.common.Files,
+                    planned: PlannedTarget, diag: Diagnostics) -> bool {
     let source = planned.sources.at(0) ?? "";
-    if (!ensure_parent_directories(planned.target, planned.owner, planned.group, diag)) {
+    if (!ensure_parent_directories(shell, files, planned.target, planned.owner, planned.group, diag)) {
         return false;
     }
-    if (!remove_target(planned.target, diag)) {
+    if (!remove_target(shell, planned.target, diag)) {
         return false;
     }
-    let linked = run_command("ln", ["-s", source, planned.target]);
-    if (!linked.ok()) {
-        diag.report(`cannot link '${planned.target}' to '${source}': ${linked.stderr.trim()}`);
+    let linked = root.common.must(shell.capture("ln", ["-s", source, planned.target]),
+                                  `linking '${planned.target}' to '${source}'`);
+    if (linked != "") {
+        diag.report(linked);
         return false;
     }
     //# -h so the link itself is owned, not the file it points at
-    let owned = run_command("chown", ["-h", `${planned.owner}:${planned.group}`, planned.target]);
-    if (!owned.ok()) {
-        diag.report(`cannot set ownership of '${planned.target}': ${owned.stderr.trim()}`);
+    let owned = root.common.must(
+        shell.capture("chown", ["-h", `${planned.owner}:${planned.group}`, planned.target]),
+        `setting ownership of '${planned.target}'`);
+    if (owned != "") {
+        diag.report(owned);
         return false;
     }
     true
 }
 
-function apply_copy(planned: PlannedTarget, diag: Diagnostics) -> bool {
+function apply_copy(shell: root.common.Shell, files: root.common.Files,
+                    planned: PlannedTarget, diag: Diagnostics) -> bool {
     let source = planned.sources.at(0) ?? "";
-    if (!ensure_parent_directories(planned.target, planned.owner, planned.group, diag)) {
+    if (!ensure_parent_directories(shell, files, planned.target, planned.owner, planned.group, diag)) {
         return false;
     }
-    let installed = run_command(
+    let installed = shell.capture(
         "install",
         [
             "-m",
@@ -121,8 +129,9 @@ function apply_copy(planned: PlannedTarget, diag: Diagnostics) -> bool {
             planned.target,
         ],
     );
-    if (!installed.ok()) {
-        diag.report(`cannot copy '${source}' to '${planned.target}': ${installed.stderr.trim()}`);
+    let problem = root.common.must(installed, `copying '${source}' to '${planned.target}'`);
+    if (problem != "") {
+        diag.report(problem);
         return false;
     }
     true
@@ -130,11 +139,12 @@ function apply_copy(planned: PlannedTarget, diag: Diagnostics) -> bool {
 
 /// Writes a staged render to its target. The content never passes through a
 /// command argument.
-function apply_render(planned: PlannedTarget, staged_path: string, diag: Diagnostics) -> bool {
-    if (!ensure_parent_directories(planned.target, planned.owner, planned.group, diag)) {
+function apply_render(shell: root.common.Shell, files: root.common.Files,
+                      planned: PlannedTarget, staged_path: string, diag: Diagnostics) -> bool {
+    if (!ensure_parent_directories(shell, files, planned.target, planned.owner, planned.group, diag)) {
         return false;
     }
-    let installed = run_command(
+    let installed = shell.capture(
         "install",
         [
             "-m",
@@ -147,8 +157,9 @@ function apply_render(planned: PlannedTarget, staged_path: string, diag: Diagnos
             planned.target,
         ],
     );
-    if (!installed.ok()) {
-        diag.report(`cannot write rendered target '${planned.target}': ${installed.stderr.trim()}`);
+    let problem = root.common.must(installed, `writing rendered target '${planned.target}'`);
+    if (problem != "") {
+        diag.report(problem);
         return false;
     }
     true
@@ -156,6 +167,7 @@ function apply_render(planned: PlannedTarget, staged_path: string, diag: Diagnos
 
 /// Substitutes a planned render. This is the only place a secret value is read.
 function render_target_content(
+    files: root.common.Files,
     planned: PlannedTarget,
     catalog: Catalog,
     hostname: string,
@@ -189,7 +201,7 @@ function render_target_content(
             let location: SecretLocation => {
                 //# the value goes straight into the substitution map: it is never
                 //# logged and never passed as a command argument
-                match (read_secret_value(location.path)) {
+                match (read_secret_value(files, location.path)) {
                     let value: Resolved => {
                         let _ = substitutions.set(name, value.text);
                     },
@@ -223,6 +235,8 @@ function render_target_content(
 /// Composes and substitutes every render into the state directory before any
 /// managed target is changed.
 function stage_renders(
+    shell: root.common.Shell,
+    files: root.common.Files,
     plan: Plan,
     catalog: Catalog,
     machine: Machine,
@@ -241,26 +255,24 @@ function stage_renders(
         return staged;
     }
     let directory = staging_root(state_root);
-    let created = run_command("install", ["-d", "-m", "0700", "-o", "root", "-g", "root", directory]);
-    if (!created.ok()) {
-        diag.report(`cannot create the staging directory '${directory}': ${created.stderr.trim()}`);
+    let created = root.common.must(
+        shell.capture("install", ["-d", "-m", "0700", "-o", "root", "-g", "root", directory]),
+        `creating the staging directory '${directory}'`);
+    if (created != "") {
+        diag.report(created);
         return staged;
     }
 
     let index = 0;
     for (let planned in renders) {
         let staged_path = `${directory}/render-${index}`;
-        if let content: string = render_target_content(planned, catalog, machine.hostname, diag) {
+        if let content: string = render_target_content(files, planned, catalog, machine.hostname, diag) {
             //# create the staged file restricted before its content exists
-            let _ = run_command("install", ["-m", "0600", "-o", "root", "-g", "root", "/dev/null", staged_path]);
-            let written = baml.fs.write(staged_path, content) catch_all (e) {
-                _ => -1
-            };
-            if (written < 0) {
-                diag.report(`cannot stage rendered output for '${planned.target}'`);
-            } else {
-                let _ = staged.push(StagedRender { target: planned.target, staged_path: staged_path });
-            }
+            let _ = shell.capture("install",
+                ["-m", "0600", "-o", "root", "-g", "root", "/dev/null", staged_path]);
+            //# a write that fails lands in the port, and is absorbed once
+            files.write(staged_path, content);
+            let _ = staged.push(StagedRender { target: planned.target, staged_path: staged_path });
         }
         index = index + 1;
     }
@@ -269,7 +281,8 @@ function stage_renders(
 
 /// Removes managed targets recorded by the previous synchronization that the
 /// current plan no longer declares.
-function remove_stale_targets(plan: Plan, state_root: string, diag: Diagnostics) -> int {
+function remove_stale_targets(shell: root.common.Shell, files: root.common.Files,
+                             plan: Plan, state_root: string, diag: Diagnostics) -> int {
     let current = plan
         .targets
         .map(
@@ -277,11 +290,11 @@ function remove_stale_targets(plan: Plan, state_root: string, diag: Diagnostics)
                 planned.target
             },
         );
-    let previous = read_sync_state(state_root);
+    let previous = read_sync_state(files, state_root);
     let removed = 0;
     for (let target in previous.targets) {
         if (!current.includes(target)) {
-            if (remove_target(target, diag)) {
+            if (remove_target(shell, target, diag)) {
                 removed = removed + 1;
             }
         }
@@ -292,12 +305,13 @@ function remove_stale_targets(plan: Plan, state_root: string, diag: Diagnostics)
 /// Applies copies, renders and links. Filesystem targets are applied before
 /// packages are installed, so a map-managed pacman configuration is in place
 /// before pacman resolves anything.
-function apply_targets(plan: Plan, staged: StagedRender[], diag: Diagnostics) -> int {
+function apply_targets(shell: root.common.Shell, files: root.common.Files,
+                       plan: Plan, staged: StagedRender[], diag: Diagnostics) -> int {
     let applied = 0;
     for (let planned in plan.targets) {
         let done = match (planned.action) {
-            "link" => apply_link(planned, diag),
-            "copy" => apply_copy(planned, diag),
+            "link" => apply_link(shell, files, planned, diag),
+            "copy" => apply_copy(shell, files, planned, diag),
             "render" => {
                 let entry = staged
                     .find(
@@ -306,7 +320,7 @@ function apply_targets(plan: Plan, staged: StagedRender[], diag: Diagnostics) ->
                         },
                     );
                 if let render: StagedRender = entry {
-                    apply_render(planned, render.staged_path, diag)
+                    apply_render(shell, files, planned, render.staged_path, diag)
                 } else {
                     diag.at(planned.loc, `rendered output for '${planned.target}' was not staged`);
                     false
@@ -320,26 +334,28 @@ function apply_targets(plan: Plan, staged: StagedRender[], diag: Diagnostics) ->
     applied
 }
 
-function package_installed(name: string) -> bool {
-    run_command("pacman", ["-Qq", name]).ok()
+function package_installed(shell: root.common.Shell, name: string) -> bool {
+    shell.capture("pacman", ["-Qq", name]).ok()
 }
 
 /// Installs the declared official repository packages that are missing.
 /// Package synchronization is additive: nothing is ever uninstalled.
-function install_packages(plan: Plan, diag: Diagnostics) -> int {
+function install_packages(shell: root.common.Shell, plan: Plan, diag: Diagnostics) -> int {
     let missing = plan
         .packages
         .filter(
             (name) -> {
-                !package_installed(name)
+                !package_installed(shell, name)
             },
         );
     if (missing.length() == 0) {
         return 0;
     }
-    let installed = run_command("pacman", ["-S", "--needed", "--noconfirm"].concat(missing));
-    if (!installed.ok()) {
-        diag.report(`pacman failed to install ${missing.join(" ")}: ${installed.stderr.trim()}`);
+    let installed = root.common.must(
+        shell.capture("pacman", ["-S", "--needed", "--noconfirm"].concat(missing)),
+        `installing ${missing.join(" ")}`);
+    if (installed != "") {
+        diag.report(installed);
         return 0;
     }
     missing.length()

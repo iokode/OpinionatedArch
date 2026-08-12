@@ -116,15 +116,13 @@ function is_user_target(target: string) -> bool {
 /// What the filesystem holds at `path`: `file`, `directory`, `symlink`,
 /// `special` or `missing`. Determined from the parent listing, so a symlink is
 /// never followed.
-function classify_path(path: string) -> string {
+function classify_path(files: root.common.Files, path: string) -> string {
     let normalized = path_normalize(path);
     let parent = path_dirname(normalized);
     let name = path_basename(normalized);
-    let entries = baml.fs.read_dir(parent) catch_all (e) {
-        _ => null
-    };
+    let entries = files.read_dir(parent);
     if (entries != null) {
-        if let entry: baml.fs.DirEntry = entries
+        if let entry: root.common.DirEntry = entries
             .find(
                 (candidate) -> {
                     candidate.name == name
@@ -149,6 +147,7 @@ function classify_path(path: string) -> string {
 
 /// The normal files under `root`/`prefix`, as paths relative to `root`.
 function collect_relative_files(
+    files: root.common.Files,
     root: string,
     prefix: string,
     loc: SourceLoc,
@@ -160,9 +159,7 @@ function collect_relative_files(
     } else {
         path_join(root, prefix)
     };
-    let entries = baml.fs.read_dir(directory) catch_all (e) {
-        _ => null
-    };
+    let entries = files.read_dir(directory);
     if (entries != null) {
         for (let entry in entries) {
             let relative = if (prefix == "") {
@@ -173,7 +170,7 @@ function collect_relative_files(
             if (entry.is_symlink) {
                 diag.at(loc, `source '${relative}' is a symlink, which is invalid`);
             } else if (entry.is_dir) {
-                for (let nested in collect_relative_files(root, relative, loc, diag)) {
+                for (let nested in collect_relative_files(files, root, relative, loc, diag)) {
                     let _ = out.push(nested);
                 }
             } else if (entry.is_file) {
@@ -190,6 +187,7 @@ function collect_relative_files(
 
 /// Validates one source path and returns its absolute location.
 function resolve_source_path(
+    files: root.common.Files,
     text: string,
     source_root: string,
     loc: SourceLoc,
@@ -204,7 +202,7 @@ function resolve_source_path(
         diag.at(loc, `source path '${text}' escapes the source directory '${source_root}'`);
         return null;
     }
-    let kind = classify_path(resolved);
+    let kind = classify_path(files, resolved);
     if (kind == "missing") {
         diag.at(loc, `source '${text}' does not exist under '${source_root}'`);
         null
@@ -231,6 +229,7 @@ function action_of(kind: OperationKind) -> "link" | "copy" | "render" {
 /// the reference names on the planned target. Secret values are never read
 /// here; only the existence of the store file is checked.
 function bind_template_references(
+    files: root.common.Files,
     planned: PlannedTarget,
     template: string,
     catalog: Catalog,
@@ -263,7 +262,7 @@ function bind_template_references(
                             diag.at(planned.loc, failure.message);
                         },
                         let location: SecretLocation => {
-                            if (!file_exists(location.path)) {
+                            if (!files.exists(location.path)) {
                                 diag.at(
                                     planned.loc,
                                     `secret '${name}' is required but its store file is missing`,
@@ -281,6 +280,7 @@ function bind_template_references(
 
 /// Expands one rule into planned targets for one evaluation context.
 function expand_operation(
+    files: root.common.Files,
     operation: Operation,
     context: SelectorContext,
     user: DotfilesUser?,
@@ -303,7 +303,7 @@ function expand_operation(
     let sources: string[] = [];
     for (let raw in operation.sources) {
         if let expanded: string = expand_source_path(raw, user, context.hostname, loc, diag) {
-            if let resolved: string = resolve_source_path(expanded, source_root, loc, diag) {
+            if let resolved: string = resolve_source_path(files, expanded, source_root, loc, diag) {
                 let _ = sources.push(resolved);
             }
         }
@@ -334,10 +334,10 @@ function expand_operation(
         let composed = "";
         let readable = true;
         for (let source in sources) {
-            if (classify_path(source) != "file") {
+            if (classify_path(files, source) != "file") {
                 diag.at(loc, `render source '${source}' is a directory, which is invalid`);
                 readable = false;
-            } else if let text: string = read_text_file(source) {
+            } else if let text: string = files.read(source) {
                 composed = composed + text;
             } else {
                 diag.at(loc, `cannot read render source '${source}'`);
@@ -361,13 +361,13 @@ function expand_operation(
             secret_refs: [],
             loc: loc,
         };
-        bind_template_references(planned, composed, catalog, context, diag);
+        bind_template_references(files, planned, composed, catalog, context, diag);
         let _ = plan.targets.push(planned);
-    } else if (classify_path(sources.at(0) ?? "") == "directory") {
+    } else if (classify_path(files, sources.at(0) ?? "") == "directory") {
         //# a directory source maps every normal file under it, preserving
         //# relative paths, and never maps the directory itself
         let root = sources.at(0) ?? "";
-        let relatives = collect_relative_files(root, "", loc, diag)
+        let relatives = collect_relative_files(files, root, "", loc, diag)
             .sort_by_key(
                 (entry) -> {
                     entry
@@ -472,6 +472,7 @@ function collect_packages(
 
 /// Builds and validates the complete current-machine plan.
 function build_plan(
+    files: root.common.Files,
     document: MapDocument,
     machine: Machine,
     source_root: string,
@@ -489,7 +490,7 @@ function build_plan(
             for (let member in machine.users) {
                 let context = user_context(machine.hostname, member.name);
                 if (selectors_pass(operation.selectors, context)) {
-                    expand_operation(operation, context, member, source_root, catalog, plan, diag);
+                    expand_operation(files, operation, context, member, source_root, catalog, plan, diag);
                 }
             }
         } else {
@@ -502,7 +503,7 @@ function build_plan(
             } else {
                 let context = global_context(machine.hostname);
                 if (selectors_pass(operation.selectors, context)) {
-                    expand_operation(operation, context, null, source_root, catalog, plan, diag);
+                    expand_operation(files, operation, context, null, source_root, catalog, plan, diag);
                 }
             }
         }
