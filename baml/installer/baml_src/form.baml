@@ -281,7 +281,7 @@ function step_locale_and_identity(shell: root.common.Shell, ui: Ui, tips: Tips,
 /// A source as a screen answers it. `answered` is false when the operator went
 /// back, which is the one thing a source of its own cannot express.
 class SourceAnswer {
-    source: root.common.Source,
+    source: Source,
     answered: bool,
 }
 
@@ -361,8 +361,8 @@ test "a picker starts where the last choice was, or at the top" {
 /// the other.
 function ask_source(ui: Ui, tips: Tips, note: string, title: string, prompt: string,
                     origins: string[], packages: bool,
-                    current: root.common.Source) -> SourceAnswer {
-    let refused = SourceAnswer { source: root.common.default_source(), answered: false };
+                    current: Source) -> SourceAnswer {
+    let refused = SourceAnswer { source: default_source(), answered: false };
     let labels = origin_labels(origins);
     let at = index_of_option(origins, current.origin);
     let location = current.location;
@@ -372,7 +372,7 @@ function ask_source(ui: Ui, tips: Tips, note: string, title: string, prompt: str
         if let picked: int = ui.choose(title, prompt, labels, at) {
             let origin = origins.at(picked) ?? "";
             if (origin == "default") {
-                return SourceAnswer { source: root.common.default_source(), answered: true };
+                return SourceAnswer { source: default_source(), answered: true };
             }
             at = picked;
 
@@ -392,7 +392,7 @@ function ask_source(ui: Ui, tips: Tips, note: string, title: string, prompt: str
                     ui.error(`${location_prompt(origin)} cannot be empty.`);
                 } else {
                     return SourceAnswer {
-                        source: root.common.source_at(origin, answer.trim()), answered: true,
+                        source: source_at(origin, answer.trim()), answered: true,
                     };
                 }
             }
@@ -408,7 +408,7 @@ function step_dotfiles(ui: Ui, tips: Tips, config: InstallConfig) -> bool {
     ui.step("Dotfiles");
     let options = ["yes", "no"];
     let current = if (config.dotfiles == null) { 1 } else { 0 };
-    let existing = config.dotfiles ?? root.common.source_at("git", "");
+    let existing = config.dotfiles ?? source_at("git", "");
     let field = 0;
 
     while (field < 2) {
@@ -429,7 +429,7 @@ function step_dotfiles(ui: Ui, tips: Tips, config: InstallConfig) -> bool {
             //# the project ships no dotfiles, so its own is not among the origins
             let answered = ask_source(ui, tips, "dotfiles_source", "Dotfiles",
                                       "Where the dotfiles package comes from.",
-                                      root.common.supplied_package_origins(), true, existing);
+                                      supplied_package_origins(), true, existing);
             if (answered.answered) {
                 config.dotfiles = answered.source;
                 field = 2;
@@ -477,7 +477,7 @@ function step_return_message(shell: root.common.Shell, files: root.common.Files,
         } else if (field == 1) {
             let answered = ask_source(ui, tips, "return_message_source", "Return message",
                                       "Where the template package comes from.",
-                                      root.common.package_origins(), true, message.template);
+                                      package_origins(), true, message.template);
             if (!answered.answered) {
                 field = 0;
             } else {
@@ -499,7 +499,7 @@ function step_return_message(shell: root.common.Shell, files: root.common.Files,
         } else if (field == 2) {
             let answered = ask_source(ui, tips, "return_message_source", "Return message",
                                       "Where the theme comes from.",
-                                      root.common.package_origins(), true, message.theme);
+                                      package_origins(), true, message.theme);
             if (!answered.answered) {
                 field = 1;
             } else {
@@ -568,9 +568,9 @@ function step_return_message(shell: root.common.Shell, files: root.common.Files,
             }
         } else {
             if let picked: int = ui.choose("Return message", "Include a company logo?", yes_no,
-                                           if (values.logo == null) { 1 } else { 0 }) {
+                                           if (message.logo == null) { 1 } else { 0 }) {
                 if ((yes_no.at(picked) ?? "") == "no") {
-                    values.logo = null;
+                    message.logo = null;
                     config.return_message = message;
                     return true;
                 }
@@ -580,10 +580,10 @@ function step_return_message(shell: root.common.Shell, files: root.common.Files,
                 //# machine, and typed when it is not
                 let answered = ask_source(ui, tips, "return_message_source", "Return message",
                                           "Where the logo comes from.",
-                                          root.common.file_origins(), false,
-                                          values.logo ?? root.common.source_at("url", ""));
+                                          file_origins(), false,
+                                          message.logo ?? source_at("url", ""));
                 if (answered.answered) {
-                    values.logo = answered.source;
+                    message.logo = answered.source;
                     config.return_message = message;
                     return true;
                 }
@@ -699,7 +699,7 @@ test "where the dotfiles come from is asked for only when there are any" {
     let config = collect_config(fake_live_shell(), packaged_files(), ui, "/assets");
 
     if let collected: InstallConfig = config {
-        if let dotfiles: root.common.Source = collected.dotfiles {
+        if let dotfiles: Source = collected.dotfiles {
             assert.equal(dotfiles.origin, "git");
             assert.equal(dotfiles.location, "https://example.invalid/dotfiles.git")
         }
@@ -742,7 +742,7 @@ test "the return message asks the fields the template package declares" {
             assert.equal(message.values.fields.get("owner_name"), "Ivan");
             assert.equal(message.values.fields.get("phone"), "+376 000 000");
             assert.equal(message.values.languages, ["es"]);
-            assert.is_true(root.common.is_default_source(message.template))
+            assert.is_true(is_default_source(message.template))
         }
     }
 }

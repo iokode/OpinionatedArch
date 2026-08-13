@@ -50,9 +50,9 @@ function unpack_archive(shell: root.common.Shell, files: root.common.Files,
 /// The project's own content is already where it belongs, so nothing is done
 /// for it: what is read is the asset directory, and the caller knows that.
 function bring_here(shell: root.common.Shell, files: root.common.Files,
-                    source: root.common.Source, staging: string, destination: string,
+                    source: Source, staging: string, destination: string,
                     noun: string) -> string {
-    if (root.common.is_default_source(source)) {
+    if (is_default_source(source)) {
         return "";
     }
     files.mkdir(staging);
@@ -112,8 +112,8 @@ function staged_dotfiles_directory(staging: string) -> string {
 /// The directory the template package is finally read from, which is also the
 /// one the renderer is handed: the project's own, or the staging directory
 /// everything else was brought into.
-function package_directory(asset_dir: string, template: root.common.Source) -> string {
-    if (root.common.is_default_source(template)) {
+function package_directory(asset_dir: string, template: Source) -> string {
+    if (is_default_source(template)) {
         root.return_message.default_package_directory(asset_dir)
     } else {
         staged_package_directory(live_staging_dir())
@@ -121,8 +121,8 @@ function package_directory(asset_dir: string, template: root.common.Source) -> s
 }
 
 /// The same, for the theme.
-function theme_directory(asset_dir: string, theme: root.common.Source) -> string {
-    if (root.common.is_default_source(theme)) {
+function theme_directory(asset_dir: string, theme: Source) -> string {
+    if (is_default_source(theme)) {
         root.return_message.default_theme_directory(asset_dir)
     } else {
         staged_theme_directory(live_staging_dir())
@@ -140,7 +140,7 @@ function theme_directory(asset_dir: string, theme: root.common.Source) -> string
 /// on a medium that will be unmounted when the installation starts.
 function bring_every_source(shell: root.common.Shell, files: root.common.Files,
                             config: InstallConfig, staging: string) -> string {
-    if let dotfiles: root.common.Source = config.dotfiles {
+    if let dotfiles: Source = config.dotfiles {
         let problem = bring_here(shell, files, dotfiles, staging,
                                  staged_dotfiles_directory(staging), "dotfiles package");
         if (problem != "") {
@@ -165,7 +165,7 @@ function bring_every_source(shell: root.common.Shell, files: root.common.Files,
 
 /// The template package a configuration asks for, brought here and read.
 function resolve_package(shell: root.common.Shell, files: root.common.Files,
-                         asset_dir: string, template: root.common.Source,
+                         asset_dir: string, template: Source,
                          staging: string) -> root.return_message.LoadedPackage {
     let problem = bring_here(shell, files, template, staging,
                              staged_package_directory(staging), "template package");
@@ -179,7 +179,7 @@ function resolve_package(shell: root.common.Shell, files: root.common.Files,
 
 /// The theme a configuration asks for, brought here exactly as the package is.
 function resolve_theme(shell: root.common.Shell, files: root.common.Files,
-                       asset_dir: string, theme: root.common.Source,
+                       asset_dir: string, theme: Source,
                        staging: string) -> root.return_message.ThemeParse {
     let problem = bring_here(shell, files, theme, staging,
                              staged_theme_directory(staging), "theme");
@@ -207,7 +207,7 @@ test "escaping_entry names the first bad entry of a listing" {
 test "the project's own content is not brought anywhere" {
     let shell = fetching_shell();
 
-    assert.equal(bring_here(shell, root.common.recording_files(), root.common.default_source(),
+    assert.equal(bring_here(shell, root.common.recording_files(), default_source(),
                             "/tmp/oparch", "/tmp/oparch/theme", "theme"),
                  "");
     assert.equal(shell.commands, [])
@@ -218,7 +218,7 @@ test "a repository is cloned at one revision" {
 
     assert.equal(
         bring_here(shell, root.common.recording_files(),
-                   root.common.source_at("git", "https://example.invalid/dotfiles.git"),
+                   source_at("git", "https://example.invalid/dotfiles.git"),
                    "/tmp/oparch", "/tmp/oparch/dotfiles", "dotfiles package"),
         "");
     assert.equal(shell.commands, [
@@ -233,7 +233,7 @@ test "a clone that failed is reported with what was asked for" {
 
     assert.equal(
         bring_here(shell, root.common.recording_files(),
-                   root.common.source_at("git", "https://example.invalid/gone.git"),
+                   source_at("git", "https://example.invalid/gone.git"),
                    "/tmp/oparch", "/tmp/oparch/dotfiles", "dotfiles package"),
         "Cloning the dotfiles package from https://example.invalid/gone.git"
             + " failed with exit code 128.")
@@ -245,7 +245,7 @@ test "a remote archive is downloaded, inspected and unpacked in that order" {
 
     assert.equal(
         bring_here(shell, root.common.recording_files(),
-                   root.common.source_at("tar", "https://example.invalid/pkg.tar"),
+                   source_at("tar", "https://example.invalid/pkg.tar"),
                    "/tmp/oparch", "/tmp/oparch/template-package", "template package"),
         "");
     assert.equal(shell.commands, [
@@ -264,7 +264,7 @@ test "a download that failed is reported and nothing is unpacked" {
 
     assert.equal(
         bring_here(shell, root.common.recording_files(),
-                   root.common.source_at("tar", "https://example.invalid/theme.tar"),
+                   source_at("tar", "https://example.invalid/theme.tar"),
                    "/tmp/oparch", "/tmp/oparch/theme", "theme"),
         "Downloading the theme from https://example.invalid/theme.tar"
             + " failed with exit code 22.");
@@ -278,7 +278,7 @@ test "an archive is refused whole before anything is unpacked" {
 
     assert.equal(
         bring_here(shell, root.common.recording_files(),
-                   root.common.source_at("tar", "https://example.invalid/pkg.tar"),
+                   source_at("tar", "https://example.invalid/pkg.tar"),
                    "/tmp/oparch", "/tmp/oparch/template-package", "template package"),
         "The template package holds an entry that would be written outside it: ../escape.txt");
     assert.is_true(!shell.commands.includes(
@@ -290,7 +290,7 @@ test "a local directory is copied here, contents and all" {
 
     assert.equal(
         bring_here(shell, root.common.recording_files(),
-                   root.common.source_at("local", "/run/oparch/media/sdb1/andorra"),
+                   source_at("local", "/run/oparch/media/sdb1/andorra"),
                    "/tmp/oparch", "/tmp/oparch/template-package", "template package"),
         "");
     //# `test -d` is what tells a directory from an archive, not the name
@@ -309,7 +309,7 @@ test "a local archive is unpacked here rather than read where it lies" {
 
     assert.equal(
         bring_here(shell, files,
-                   root.common.source_at("local", "/run/oparch/media/sdb1/andorra.tar"),
+                   source_at("local", "/run/oparch/media/sdb1/andorra.tar"),
                    "/tmp/oparch", "/tmp/oparch/theme", "theme"),
         "");
     assert.equal(shell.commands, [
@@ -325,21 +325,21 @@ test "a local location that is neither a directory nor a file is reported" {
 
     assert.equal(
         bring_here(shell, root.common.recording_files(),
-                   root.common.source_at("local", "/run/oparch/media/sdb1/gone"),
+                   source_at("local", "/run/oparch/media/sdb1/gone"),
                    "/tmp/oparch", "/tmp/oparch/theme", "theme"),
         "The theme is not there: /run/oparch/media/sdb1/gone")
 }
 
 test "the directory the renderer is handed is where the content ended up" {
-    let brought = root.common.source_at("tar", "https://example.invalid/pkg.tar");
+    let brought = source_at("tar", "https://example.invalid/pkg.tar");
 
-    assert.equal(package_directory("/assets", root.common.default_source()),
+    assert.equal(package_directory("/assets", default_source()),
                  "/assets/return-message");
     assert.equal(package_directory("/assets", brought), "/tmp/oparch/template-package");
 
-    assert.equal(theme_directory("/assets", root.common.default_source()),
+    assert.equal(theme_directory("/assets", default_source()),
                  "/assets/return-message-theme");
-    assert.equal(theme_directory("/assets", root.common.source_at("local", "/media/pen/dark")),
+    assert.equal(theme_directory("/assets", source_at("local", "/media/pen/dark")),
                  "/tmp/oparch/theme")
 }
 
@@ -352,7 +352,7 @@ test "resolve_package reads what was brought into the staging directory" {
     files.write("/tmp/oparch/template-package/ca.txt", "Hola {{owner_name}}");
 
     let loaded = resolve_package(shell, files, "/assets",
-                                 root.common.source_at("tar", "https://example.invalid/pkg.tar"),
+                                 source_at("tar", "https://example.invalid/pkg.tar"),
                                  "/tmp/oparch");
 
     assert.equal(loaded.error, "");

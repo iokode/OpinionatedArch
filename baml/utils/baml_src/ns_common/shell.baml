@@ -74,9 +74,7 @@ class RecordingShell {
     /// Commands that should fail, and with what code. Anything absent succeeds.
     exit_codes: map<string, int>,
 
-    /// A scripted command says nothing on standard error. There is no map for
-    /// it because no test has needed one yet; the day one does, it is added
-    /// here beside `replies` and every existing literal keeps working.
+    /// A scripted command says nothing on standard error.
     function record(self, program: string, args: string[]) -> CommandResult {
         let line = `${program} ${args.join(" ")}`.trim();
         self.commands.push(line);

@@ -50,7 +50,7 @@ function return_message_renderer() -> string {
 /// Which logo the message was finally composed with: where it was taken from,
 /// absent when the operator chose to go on without one, or what went wrong.
 class LogoOutcome {
-    source: root.common.Source?,
+    source: Source?,
     error: string,
 }
 
@@ -58,7 +58,7 @@ class LogoOutcome {
 /// copied from this machine. Whichever it is, what the renderer receives is the
 /// file at `staged_logo_path`.
 function fetch_logo(shell: root.common.Shell, files: root.common.Files,
-                    source: root.common.Source) -> string {
+                    source: Source) -> string {
     if (source.origin == "url") {
         let downloaded = shell.capture("curl",
             ["-fL", "--retry", "2", "--connect-timeout", "10", "-o", staged_logo_path(),
@@ -79,7 +79,7 @@ function fetch_logo(shell: root.common.Shell, files: root.common.Files,
 /// `docs/decisions/006-preboot-ownership-message.md` requires. Nothing is asked when
 /// no logo was wanted in the first place.
 function resolve_logo(shell: root.common.Shell, files: root.common.Files, ui: Ui,
-                      logo: root.common.Source?) -> LogoOutcome {
+                      logo: Source?) -> LogoOutcome {
     let none = LogoOutcome { source: null, error: "" };
     if (logo == null) {
         return none;
@@ -108,7 +108,7 @@ function resolve_logo(shell: root.common.Shell, files: root.common.Files, ui: Ui
                                         wanted.location, false) {
             //# the location comes back prefilled, so leaving it alone retries it
             if (answer.trim() != "") {
-                wanted = root.common.source_at(wanted.origin, answer.trim());
+                wanted = source_at(wanted.origin, answer.trim());
             }
         } else {
             return LogoOutcome { source: null, error: failure };
@@ -161,7 +161,7 @@ function configure_return_message(shell: root.common.Shell, files: root.common.F
     if let message: ReturnMessageInput = config.return_message {
         ui.step("Rendering the pre-boot return message...");
 
-        let logo = resolve_logo(shell, files, ui, message.values.logo);
+        let logo = resolve_logo(shell, files, ui, message.logo);
         if (logo.error != "") {
             return logo.error;
         }
@@ -170,14 +170,21 @@ function configure_return_message(shell: root.common.Shell, files: root.common.F
         //# rebuild produces the message this machine boots with. Where the
         //# package and the theme came from is not written: that is not this
         //# file's, and the renderer is handed both.
+        //# the logo line is written here rather than by the format: where it
+        //# came from is what this installer chose, and the renderer carries the
+        //# key without ever reading it
         files.mkdir(root.common.target_path(target, oparch_config_directory()));
-        files.write(
-            root.common.target_path(target, return_message_values_path()),
-            root.return_message.render_values_file(root.return_message.ReturnMessageConfig {
+        let values = root.return_message.render_values_file(
+            root.return_message.ReturnMessageConfig {
                 languages: message.values.languages,
                 fields: message.values.fields,
-                logo: logo.source,
-            }));
+            });
+        let written = if let taken: Source = logo.source {
+            values + render_source("logo", taken, "")
+        } else {
+            values
+        };
+        files.write(root.common.target_path(target, return_message_values_path()), written);
 
         let installed = install_plymouth_theme(shell, files, target, asset_dir);
         if (installed != "") {
@@ -203,13 +210,13 @@ function configure_return_message(shell: root.common.Shell, files: root.common.F
 // -------------------------------------------------------------------- tests
 
 /// A configuration asking for a message in one language, with a logo.
-function return_message_config(logo: root.common.Source?) -> InstallConfig {
+function return_message_config(logo: Source?) -> InstallConfig {
     let config = empty_config();
     let message = empty_return_message_input();
     message.values.languages = ["es"];
     let _ = message.values.fields.set("owner_name", "Ivan");
     let _ = message.values.fields.set("phone", "+376 000 000");
-    message.values.logo = logo;
+    message.logo = logo;
     config.return_message = message;
     config
 }
@@ -223,8 +230,8 @@ function logo_url() -> string {
 }
 
 /// The logo the tests ask for: one file, taken from a URL.
-function logo_source() -> root.common.Source {
-    root.common.source_at("url", logo_url())
+function logo_source() -> Source {
+    source_at("url", logo_url())
 }
 
 function logo_download(url: string) -> string {
@@ -305,7 +312,7 @@ test "the theme the operator chose is handed to the renderer, not written down" 
     let files = root.common.recording_files();
     let config = empty_config();
     let message = empty_return_message_input();
-    message.theme = root.common.source_at("tar", "https://example.invalid/andorra-dark.tar");
+    message.theme = source_at("tar", "https://example.invalid/andorra-dark.tar");
     message.values.languages = ["es"];
     let _ = message.values.fields.set("owner_name", "Ivan");
     config.return_message = message;

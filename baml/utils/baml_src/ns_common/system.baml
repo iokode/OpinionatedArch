@@ -17,10 +17,9 @@
 /// Runs commands with `baml.sys.exec`. A command that cannot be started at all
 /// is reported as exit code 127, which is the shell's own code for it, so a
 /// caller never has to tell "did not run" from "ran and failed".
+///
 /// Commands run with the environment this process was started in. Giving one
-/// its own variables is `with_env`'s job, and it adds to that environment;
-/// `baml.sys.ProcessOptions.env` replaces it whole, which leaves a command
-/// without the `PATH`, `HOME` and locale it was never meant to lose.
+/// its own variables is `with_env`'s job.
 class SystemShell {
     function run(self, program: string, args: string[], input: string?) -> CommandResult {
         let output = baml.sys.exec(program, args, baml.sys.ProcessOptions {

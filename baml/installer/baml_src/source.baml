@@ -1,4 +1,5 @@
-// Where content that is not a value comes from.
+// Where content that is not a value comes from, as specified in
+// `docs/tools/oparch-installer/003-input-sources.md`.
 //
 // Some inputs are not answers but content held elsewhere: a package of files,
 // or a single file. What they have in common is that the place they come from
@@ -98,13 +99,13 @@ function read_source(entries: map<string, baml.json.json>, key: string, allowed:
     }
 
     let raw = entries.get(key);
-    let fields = as_map(raw) ?? empty_json_map();
-    if (as_map(raw) == null) {
+    let fields = root.common.as_map(raw) ?? root.common.empty_json_map();
+    if (root.common.as_map(raw) == null) {
         return OptionalSourceRead {
             source: default_source(), present: true, error: `${path} must be a mapping.`,
         };
     }
-    if let unknown: string = unknown_key(fields, source_keys()) {
+    if let unknown: string = root.common.unknown_key(fields, source_keys()) {
         return OptionalSourceRead {
             source: default_source(),
             present: true,
@@ -112,11 +113,11 @@ function read_source(entries: map<string, baml.json.json>, key: string, allowed:
         };
     }
 
-    let origin = read_text(fields, "origin", `${path}.origin`);
+    let origin = root.common.read_text(fields, "origin", `${path}.origin`);
     if (origin.error != "") {
         return OptionalSourceRead { source: default_source(), present: true, error: origin.error };
     }
-    let location = read_text(fields, "location", `${path}.location`);
+    let location = root.common.read_text(fields, "location", `${path}.location`);
     if (location.error != "") {
         return OptionalSourceRead { source: default_source(), present: true, error: location.error };
     }
@@ -176,9 +177,9 @@ test "the default origin reads no location, rather than ignoring one" {
 }
 
 test "read_source tells an absent source from one described wrongly" {
-    let top = as_map(baml.yaml.parse(
+    let top = root.common.as_map(baml.yaml.parse(
         "dotfiles:\n  origin: git\n  location: \"https://example.invalid/d.git\"\n"
-            + "theme:\n  origin: nowhere\n")) ?? empty_json_map();
+            + "theme:\n  origin: nowhere\n")) ?? root.common.empty_json_map();
 
     let absent = read_source(top, "logo", file_origins(), "logo");
     assert.is_true(!absent.present);
@@ -196,15 +197,15 @@ test "read_source tells an absent source from one described wrongly" {
 }
 
 test "read_source refuses a key the shape does not have" {
-    let top = as_map(baml.yaml.parse("dotfiles:\n  origin: git\n  url: \"x\"\n"))
-        ?? empty_json_map();
+    let top = root.common.as_map(baml.yaml.parse("dotfiles:\n  origin: git\n  url: \"x\"\n"))
+        ?? root.common.empty_json_map();
 
     assert.equal(read_source(top, "dotfiles", package_origins(), "dotfiles").error,
                  "Unknown key in config file: dotfiles.url")
 }
 
 test "read_source refuses a location YAML did not read as text" {
-    let top = as_map(baml.yaml.parse("logo:\n  origin: url\n  location: 42\n")) ?? empty_json_map();
+    let top = root.common.as_map(baml.yaml.parse("logo:\n  origin: url\n  location: 42\n")) ?? root.common.empty_json_map();
 
     assert.is_true(read_source(top, "logo", file_origins(), "logo").error
         .starts_with("logo.location must be quoted:"))
@@ -217,8 +218,8 @@ test "what render_source writes is what read_source reads back" {
     assert.equal(written,
                  "  template:\n    origin: \"local\"\n    location: \"/media/pen/andorra.tar\"\n");
 
-    let top = as_map(baml.yaml.parse(`return_message:` + "\n" + written)) ?? empty_json_map();
-    let section = as_map(top.get("return_message")) ?? empty_json_map();
+    let top = root.common.as_map(baml.yaml.parse(`return_message:` + "\n" + written)) ?? root.common.empty_json_map();
+    let section = root.common.as_map(top.get("return_message")) ?? root.common.empty_json_map();
     let read_back = read_source(section, "template", package_origins(), "return_message.template");
 
     assert.equal(read_back.error, "");

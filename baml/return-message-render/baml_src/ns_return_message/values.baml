@@ -18,10 +18,6 @@ class ReturnMessageConfig {
     /// Values for the fields the template declares. The names are the
     /// template's, so no tool knows them in advance.
     fields: map<string, string>,
-    /// Absent when the message carries no logo. It says where the logo was
-    /// taken from, and is not what the renderer reads: the file itself is
-    /// handed to it by whoever resolved this.
-    logo: root.common.Source?,
 }
 
 /// Values, or the first thing wrong with them.
@@ -31,9 +27,13 @@ class ReturnMessageParse {
 }
 
 function empty_return_message() -> ReturnMessageConfig {
-    ReturnMessageConfig { languages: [], fields: {}, logo: null }
+    ReturnMessageConfig { languages: [], fields: {} }
 }
 
+/// `logo` is allowed and not read. It says where the logo was taken from, for
+/// whoever wrote the file; what this tool draws is the file it is handed. A key
+/// that is carried rather than acted on is still a key the format has, so it is
+/// accepted here and refused nowhere.
 function allowed_keys() -> string[] {
     ["languages", "fields", "logo"]
 }
@@ -100,18 +100,8 @@ function parse_return_message(section: map<string, baml.json.json>, prefix: stri
         }
     }
 
-    let logo = root.common.read_source(section, "logo", root.common.file_origins(),
-                                       `${prefix}logo`);
-    if (logo.error != "") {
-        return ReturnMessageParse { message: empty_return_message(), error: logo.error };
-    }
-
     ReturnMessageParse {
-        message: ReturnMessageConfig {
-            languages: languages,
-            fields: values,
-            logo: if (logo.present) { logo.source } else { null },
-        },
+        message: ReturnMessageConfig { languages: languages, fields: values },
         error: "",
     }
 }
@@ -172,9 +162,6 @@ function render_values_file(message: ReturnMessageConfig) -> string {
         }
     }
 
-    if let logo: root.common.Source = message.logo {
-        out = out + root.common.render_source("logo", logo, "");
-    }
     out
 }
 
@@ -214,10 +201,8 @@ test "parse_values_file reads a whole values file" {
     assert.equal(parsed.error, "");
     assert.equal(parsed.message.languages, ["ca", "es"]);
     assert.equal(parsed.message.fields.get("phone"), "+376 000 000");
-    if let logo: root.common.Source = parsed.message.logo {
-        assert.equal(logo.origin, "url");
-        assert.equal(logo.location, "https://example.invalid/logo.png")
-    }
+    //# the file carried a logo and the parse did not stumble on it. What it says
+    //# is for whoever wrote it; nothing here reads it
 }
 
 test "the renderer names a key without a section prefix, the installer with one" {
@@ -261,12 +246,10 @@ test "render_values_file writes the file the format defines" {
     message.languages = ["ca", "es"];
     let _ = message.fields.set("phone", "+376 000 000");
     let _ = message.fields.set("owner_name", "Ivan");
-    message.logo = root.common.source_at("url", "https://example.invalid/logo.png");
 
     assert.equal(render_values_file(message),
                  "languages:\n  - \"ca\"\n  - \"es\"\n"
-                     + "fields:\n  owner_name: \"Ivan\"\n  phone: \"+376 000 000\"\n"
-                     + "logo:\n  origin: \"url\"\n  location: \"https://example.invalid/logo.png\"\n")
+                     + "fields:\n  owner_name: \"Ivan\"\n  phone: \"+376 000 000\"\n")
 }
 
 test "render_values_file names no package and no theme, whatever was installed" {
@@ -287,7 +270,6 @@ test "what render_values_file writes is what parse_values_file reads back" {
     let _ = message.fields.set("owner_name", "Ivan \"the finder\" \\ Montilla");
     let _ = message.fields.set("phone", "+376000000555666");
     let _ = message.fields.set("address", "Carrer de la Unió\nAndorra");
-    message.logo = root.common.source_at("local", "/media/pen/logo.png");
 
     let read_back = parse_values_file(render_values_file(message));
 
@@ -296,11 +278,7 @@ test "what render_values_file writes is what parse_values_file reads back" {
     //# the `+` is still there: it is a quoted value, so YAML reads it as text
     assert.equal(read_back.message.fields.get("phone"), "+376000000555666");
     assert.equal(read_back.message.fields.get("owner_name"), "Ivan \"the finder\" \\ Montilla");
-    assert.equal(read_back.message.fields.get("address"), "Carrer de la Unió\nAndorra");
-    if let logo: root.common.Source = read_back.message.logo {
-        assert.equal(logo.origin, "local");
-        assert.equal(logo.location, "/media/pen/logo.png")
-    }
+    assert.equal(read_back.message.fields.get("address"), "Carrer de la Unió\nAndorra")
 }
 
 test "an empty field set is written as an empty mapping, not as nothing" {

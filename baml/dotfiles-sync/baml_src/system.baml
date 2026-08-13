@@ -1,5 +1,6 @@
-// The machine facts synchronization depends on, and the thin wrappers used to
-// obtain them.
+// The machine facts synchronization depends on: the hostname its host selectors
+// are evaluated against, and the members of the `dotfiles` group its user
+// targets expand over.
 
 /// A member of the `dotfiles` group, for whom user targets are expanded.
 class DotfilesUser {

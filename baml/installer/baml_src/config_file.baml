@@ -180,14 +180,14 @@ function read_users(top: map<string, baml.json.json>, config: InstallConfig) -> 
 
 //# a section that is there turns its feature on; there is no separate flag
 function read_dotfiles(top: map<string, baml.json.json>, config: InstallConfig) -> string {
-    let read = root.common.read_source(top, "dotfiles", root.common.package_origins(), "dotfiles");
+    let read = read_source(top, "dotfiles", package_origins(), "dotfiles");
     if (read.error != "") {
         return read.error;
     }
     if (read.present) {
         //# the project ships no dotfiles, so there is nothing for a default to
         //# mean here: a section that is there names where its content is
-        if (root.common.is_default_source(read.source)) {
+        if (is_default_source(read.source)) {
             return "dotfiles.origin cannot be default: the project carries no dotfiles.";
         }
         config.dotfiles = read.source;
@@ -221,21 +221,31 @@ function read_return_message(top: map<string, baml.json.json>, config: InstallCo
             return parsed.error;
         }
 
-        let template = root.common.read_source(section, "template", root.common.package_origins(),
+        let template = read_source(section, "template", package_origins(),
                                                "return_message.template");
         if (template.error != "") {
             return template.error;
         }
-        let theme = root.common.read_source(section, "theme", root.common.package_origins(),
+        let theme = read_source(section, "theme", package_origins(),
                                             "return_message.theme");
         if (theme.error != "") {
             return theme.error;
         }
 
+        //# the values format carries this key and does not read it: where the
+        //# logo came from is the installer's question, so the installer reads it
+        let logo = read_source(section, "logo", file_origins(), "return_message.logo");
+        if (logo.error != "") {
+            return logo.error;
+        }
+
         //# a key that is not there is the project's own, which is what the
         //# format says an absent origin means
         config.return_message = ReturnMessageInput {
-            template: template.source, theme: theme.source, values: parsed.message,
+            template: template.source,
+            theme: theme.source,
+            values: parsed.message,
+            logo: if (logo.present) { logo.source } else { null },
         };
     }
     ""
@@ -395,7 +405,7 @@ test "a section that is present turns its feature on" {
     let parsed = parse_config_file(text);
 
     assert.equal(parsed.error, "");
-    if let dotfiles: root.common.Source = parsed.config.dotfiles {
+    if let dotfiles: Source = parsed.config.dotfiles {
         assert.equal(dotfiles.origin, "git");
         assert.equal(dotfiles.location, "https://example.invalid/dotfiles.git")
     }

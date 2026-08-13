@@ -308,8 +308,8 @@ test "index_of_option restores a selection and falls back to the first row" {
 /// A filesystem that says what it did, in the words of what it did.
 ///
 /// The port underneath performs the operation; this only speaks. It exists
-/// because files are no longer touched by the host, so the host cannot see them
-/// go by and log them the way it logs commands.
+/// because the host does not touch files, so it cannot see them go by and log
+/// them the way it logs the commands it runs.
 ///
 /// Only what changes the target is announced. Reading a file, or asking whether
 /// one is there, changes nothing, and a log of every question asked is a log
