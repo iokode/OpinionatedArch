@@ -18,27 +18,31 @@ This document is the centralized list of:
 
 The installer asks for:
 
-1. target disk
-2. install mode (`wipe-all` or `keep-homes`)
-3. if install mode is `keep-homes`: existing home users to preserve, selected from a multiple-choice list
-4. ucode package (`intel-ucode`, `amd-ucode`, or `none`)
-5. GPU driver (`nvidia`, `nvidia-open`, `nouveau`, or `none`)
-6. zram swap size in GB
-7. disk swapfile size in GB (if 0, do not create any swapfile)
-8. login usernames list (in `keep-homes`, this creates additional users beyond the preserved-home users)
-9. shared secret (used for root LUKS unlock and login-user password)
-10. console keymap
+1. console keymap, applied to the console as soon as it is given, so that every answer below it is typed with it
+2. target disk
+3. install mode (`wipe-all` or `keep-homes`)
+4. if install mode is `keep-homes`: existing home users to preserve, selected from a multiple-choice list
+5. ucode package (`intel-ucode`, `amd-ucode`, or `none`)
+6. GPU driver (`nvidia`, `nvidia-open`, `nouveau`, or `none`)
+7. zram swap size in GB
+8. disk swapfile size in GB (if 0, do not create any swapfile)
+9. login usernames list (in `keep-homes`, this creates additional users beyond the preserved-home users)
+10. shared secret (used for root LUKS unlock and login-user password)
 11. timezone
 12. hostname
 13. public dotfiles package (`yes/no`)
 14. if the public dotfiles package is enabled: where it comes from, as `003-input-sources.md` defines a package source
-15. pre-boot return message inclusion (`yes/no`)
-16. if return message is enabled: where the template package comes from, the project's own among the origins, as `003-input-sources.md` defines a package source
-17. if return message is enabled: where the theme comes from, the project's own among the origins, as the same document defines it and `../oparch-return-message-render/004-themes.md` decides it
-18. if return message is enabled: a value for each field the template package declares. The project's own package declares owner name, phone, email and return address
-19. if return message is enabled: return-message languages, selecting as many as the theme accepts
-20. if return message is enabled: logo inclusion (`yes/no`)
-21. if logo is enabled: where the logo file comes from, as `003-input-sources.md` defines a file source (retry or explicit continue-without-logo when it cannot be obtained)
+15. if the dotfiles map declares secrets the plan reaches: where the encrypted secret store comes from, as `003-input-sources.md` defines a file source
+16. if a secret store is given: the passphrase that opens it, asked once and asked again when it does not
+17. pre-boot return message inclusion (`yes/no`)
+18. if return message is enabled: where the template package comes from, the project's own among the origins, as `003-input-sources.md` defines a package source
+19. if return message is enabled: where the theme comes from, the project's own among the origins, as the same document defines it and `../oparch-return-message-render/004-themes.md` decides it
+20. if return message is enabled: a value for each field the template package declares. The project's own package declares owner name, phone, email and return address
+21. if return message is enabled: return-message languages, selecting as many as the theme accepts
+22. if return message is enabled: logo inclusion (`yes/no`)
+23. if logo is enabled: where the logo file comes from, as `003-input-sources.md` defines a file source (retry or explicit continue-without-logo when it cannot be obtained)
+
+Whether a package needs secrets at all is not asked: the installer asks the tool, which answers by building the plan the installation will carry out.
 
 ### Temporary Paths for Installer Staging
 
@@ -48,6 +52,12 @@ The installer asks for:
 ### Public Dotfiles Package
 
 When a public dotfiles package is enabled, the installer puts its content into `/dotfiles` and then runs `oparch-dotfiles-sync`. Where that content comes from — a directory, an archive or a repository — is defined in `003-input-sources.md`.
+
+It is the last thing the installation does, and it is judged long before it: the package is brought to the staging path while the form is still being answered, and `oparch-dotfiles-sync` is asked what it makes of it, for the hostname and the login users this installation is creating. A package it will not apply is refused there, with the disk untouched.
+
+What `/dotfiles` is left as — its modes, the default ACL that keeps them true, and the `safe.directory` entry that lets git work in a tree it does not own — is decided in `../../decisions/013-dotfiles-policy.md`.
+
+A map that declares secrets is given them as one encrypted store, defined in `../oparch-dotfiles-sync/002-secret-store-archive.md`. It is opened into the live staging path, which is memory, and copied into the target with the owner and modes the map format requires, before the tool runs.
 
 ### Bootstrap Package List
 

@@ -20,9 +20,13 @@ Which tools need one is not settled by this document and is not expected to stay
 
 What a tool without a host uses instead are the same `Shell` and `Files` ports every tool is written against, implemented over `baml.sys` and `baml.fs` and living beside the recording doubles in `005-baml-repository-layout.md`. Nothing above the port can tell which implementation is underneath, so the tests do not change and neither does the code being tested.
 
-### Only commands cross the bridge
+### Only commands cross the bridge, and one thing that is not one
 
 A host that exists is given the commands and nothing else. Touching a file is neither of the two things a host is for, so `Files` is implemented over `baml.fs` in every tool, hosted or not, and there is no host-side implementation of it to choose between.
+
+There is one exception, and it is the installer's `Secrets` port: opening the encrypted secret store an installation is handed. It crosses because BAML's standard library carries no cryptography of any kind — no cipher, no hash, no digest — so there is nowhere else for it to happen; and because the obvious alternative, running `age(1)`, is not available to a program. That command takes its passphrase from a terminal and from nowhere else, and given one it prints its prompt over whatever the host is drawing and waits.
+
+What crosses is the decryption alone. What comes out is an archive, and unpacking one is something this project already does through the shell, with the refusal of entries that would land outside where they are put, so the archive is handed back rather than opened on the far side. Being a port is what keeps the exception from spreading: nothing above it can tell what is underneath, so the day BAML grows cryptography, or the day this host is deleted, the implementation moves and the code that calls it does not change.
 
 There is one operation this costs: `baml.fs` has no `symlink` and no `chmod`, so the implementation over it runs `ln` and `chmod` as commands, and their failures arrive as an exit code where every other filesystem failure arrives as a message saying what went wrong. A host could call both as syscalls. That is not reason enough to put the filesystem behind a language boundary — it would move six operations across it to improve two — and the gap belongs to `baml.fs`, where it has been asked for.
 

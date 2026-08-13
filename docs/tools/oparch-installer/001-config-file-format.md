@@ -38,6 +38,12 @@ dotfiles:
   origin: git
   location: https://example.invalid/dotfiles.git
 
+secret_store:
+  archive:
+    origin: local
+    location: /run/oparch/media/sdb1/store.dfsec
+  passphrase: "sixteen words from the short list"
+
 return_message:
   template:
     origin: default
@@ -73,6 +79,9 @@ return_message:
 | `timezone` | A timezone the live system reports | yes |
 | `hostname` | Hostname | yes |
 | `dotfiles` | Source of the dotfiles package | no |
+| `secret_store` | The encrypted secret store, read only alongside `dotfiles` | no |
+| `secret_store.archive` | Source of the `.dfsec` file, as a file source | yes, within `secret_store` |
+| `secret_store.passphrase` | Non-empty string, what opens the archive | yes, within `secret_store` |
 | `return_message` | The return message values, as defined in `../oparch-return-message-render/002-values-format.md` | no |
 | `return_message.template` | Source of the template package | no, defaults to the project's package |
 | `return_message.theme` | Source of the theme, as defined in `../oparch-return-message-render/003-theme-format.md` | no, defaults to the project's theme |
@@ -146,10 +155,11 @@ The first problem found stops the run, and nothing is executed.
 - A source is written as an origin and a location, in the same shape the screens ask for, so that an installation performed either way is the same installation and the file can express every origin a picker can.
 - A text value YAML would read as a number is refused rather than converted, because converting it back to text gives the number's canonical form and not what was written: `+376000000` loses its `+`, and `1.10` its trailing zero, with nothing failing. A quoted value is one keystroke; a phone number that silently loses its country prefix is discovered when someone cannot call it.
 - Values are validated against the live system rather than only against their own syntax, because a well-formed file can still name a disk, a timezone or a template that does not exist.
+- `secret_store` is read only alongside `dotfiles` because nothing else uses one; a file carrying a store and no package describes an installation that would never open it, and saying so is better than opening it for nothing.
 - The file is validated completely before execution starts, because a configuration error found halfway through leaves a partially installed disk.
 
 ## Considerations
 
-- The file holds `shared_secret` in clear text. A file used for a real installation is as sensitive as the passphrase it contains, because that one secret unlocks the disk and every login user.
+- The file holds `shared_secret` in clear text, and `secret_store.passphrase` with it. A file used for a real installation is as sensitive as the secrets it contains: the first unlocks the disk and every login user, and the second opens every credential the dotfiles need.
 - A file written for one machine is not portable to another without review: `disk` names a device, and `console_keymap` and `timezone` describe where the machine is used.
 - The template package is resolved during validation, so a file naming one by URL only works where that URL is reachable, and one naming a `local` path only works where that path is, on the machine the installation runs from.

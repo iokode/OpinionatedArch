@@ -78,6 +78,7 @@ The `Specification` section uses free `###` subsections.
 - [oparch-password-rotate-interactive](tools/oparch-password-rotate-interactive/000-command.md)
 - [oparch-dotfiles-sync](tools/oparch-dotfiles-sync/000-command.md)
   - [Dotfiles Map Format](tools/oparch-dotfiles-sync/001-map-format.md)
+  - [Secret Store Archive](tools/oparch-dotfiles-sync/002-secret-store-archive.md)
 - [oparch-return-message-render](tools/oparch-return-message-render/000-command.md)
   - [Return Message Template Package Format](tools/oparch-return-message-render/001-template-package-format.md)
   - [Return Message Values Format](tools/oparch-return-message-render/002-values-format.md)

@@ -36,7 +36,7 @@ See [Disk Layout](../decisions/001-disk-layout.md).
 
 ## What the Installer Asks
 
-Prompts cover the target disk and install mode, microcode and GPU driver, swap sizes, login usernames, the shared secret, keymap, timezone, hostname, an optional public dotfiles package, and the optional pre-boot return message with its ownership fields, languages, and logo.
+The keymap is asked first, and applied to the console at once, so that everything after it is typed with it. The rest cover the target disk and install mode, microcode and GPU driver, swap sizes, login usernames, the shared secret, timezone, hostname, an optional public dotfiles package with the encrypted secret store its map may need, and the optional pre-boot return message with its ownership fields, languages, and logo.
 
 The complete prompt list, the bootstrap package set, and the services enabled before first boot are in [Installer Inputs and Bootstrap Baseline](../tools/oparch-installer/002-inputs-and-bootstrap-baseline.md).
 

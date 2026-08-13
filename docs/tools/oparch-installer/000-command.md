@@ -24,7 +24,9 @@ The exit status is `0` when the installation finished, and non-zero when it was 
 
 ## Interactive usage
 
-Without `--config`, the tool takes over the terminal and asks ten screens in order: target disk, install mode, hardware, swap, users, locale, identity, dotfiles, return message, and a summary.
+Without `--config`, the tool takes over the terminal and asks nine screens in order: keymap, target disk, data preservation, hardware, users, locale and identity, dotfiles, return message, and a summary.
+
+The keymap is first because it is the only answer that changes how every later answer is typed: it is applied to the console the moment it is given.
 
 The left pane lists the screens and marks which are done. The right pane shows the current one. Answers are validated as they are given, and an invalid answer is reported without leaving the screen.
 
