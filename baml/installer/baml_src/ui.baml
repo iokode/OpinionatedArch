@@ -182,8 +182,21 @@ class ScriptedUi {
     /// are a decision of the screen, so a test can hold them to it.
     limits: string[],
 
+    /// The next scripted answer, or backing out when the script says nothing.
+    ///
+    /// A script that has run out keeps answering `<back>`, which is what a test
+    /// wanting to step back scripts, so there is nothing to notice about the
+    /// first few. What has to be noticed is the end state: the first screen has
+    /// nowhere to go back to, so a form whose script ran out asks it again, and
+    /// again, for ever — allocating on every turn until the machine running the
+    /// test gives up. The ceiling is far above what any honest form test asks
+    /// and is reached in milliseconds by one that spins.
     function next(self) -> string {
-        self.answers.shift() ?? "<back>"
+        if let scripted: string = self.answers.shift() {
+            return scripted;
+        }
+        assert.is_true(self.asked.length() < 200);
+        "<back>"
     }
 
     implements Ui {
