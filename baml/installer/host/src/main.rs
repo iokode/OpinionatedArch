@@ -1717,6 +1717,8 @@ async fn run_unattended(
             move |program: String, args: Vec<String>, input: String| async move {
                 run_fed(program, args, input).await
             },
+        move |path: String| is_sealed(path),
+        move |sealed: String, passphrase: String, plain: String| unsealed(sealed, passphrase, plain),
         move |_phases: Vec<baml_sdk::Phase>| {},
         move |title: String| h_step.line(&title),
         move |message: String| h_action.line(&message),
@@ -1868,6 +1870,10 @@ async fn run_interactive(
                     logged(&host, run_fed(program, args, input).await)
                 }
             },
+            move |path: String| is_sealed(path),
+            move |sealed: String, passphrase: String, plain: String| {
+                unsealed(sealed, passphrase, plain)
+            },
             move |phases: Vec<baml_sdk::Phase>| h_outline.app.lock().unwrap().outline = phases,
             move |title: String| {
                 {
@@ -1889,7 +1895,16 @@ async fn run_interactive(
                 }
             },
             move |message: String| {
-                h_action.app.lock().unwrap().push_log(Said::Action, message);
+                // Outside an installation this belongs nowhere: the log is not
+                // on screen, and drawing the progress pane would put it there,
+                // over a form that is still being answered. `announce` says the
+                // same thing about commands, and this is the file operations.
+                let mut app = h_action.app.lock().unwrap();
+                if !app.installing {
+                    return;
+                }
+                app.push_log(Said::Action, message);
+                drop(app);
                 h_action.draw(progress_pane);
             },
             move |message: String| {
@@ -2160,6 +2175,52 @@ fn drain_stderr(child: &mut tokio::process::Child) -> tokio::task::JoinHandle<St
 
 /// Runs a command that reads from standard input. The input is written and the
 /// pipe closed, so a command waiting for end-of-input proceeds.
+/// Opens an encrypted secret store, writing what was inside it — still packed —
+/// to `plain`.
+///
+/// This is the one thing the host does that is neither the terminal nor a
+/// process, and it is here because BAML's standard library carries no
+/// cryptography and `age(1)` cannot be handed a passphrase by a program: it
+/// reads one from a terminal and from nowhere else, and given one it would
+/// print its prompt over the interface this binary is drawing. The passphrase
+/// therefore never leaves this process.
+fn unseal_store(sealed: &str, passphrase: &str, plain: &str) -> Result<(), String> {
+    use std::io::Read;
+
+    let bytes = std::fs::read(sealed).map_err(|e| format!("cannot read {sealed}: {e}"))?;
+    let decryptor = age::Decryptor::new(&bytes[..])
+        .map_err(|_| "That file is not an encrypted secret store.".to_string())?;
+    let identity = age::scrypt::Identity::new(age::secrecy::SecretString::from(
+        passphrase.to_owned(),
+    ));
+    let mut reader = decryptor
+        .decrypt(std::iter::once(&identity as &dyn age::Identity))
+        .map_err(|_| "The passphrase does not open the secret store.".to_string())?;
+
+    let mut opened = Vec::new();
+    reader
+        .read_to_end(&mut opened)
+        .map_err(|e| format!("cannot read the secret store: {e}"))?;
+    std::fs::write(plain, opened).map_err(|e| format!("cannot write {plain}: {e}"))
+}
+
+/// Whether a file is a sealed store at all. Nothing is decrypted: the header
+/// says it, which is why this can be asked before anyone has typed anything.
+fn is_sealed(path: String) -> bool {
+    match std::fs::read(&path) {
+        Ok(bytes) => age::Decryptor::new(&bytes[..]).is_ok(),
+        Err(_) => false,
+    }
+}
+
+/// The same, as the bridge takes it: what went wrong, or nothing.
+fn unsealed(sealed: String, passphrase: String, plain: String) -> String {
+    match unseal_store(&sealed, &passphrase, &plain) {
+        Ok(()) => String::new(),
+        Err(message) => message,
+    }
+}
+
 async fn run_fed(
     program: String,
     args: Vec<String>,

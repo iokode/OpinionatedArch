@@ -23,8 +23,8 @@ function list_disks(shell: root.common.Shell) -> DiskTarget[] {
 /// The config either comes from a file or from the person at the terminal.
 /// Both produce the same `InstallConfig`, and everything after this point is
 /// identical for the two.
-function resolve_config(shell: root.common.Shell, files: root.common.Files, ui: Ui,
-                        asset_dir: string, config_text: string?) -> InstallConfig? {
+function resolve_config(shell: root.common.Shell, files: root.common.Files, secrets: Secrets,
+                        ui: Ui, asset_dir: string, config_text: string?) -> InstallConfig? {
     if let text: string = config_text {
         //# non-interactive: the file is the answer to every question
         let parsed = parse_config_file(text);
@@ -32,14 +32,14 @@ function resolve_config(shell: root.common.Shell, files: root.common.Files, ui: 
             ui.error(parsed.error);
             return null;
         }
-        let problem = check_config(shell, files, parsed.config, asset_dir);
+        let problem = check_config(shell, files, secrets, parsed.config, asset_dir);
         if (problem != "") {
             ui.error(problem);
             return null;
         }
         return parsed.config;
     }
-    collect_config(shell, files, ui, asset_dir)
+    collect_config(shell, files, secrets, ui, asset_dir)
 }
 
 /// Where the system being installed is mounted while the installer runs.
@@ -95,6 +95,13 @@ function install_phases(config: InstallConfig) -> Phase[] {
                         done: "Initramfs built." });
     phases.push(Phase { to_do: "Bootloader", doing: "Installing the bootloader...",
                         done: "Bootloader installed." });
+    if (config.dotfiles != null) {
+        phases.push(Phase {
+            to_do: "Dotfiles",
+            doing: "Applying the dotfiles...",
+            done: "Dotfiles applied.",
+        });
+    }
     phases
 }
 
@@ -142,13 +149,19 @@ function run_phases(shell: root.common.Shell, files: root.common.Files, ui: Ui,
     let problem = run_phase(files, configure_initramfs(shell, files, ui, config, target));
     if (problem != "") { return problem; }
 
-    //# last, and the only one whose failure means the machine does not start
-    run_phase(files, configure_bootloader(shell, files, ui, config, target, asset_dir))
+    //# the one whose failure means the machine does not start
+    let problem = run_phase(files, configure_bootloader(shell, files, ui, config, target, asset_dir));
+    if (problem != "") { return problem; }
+
+    //# last: it expands over the users the fifth phase made, installs what its
+    //# map declares with the package manager the second one brought, and lays
+    //# a `grub/` directory of its own over the menu just written
+    run_phase(files, configure_dotfiles(shell, files, ui, config, target, live_staging_dir()))
 }
 
-function install(shell: root.common.Shell, files: root.common.Files, ui: Ui, asset_dir: string,
-                 config_text: string?) -> InstallSummary {
-    if let config: InstallConfig = resolve_config(shell, files, ui, asset_dir, config_text) {
+function install(shell: root.common.Shell, files: root.common.Files, secrets: Secrets, ui: Ui,
+                 asset_dir: string, config_text: string?) -> InstallSummary {
+    if let config: InstallConfig = resolve_config(shell, files, secrets, ui, asset_dir, config_text) {
         let problem = run_phases(shell, files, ui, config,
                                  root.common.chroot_target(install_root()), asset_dir)
             catch (e) { baml.errors.InvalidArgument => e.message };
@@ -174,6 +187,8 @@ function run_installer(
     on_capture: (string, string[]) -> root.common.CommandResult throws never,
     on_stream: (string, string[]) -> root.common.CommandResult throws never,
     on_feed: (string, string[], string) -> root.common.CommandResult throws never,
+    on_sealed: (string) -> bool throws never,
+    on_unseal: (string, string, string) -> string throws never,
     on_outline: (Phase[]) -> void throws never,
     on_step: (string) -> void throws never,
     on_action: (string) -> void throws never,
@@ -212,6 +227,7 @@ function run_installer(
             on_capture: on_capture, on_stream: on_stream, on_feed: on_feed,
         },
         AnnouncingFiles { inner: root.common.system_files(), ui: ui },
+        HostSecrets { on_sealed: on_sealed, on_unseal: on_unseal },
         ui,
         asset_dir,
         config_text,
@@ -230,7 +246,7 @@ test "a config file answers every question and the form is never shown" {
     };
     let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
-    let summary = install(shell, full_run_files(), ui, "/assets", full_config_text());
+    let summary = install(shell, full_run_files(), recording_secrets(), ui, "/assets", full_config_text());
 
     assert.equal(ui.asked, []);
     assert.equal(ui.errors, []);
@@ -248,7 +264,7 @@ test "a config file that cannot be used stops before anything runs" {
     };
     let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
-    let summary = install(shell, root.common.recording_files(), ui, "/assets", "disk: /dev/sda\nwat: 1\n");
+    let summary = install(shell, root.common.recording_files(), recording_secrets(), ui, "/assets", "disk: /dev/sda\nwat: 1\n");
 
     assert.equal(ui.errors, ["Unknown key in config file: wat"]);
     assert.equal(summary.exit_code, 130);
@@ -257,11 +273,11 @@ test "a config file that cannot be used stops before anything runs" {
 
 test "without a config file the form is asked" {
     let ui = scripted([
-        "/dev/sda (476,9G, Samsung SSD 860)", "wipe-all", "none", "none",
-        "0", "0", "ivan", "s", "s", "es", "UTC", "oparch", "no", "no", "start",
+        "es", "/dev/sda (476,9G, Samsung SSD 860)", "wipe-all", "none", "none",
+        "0", "0", "ivan", "s", "s", "UTC", "oparch", "no", "no", "start",
     ]);
 
-    let summary = install(fake_live_shell(), root.common.recording_files(), ui, "/assets", null);
+    let summary = install(fake_live_shell(), root.common.recording_files(), recording_secrets(), ui, "/assets", null);
 
     assert.equal(ui.steps.slice(0, step_names().length()), step_names());
     assert.equal(summary.disk, "/dev/sda")
@@ -292,7 +308,7 @@ function full_run_shell() -> root.common.RecordingShell {
 test "the phases run in order and the installation reports success" {
     let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
-    let summary = install(full_run_shell(), full_run_files(), ui, "/assets", full_config_text());
+    let summary = install(full_run_shell(), full_run_files(), recording_secrets(), ui, "/assets", full_config_text());
 
     assert.equal(summary.exit_code, 0);
     //# the step list and the phases are one list, read in two forms, and the
@@ -324,7 +340,7 @@ test "a return message adds its phase after swap, and the theme becomes the defa
     let shell = full_run_shell();
     let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
-    let summary = install(shell, full_run_message_files(), ui, "/assets", full_message_config_text());
+    let summary = install(shell, full_run_message_files(), recording_secrets(), ui, "/assets", full_message_config_text());
 
     assert.equal(summary.exit_code, 0);
     //# ten with the return message, which is the one phase that is optional
@@ -341,12 +357,40 @@ test "a return message adds its phase after swap, and the theme becomes the defa
         "arch-chroot /mnt plymouth-set-default-theme opinionatedarch"))
 }
 
+function full_dotfiles_config_text() -> string {
+    full_config_text()
+        + "dotfiles:\n  origin: git\n  location: \"https://example.invalid/dotfiles.git\"\n"
+}
+
+test "a dotfiles package adds its phase after the bootloader, and the tool is entered" {
+    let shell = full_run_shell();
+    let _ = shell.replies.set("which oparch-dotfiles-sync", "/usr/bin/oparch-dotfiles-sync\n");
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
+
+    let summary = install(shell, full_run_files(), recording_secrets(), ui, "/assets",
+                          full_dotfiles_config_text());
+
+    assert.equal(summary.exit_code, 0);
+    //# ten with the dotfiles, and it is the last of them
+    assert.equal(ui.outline.length(), 10);
+    assert.equal(ui.outline.at(9) ?? "", "Dotfiles");
+    assert.equal(ui.steps, install_phase_names(parse_config_file(full_dotfiles_config_text()).config));
+    //# cloned whole, judged before the disk was touched, and entered at the end
+    assert.is_true(shell.commands.includes(
+        "git clone https://example.invalid/dotfiles.git /tmp/oparch/dotfiles"));
+    assert.is_true(shell.commands.includes(
+        "oparch-dotfiles-sync --list-secrets --source /tmp/oparch/dotfiles --hostname oparch"
+            + " --user ivan"));
+    assert.equal(shell.commands.at(shell.commands.length() - 1) ?? "",
+                 "arch-chroot /mnt oparch-dotfiles-sync")
+}
+
 test "a phase that fails stops the ones after it" {
     let shell = full_run_shell();
     let _ = shell.exit_codes.set("arch-chroot /mnt locale-gen", 1);
     let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
-    let summary = install(shell, full_run_files(), ui, "/assets", full_config_text());
+    let summary = install(shell, full_run_files(), recording_secrets(), ui, "/assets", full_config_text());
 
     assert.equal(summary.exit_code, 1);
     assert.equal(ui.errors, ["locale-gen failed with exit code 1."]);
@@ -360,7 +404,7 @@ test "a file operation that fails stops the installation" {
     files.fails_with = "cannot write /mnt/etc/fstab: read-only file system";
     let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
-    let summary = install(full_run_shell(), files, ui, "/assets", full_config_text());
+    let summary = install(full_run_shell(), files, recording_secrets(), ui, "/assets", full_config_text());
 
     assert.equal(summary.exit_code, 1);
     assert.equal(ui.errors, ["cannot write /mnt/etc/fstab: read-only file system"]);

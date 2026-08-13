@@ -59,18 +59,7 @@ class LogoOutcome {
 /// file at `staged_logo_path`.
 function fetch_logo(shell: root.common.Shell, files: root.common.Files,
                     source: Source) -> string {
-    if (source.origin == "url") {
-        let downloaded = shell.capture("curl",
-            ["-fL", "--retry", "2", "--connect-timeout", "10", "-o", staged_logo_path(),
-             source.location]);
-        return root.common.must(downloaded, `Downloading the logo from ${source.location}`);
-    }
-
-    if (!files.exists(source.location)) {
-        return `The logo is not there: ${source.location}`;
-    }
-    let copied = shell.capture("cp", [source.location, staged_logo_path()]);
-    root.common.must(copied, `Copying the logo from ${source.location}`)
+    bring_file_here(shell, files, source, staged_logo_path(), "logo")
 }
 
 /// Brings the logo here, and asks when it cannot. A mistyped location and a

@@ -1,7 +1,7 @@
 //# collects everything before anything is written to disk
 
-function collect_config(shell: root.common.Shell, files: root.common.Files, ui: Ui,
-                        asset_dir: string) -> InstallConfig? {
+function collect_config(shell: root.common.Shell, files: root.common.Files, secrets: Secrets,
+                        ui: Ui, asset_dir: string) -> InstallConfig? {
     let config = empty_config();
     //# read once: what a question says about itself does not change while it
     //# is being answered
@@ -9,20 +9,22 @@ function collect_config(shell: root.common.Shell, files: root.common.Files, ui: 
     ui.outline(form_phases());
     let step = 0;
 
-    while (step <= 7) {
+    while (step <= 8) {
         let advanced = if (step == 0) {
-            step_disk(shell, ui, tips, config)
+            step_keymap(shell, ui, tips, config)
         } else if (step == 1) {
-            step_data_preservation(ui, tips, config)
+            step_disk(shell, ui, tips, config)
         } else if (step == 2) {
-            step_hardware(ui, tips, config)
+            step_data_preservation(ui, tips, config)
         } else if (step == 3) {
-            step_users(ui, tips, config)
+            step_hardware(ui, tips, config)
         } else if (step == 4) {
-            step_locale_and_identity(shell, ui, tips, config)
+            step_users(ui, tips, config)
         } else if (step == 5) {
-            step_dotfiles(ui, tips, config)
+            step_locale_and_identity(shell, ui, tips, config)
         } else if (step == 6) {
+            step_dotfiles(shell, files, secrets, ui, tips, config)
+        } else if (step == 7) {
             step_return_message(shell, files, ui, tips, config, asset_dir)
         } else {
             step_summary(ui, config)
@@ -48,7 +50,7 @@ function collect_config(shell: root.common.Shell, files: root.common.Files, ui: 
 /// title through `ui.step`, and a test keeps the two in agreement.
 function step_names() -> string[] {
     [
-        "Target disk", "Data preservation", "Hardware", "Users",
+        "Keymap", "Target disk", "Data preservation", "Hardware", "Users",
         "Locale and identity", "Dotfiles", "Return message", "Summary",
     ]
 }
@@ -64,6 +66,42 @@ function form_phases() -> Phase[] {
 }
 
 // ------------------------------------------------------------------ screens
+
+/// The keymap, before anything else is asked.
+///
+/// It comes first because it is the only answer that changes how every later
+/// answer is typed. Until it is applied, the console is whatever the live
+/// medium defaults to, and the questions worst served by that are the ones
+/// nobody can see themselves getting wrong: the shared secret, which unlocks
+/// the disk, and the passphrase of a secret store, which is the longest thing
+/// anyone types here. Both are masked.
+///
+/// Applying it is part of answering it. A keymap chosen and not applied is the
+/// state this screen exists to remove, so a `loadkeys` that fails is reported
+/// and the question asked again rather than accepted with a warning.
+function step_keymap(shell: root.common.Shell, ui: Ui, tips: Tips, config: InstallConfig) -> bool {
+    ui.step("Keymap");
+    let keymaps = list_keymaps(shell);
+
+    while (true) {
+        ui.tip(tip_for(tips, "keymap"));
+        if let picked: int = ui
+            .choose("Keymap", "Console keymap. Everything after this is typed with it.",
+                    keymaps, index_of_option(keymaps, config.console_keymap)) {
+            let chosen = keymaps.at(picked) ?? "";
+            let applied = root.common.must(shell.capture("loadkeys", [chosen]),
+                                           `Applying the ${chosen} keymap`);
+            if (applied == "") {
+                config.console_keymap = chosen;
+                return true;
+            }
+            ui.error(applied);
+        } else {
+            return false;
+        }
+    }
+    false
+}
 
 function step_disk(shell: root.common.Shell, ui: Ui, tips: Tips, config: InstallConfig) -> bool {
     ui.step("Target disk");
@@ -226,26 +264,12 @@ function step_locale_and_identity(shell: root.common.Shell, ui: Ui, tips: Tips,
                                   config: InstallConfig) -> bool {
     ui.step("Locale and identity");
     let title = "Locale and identity";
-    let keymaps = list_keymaps(shell);
     let timezones = list_timezones(shell);
-    let field = 0;
+    //# the keymap was the first thing asked, and is already in force
+    let field = 1;
 
     while (field < 3) {
-        if (field == 0) {
-            ui.tip(tip_for(tips, "keymap"));
-            if let picked: int = ui
-                .choose(
-                    title,
-                    "Console keymap.",
-                    keymaps,
-                    index_of_option(keymaps, config.console_keymap),
-                ) {
-                config.console_keymap = keymaps.at(picked) ?? "";
-                field = 1;
-            } else {
-                return false;
-            }
-        } else if (field == 1) {
+        if (field == 1) {
             ui.tip(tip_for(tips, "timezone"));
             if let picked: int = ui
                 .choose(
@@ -257,7 +281,7 @@ function step_locale_and_identity(shell: root.common.Shell, ui: Ui, tips: Tips,
                 config.timezone = timezones.at(picked) ?? "";
                 field = 2;
             } else {
-                field = 0;
+                return false;
             }
         } else {
             ui.tip(tip_for(tips, "hostname"));
@@ -423,14 +447,22 @@ function ask_source(ui: Ui, tips: Tips, note: string, title: string, prompt: str
     refused
 }
 
-function step_dotfiles(ui: Ui, tips: Tips, config: InstallConfig) -> bool {
+//# the package is brought here as it is chosen and judged by the tool that will
+//# have to apply it, so a package that cannot be applied is refused while there
+//# is still somebody to ask and a disk nobody has touched
+function step_dotfiles(shell: root.common.Shell, files: root.common.Files, secrets: Secrets,
+                       ui: Ui, tips: Tips, config: InstallConfig) -> bool {
     ui.step("Dotfiles");
+    let staging = live_staging_dir();
     let options = ["yes", "no"];
     let current = if (config.dotfiles == null) { 1 } else { 0 };
     let existing = config.dotfiles ?? source_at("git", "");
+    let store = config.secret_store
+        ?? SecretStoreInput { archive: source_at("local", ""), passphrase: "" };
+    let wanted: string[] = [];
     let field = 0;
 
-    while (field < 2) {
+    while (field < 4) {
         if (field == 0) {
             ui.tip(tip_for(tips, "dotfiles"));
             if let picked: int = ui
@@ -438,22 +470,83 @@ function step_dotfiles(ui: Ui, tips: Tips, config: InstallConfig) -> bool {
                 //# where it comes from is only asked for when there is one
                 if ((options.at(picked) ?? "") == "no") {
                     config.dotfiles = null;
+                    config.secret_store = null;
                     return true;
                 }
                 field = 1;
             } else {
                 return false;
             }
-        } else {
+        } else if (field == 1) {
             //# the project ships no dotfiles, so its own is not among the origins
             let answered = ask_source(ui, tips, "dotfiles_source", "Dotfiles",
                                       "Where the dotfiles package comes from.",
                                       supplied_package_origins(), true, existing);
-            if (answered.answered) {
-                config.dotfiles = answered.source;
-                field = 2;
-            } else {
+            if (!answered.answered) {
                 field = 0;
+            } else {
+                existing = answered.source;
+                let judged = resolve_dotfiles(shell, files, config, answered.source, staging);
+                if (judged.error != "") {
+                    ui.error(judged.error);
+                } else {
+                    config.dotfiles = answered.source;
+                    wanted = judged.files;
+                    //# a map that declares no secrets is never asked for any
+                    if (wanted.length() == 0) {
+                        config.secret_store = null;
+                        return true;
+                    }
+                    field = 2;
+                }
+            }
+        } else if (field == 2) {
+            let answered = ask_source(ui, tips, "dotfiles_secrets", "Dotfiles",
+                                      "Where the encrypted secret store comes from.",
+                                      file_origins(), false, store.archive);
+            if (!answered.answered) {
+                field = 1;
+            } else {
+                let brought = bring_file_here(shell, files, answered.source,
+                                              staged_store_path(staging), "secret store");
+                if (brought != "") {
+                    ui.error(brought);
+                } else if (!secrets.sealed(staged_store_path(staging))) {
+                    //# asked of the file rather than of the passphrase, because
+                    //# the answer to this is another file, and there is no sense
+                    //# in typing a passphrase to be told that. It is named as
+                    //# the operator named it, not as the copy of it here.
+                    ui.error(`Not an encrypted secret store: ${answered.source.location}`);
+                } else {
+                    store.archive = answered.source;
+                    field = 3;
+                }
+            }
+        } else {
+            //# the passphrase proves itself: what it opens is either what the
+            //# map asked for or nothing at all, so it is asked once and asked
+            //# again when it fails, and never confirmed against a second copy
+            ui.tip(tip_for(tips, "dotfiles_secrets"));
+            if let given: string = ui.text("Dotfiles", "Passphrase for the secret store", "", true) {
+                let failure = open_secret_store(shell, files, secrets, given, staging);
+                if (failure != "") {
+                    ui.error(failure);
+                } else {
+                    let refused = check_staged_secrets(shell, config, staging);
+                    if (refused != "") {
+                        //# it opened, and what came out is not what is needed:
+                        //# the answer to that is another archive, not another
+                        //# attempt at the same one
+                        ui.error(refused);
+                        field = 2;
+                    } else {
+                        store.passphrase = given;
+                        config.secret_store = store;
+                        return true;
+                    }
+                }
+            } else {
+                field = 2;
             }
         }
     }
@@ -646,7 +739,7 @@ function scripted(answers: string[]) -> ScriptedUi {
 test "the form walks every screen and collects the whole config" {
     let ui = scripted(
         [
-            "/dev/sda (476,9G, Samsung SSD 860)", // target disk
+            "es", "/dev/sda (476,9G, Samsung SSD 860)", // target disk
             "wipe-all", // install mode
             "amd-ucode",
             "none", // hardware
@@ -655,8 +748,7 @@ test "the form walks every screen and collects the whole config" {
             "ivan",
             "hunter2",
             "hunter2", // users
-            "es",
-            "Europe/Madrid", // locale
+                        "Europe/Madrid", // locale
             "oparch", // hostname
             "no", // dotfiles
             "no", // return message
@@ -664,7 +756,7 @@ test "the form walks every screen and collects the whole config" {
         ],
     );
 
-    let config = collect_config(fake_live_shell(), packaged_files(), ui, "/assets");
+    let config = collect_config(fake_live_shell(), packaged_files(), recording_secrets(), ui, "/assets");
 
     assert.not_null(config);
     assert.equal(ui.errors, []);
@@ -695,7 +787,7 @@ test "the form walks every screen and collects the whole config" {
 test "where the dotfiles come from is asked for only when there are any" {
     let ui = scripted(
         [
-            "/dev/sda (476,9G, Samsung SSD 860)",
+            "es", "/dev/sda (476,9G, Samsung SSD 860)",
             "wipe-all",
             "none",
             "none",
@@ -704,8 +796,7 @@ test "where the dotfiles come from is asked for only when there are any" {
             "ivan",
             "s",
             "s",
-            "es",
-            "UTC",
+                        "UTC",
             "oparch",
             "yes",
             "a git repository", // dotfiles: the origin is answered, not guessed
@@ -715,7 +806,7 @@ test "where the dotfiles come from is asked for only when there are any" {
         ],
     );
 
-    let config = collect_config(fake_live_shell(), packaged_files(), ui, "/assets");
+    let config = collect_config(fake_live_shell(), packaged_files(), recording_secrets(), ui, "/assets");
 
     if let collected: InstallConfig = config {
         if let dotfiles: Source = collected.dotfiles {
@@ -725,10 +816,164 @@ test "where the dotfiles come from is asked for only when there are any" {
     }
 }
 
+/// What the tool is asked while the form is being answered, as the recording
+/// shell writes the two command lines down.
+function listing_command() -> string {
+    "oparch-dotfiles-sync --list-secrets --source /tmp/oparch/dotfiles --hostname oparch"
+        + " --user ivan"
+}
+
+function confirming_command() -> string {
+    "oparch-dotfiles-sync --dry-run --source /tmp/oparch/dotfiles --hostname oparch --user ivan"
+        + " --secrets-root /tmp/oparch/secrets"
+}
+
+/// The answers up to the dotfiles screen, for a machine called `oparch` with
+/// one login user.
+function up_to_dotfiles() -> string[] {
+    [
+        "es", "/dev/sda (476,9G, Samsung SSD 860)", "wipe-all", "none", "none", "0", "0",
+        "ivan", "s", "s", "UTC", "oparch",
+    ]
+}
+
+test "the keymap is asked first, and in force before anything else is typed" {
+    let shell = fake_live_shell();
+    let ui = scripted(up_to_dotfiles().concat(["no", "no", "start"]));
+
+    let config = collect_config(shell, packaged_files(), recording_secrets(), ui, "/assets");
+
+    //# the list is read, the choice is applied, and only then is anything else
+    //# even looked at — the disk is the next thing the installer asks the system
+    assert.equal(shell.commands.slice(0, 3),
+                 ["localectl list-keymaps", "loadkeys es", "lsblk -dpno NAME,TYPE"]);
+    assert.equal(ui.steps.at(0) ?? "", "Keymap");
+    if let collected: InstallConfig = config {
+        assert.equal(collected.console_keymap, "es")
+    }
+}
+
+test "a keymap that cannot be applied is reported, and another one is asked for" {
+    let shell = fake_live_shell();
+    let _ = shell.exit_codes.set("loadkeys es", 1);
+    let ui = scripted(
+        ["es", "us"].concat(up_to_dotfiles().slice(1, up_to_dotfiles().length()))
+            .concat(["no", "no", "start"]));
+
+    let config = collect_config(shell, packaged_files(), recording_secrets(), ui, "/assets");
+
+    //# not a warning: a keymap that was chosen and not applied is the state this
+    //# screen exists to remove, so it is not an answer the form accepts
+    assert.equal(ui.errors, ["Applying the es keymap failed with exit code 1."]);
+    if let collected: InstallConfig = config {
+        assert.equal(collected.console_keymap, "us")
+    }
+}
+
+test "a package the tool refuses is reported in its words and asked again" {
+    let shell = fake_live_shell();
+    let _ = shell.exit_codes.set(listing_command(), 1);
+    let ui = scripted(
+        up_to_dotfiles().concat([
+            "yes",
+            "a git repository",
+            "https://example.invalid/dotfiles.git", // refused by the tool
+            "<back>", // so the screen asks again, and the operator gives up
+            "no",
+            "no", "start",
+        ]));
+
+    let config = collect_config(shell, packaged_files(), recording_secrets(), ui, "/assets");
+
+    //# the recording shell carries no standard error, so what is relayed is that
+    //# it was refused at all; what it said is covered where a result can carry it
+    assert.equal(ui.errors,
+                 ["The dotfiles package was refused, without saying why (exit code 1)."]);
+    //# a package the tool will not have is not one the installation carries
+    if let collected: InstallConfig = config {
+        assert.is_true(collected.dotfiles == null);
+        assert.is_true(collected.secret_store == null)
+    }
+}
+
+test "a map that declares secrets is given a store, and the store is opened" {
+    let shell = fake_live_shell();
+    let _ = shell.replies.set(listing_command(), "global/github.token\nuser/ivan/backup.key\n");
+    let secrets = recording_secrets();
+    let ui = scripted(
+        up_to_dotfiles().concat([
+            "yes",
+            "a git repository",
+            "https://example.invalid/dotfiles.git",
+            "a URL", // the store is one file, so it is asked for as one
+            "https://example.invalid/store.dfsec",
+            "sixteen words from the short list",
+            "no", "start",
+        ]));
+
+    let config = collect_config(shell, packaged_files(), secrets, ui, "/assets");
+
+    assert.equal(secrets.opened, ["/tmp/oparch/store.dfsec -> /tmp/oparch/store.tar"]);
+    //# opened, unpacked, and then held to what the map asked for
+    assert.is_true(shell.commands.includes("tar -xf /tmp/oparch/store.tar -C /tmp/oparch/secrets"));
+    assert.is_true(shell.commands.includes(confirming_command()));
+    if let collected: InstallConfig = config {
+        if let store: SecretStoreInput = collected.secret_store {
+            assert.equal(store.archive.origin, "url");
+            assert.equal(store.passphrase, "sixteen words from the short list")
+        }
+    }
+}
+
+test "a file that is not a store is refused before a passphrase is asked for" {
+    let shell = fake_live_shell();
+    let _ = shell.replies.set(listing_command(), "global/github.token\n");
+    let secrets = recording_secrets();
+    let _ = secrets.unsealed.push("/tmp/oparch/store.dfsec");
+    let ui = scripted(
+        up_to_dotfiles().concat([
+            "yes", "a git repository", "https://example.invalid/dotfiles.git",
+            "a URL", "https://example.invalid/not-a-store.png",
+            "<back>", "<back>", "no", "no", "start",
+        ]));
+
+    let _ = collect_config(shell, packaged_files(), secrets, ui, "/assets");
+
+    //# named as the operator named it, not as the copy of it in the staging path
+    assert.equal(ui.errors,
+                 ["Not an encrypted secret store: https://example.invalid/not-a-store.png"]);
+    //# and nothing was opened, because nothing was typed to open it with
+    assert.equal(secrets.opened, [])
+}
+
+test "a passphrase that does not open the store is asked again" {
+    let shell = fake_live_shell();
+    let _ = shell.replies.set(listing_command(), "global/github.token\n");
+    let secrets = recording_secrets();
+    let _ = secrets.refusals.set("/tmp/oparch/store.dfsec",
+                                 "The passphrase does not open the secret store.");
+    let ui = scripted(
+        up_to_dotfiles().concat([
+            "yes", "a git repository", "https://example.invalid/dotfiles.git",
+            "a URL", "https://example.invalid/store.dfsec",
+            "wrong words", // refused, and asked again rather than confirmed
+            "<back>", // the operator gives up on the passphrase,
+            "<back>", // on the archive,
+            "<back>", // and on the package
+            "no", "no", "start",
+        ]));
+
+    let _ = collect_config(shell, packaged_files(), secrets, ui, "/assets");
+
+    assert.equal(ui.errors, ["The passphrase does not open the secret store."]);
+    //# asked once, not confirmed against a second copy of itself
+    assert.equal(secrets.opened.length(), 1)
+}
+
 test "the return message asks the fields the template package declares" {
     let ui = scripted(
         [
-            "/dev/sda (476,9G, Samsung SSD 860)",
+            "es", "/dev/sda (476,9G, Samsung SSD 860)",
             "wipe-all",
             "none",
             "none",
@@ -737,8 +982,7 @@ test "the return message asks the fields the template package declares" {
             "ivan",
             "s",
             "s",
-            "es",
-            "UTC",
+                        "UTC",
             "oparch",
             "no",
             "yes", // include return message
@@ -752,7 +996,7 @@ test "the return message asks the fields the template package declares" {
         ],
     );
 
-    let config = collect_config(fake_live_shell(), packaged_files(), ui, "/assets");
+    let config = collect_config(fake_live_shell(), packaged_files(), recording_secrets(), ui, "/assets");
 
     assert.not_null(config);
     if let collected: InstallConfig = config {
@@ -769,14 +1013,14 @@ test "the return message asks the fields the template package declares" {
 test "the package's notice is shown before its fields are asked" {
     let ui = scripted(
         [
-            "/dev/sda (476,9G, Samsung SSD 860)", "wipe-all", "none", "none", "0", "0",
-            "ivan", "s", "s", "es", "UTC", "oparch", "no",
+            "es", "/dev/sda (476,9G, Samsung SSD 860)", "wipe-all", "none", "none", "0", "0",
+            "ivan", "s", "s", "UTC", "oparch", "no",
             "yes", "the one this project ships", "the one this project ships",
             "Ivan", "666", "Español (es)", "no", "start",
         ],
     );
 
-    let _ = collect_config(fake_live_shell(), packaged_files(), ui, "/assets");
+    let _ = collect_config(fake_live_shell(), packaged_files(), recording_secrets(), ui, "/assets");
 
     assert.is_true(ui.errors.includes("Every contact field is optional."))
 }
@@ -784,8 +1028,8 @@ test "the package's notice is shown before its fields are asked" {
 test "a template package that cannot be read is reported and asked again" {
     let ui = scripted(
         [
-            "/dev/sda (476,9G, Samsung SSD 860)", "wipe-all", "none", "none", "0", "0",
-            "ivan", "s", "s", "es", "UTC", "oparch", "no",
+            "es", "/dev/sda (476,9G, Samsung SSD 860)", "wipe-all", "none", "none", "0", "0",
+            "ivan", "s", "s", "UTC", "oparch", "no",
             "yes",
             "a directory or a .tar on this machine",
             "/nowhere", // a package that is not there
@@ -798,7 +1042,7 @@ test "a template package that cannot be read is reported and asked again" {
     //# neither a directory nor a file, which is what makes it unreachable
     let _ = shell.exit_codes.set("test -d /nowhere", 1);
 
-    let config = collect_config(shell, packaged_files(), ui, "/assets");
+    let config = collect_config(shell, packaged_files(), recording_secrets(), ui, "/assets");
 
     //# the location the operator gave, not the staging path it never reached
     assert.is_true(ui.errors.includes("The template package is not there: /nowhere"));
@@ -808,8 +1052,8 @@ test "a template package that cannot be read is reported and asked again" {
 test "the theme is asked for beside the package, and kept as it was named" {
     let ui = scripted(
         [
-            "/dev/sda (476,9G, Samsung SSD 860)", "wipe-all", "none", "none", "0", "0",
-            "ivan", "s", "s", "es", "UTC", "oparch", "no",
+            "es", "/dev/sda (476,9G, Samsung SSD 860)", "wipe-all", "none", "none", "0", "0",
+            "ivan", "s", "s", "UTC", "oparch", "no",
             "yes",
             "the one this project ships", // template package
             "a directory or a .tar on this machine",
@@ -825,7 +1069,7 @@ test "the theme is asked for beside the package, and kept as it was named" {
     let shell = fake_live_shell();
     let _ = shell.exit_codes.set("test -d /nowhere", 1);
 
-    let config = collect_config(shell, files, ui, "/assets");
+    let config = collect_config(shell, files, recording_secrets(), ui, "/assets");
 
     assert.is_true(ui.errors.includes("The theme is not there: /nowhere"));
     assert.not_null(config);
@@ -841,8 +1085,8 @@ test "the theme is asked for beside the package, and kept as it was named" {
 test "the languages the picker takes are the ones the theme lays out" {
     let ui = scripted(
         [
-            "/dev/sda (476,9G, Samsung SSD 860)", "wipe-all", "none", "none", "0", "0",
-            "ivan", "s", "s", "es", "UTC", "oparch", "no",
+            "es", "/dev/sda (476,9G, Samsung SSD 860)", "wipe-all", "none", "none", "0", "0",
+            "ivan", "s", "s", "UTC", "oparch", "no",
             "yes", "the one this project ships", "the one this project ships", "Ivan", "666",
             "Español (es), Català (ca), English (en)", // three, which the theme has no arrangement for
             "Español (es), Català (ca)",
@@ -850,7 +1094,7 @@ test "the languages the picker takes are the ones the theme lays out" {
         ],
     );
 
-    let config = collect_config(fake_live_shell(), three_language_files(), ui, "/assets");
+    let config = collect_config(fake_live_shell(), three_language_files(), recording_secrets(), ui, "/assets");
 
     //# four is the largest the theme lays out, not a number the installer holds
     assert.equal(ui.limits, ["1 to 4", "1 to 4"]);
@@ -866,20 +1110,20 @@ test "the languages the picker takes are the ones the theme lays out" {
 test "a screen offers the note the assets hold for the question it is asking" {
     let ui = scripted(
         [
-            "/dev/sda (476,9G, Samsung SSD 860)", "wipe-all", "none", "none", "0", "0",
-            "ivan", "s", "s", "es", "UTC", "oparch", "no", "no", "start",
+            "es", "/dev/sda (476,9G, Samsung SSD 860)", "wipe-all", "none", "none", "0", "0",
+            "ivan", "s", "s", "UTC", "oparch", "no", "no", "start",
         ],
     );
     let files = packaged_files();
     files.write("/assets/installer-tips.yaml",
                 "gpu:\n  - \"which driver, and why\"\nhostname:\n  - \"what to call it\"\n");
 
-    let _ = collect_config(fake_live_shell(), files, ui, "/assets");
+    let _ = collect_config(fake_live_shell(), files, recording_secrets(), ui, "/assets");
 
     //# one note per question asked, whether or not the assets hold one
     assert.equal(ui.tips.length(), ui.asked.length() - 1);
-    //# the fourth question is the GPU driver, and the twelfth the hostname
-    assert.equal(ui.tips.at(3), "which driver, and why");
+    //# the fifth question is the GPU driver, and the twelfth the hostname
+    assert.equal(ui.tips.at(4), "which driver, and why");
     assert.equal(ui.tips.at(11), "what to call it");
     //# a question the file says nothing about is asked without a note
     assert.equal(ui.tips.at(0), "")
@@ -888,6 +1132,7 @@ test "a screen offers the note the assets hold for the question it is asking" {
 test "going back re-asks the previous screen" {
     let ui = scripted(
         [
+            "es", // keymap
             "/dev/sda (476,9G, Samsung SSD 860)", // disk
             "<back>", // back out of install mode
             "/dev/sda (476,9G, Samsung SSD 860)", // disk again
@@ -899,7 +1144,6 @@ test "going back re-asks the previous screen" {
             "ivan",
             "s",
             "s",
-            "es",
             "UTC",
             "oparch",
             "no",
@@ -908,31 +1152,32 @@ test "going back re-asks the previous screen" {
         ],
     );
 
-    let config = collect_config(fake_live_shell(), packaged_files(), ui, "/assets");
+    let config = collect_config(fake_live_shell(), packaged_files(), recording_secrets(), ui, "/assets");
 
     assert.not_null(config);
-    assert.equal(ui.steps.slice(0, 3), ["Target disk", "Data preservation", "Target disk"])
+    assert.equal(ui.steps.slice(1, 4), ["Target disk", "Data preservation", "Target disk"])
 }
 
 test "backing out of the first screen asks it again rather than leaving" {
     let ui = scripted(
         [
             "<back>", // there is nowhere behind it
-            "/dev/sda (476,9G, Samsung SSD 860)", "wipe-all", "none", "none", "0", "0",
-            "ivan", "s", "s", "es", "UTC", "oparch", "no", "no", "start",
+            "es", "/dev/sda (476,9G, Samsung SSD 860)", "wipe-all", "none", "none", "0", "0",
+            "ivan", "s", "s", "UTC", "oparch", "no", "no", "start",
         ],
     );
 
-    let config = collect_config(fake_live_shell(), packaged_files(), ui, "/assets");
+    let config = collect_config(fake_live_shell(), packaged_files(), recording_secrets(), ui, "/assets");
 
     assert.not_null(config);
-    assert.equal(ui.steps.slice(0, 2), ["Target disk", "Target disk"])
+    //# the first screen is the keymap now, and it is the one with nothing behind it
+    assert.equal(ui.steps.slice(0, 2), ["Keymap", "Keymap"])
 }
 
 test "an invalid hostname is rejected and asked again" {
     let ui = scripted(
         [
-            "/dev/sda (476,9G, Samsung SSD 860)",
+            "es", "/dev/sda (476,9G, Samsung SSD 860)",
             "wipe-all",
             "none",
             "none",
@@ -941,8 +1186,7 @@ test "an invalid hostname is rejected and asked again" {
             "ivan",
             "s",
             "s",
-            "es",
-            "UTC",
+                        "UTC",
             "-nope",
             "still bad",
             "oparch", // hostname: two rejections
@@ -952,7 +1196,7 @@ test "an invalid hostname is rejected and asked again" {
         ],
     );
 
-    let config = collect_config(fake_live_shell(), packaged_files(), ui, "/assets");
+    let config = collect_config(fake_live_shell(), packaged_files(), recording_secrets(), ui, "/assets");
 
     assert.equal(ui.errors, ["Invalid hostname format.", "Invalid hostname format."]);
     if let collected: InstallConfig = config {
@@ -963,7 +1207,7 @@ test "an invalid hostname is rejected and asked again" {
 test "swap sizes must be integers, and users must confirm the secret" {
     let ui = scripted(
         [
-            "/dev/sda (476,9G, Samsung SSD 860)",
+            "es", "/dev/sda (476,9G, Samsung SSD 860)",
             "wipe-all",
             "none",
             "none",
@@ -975,8 +1219,7 @@ test "swap sizes must be integers, and users must confirm the secret" {
             "other", // the confirmation does not match
             "one",
             "one", // so both are asked again, and this time they agree
-            "es",
-            "UTC",
+                        "UTC",
             "oparch",
             "no",
             "no",
@@ -984,7 +1227,7 @@ test "swap sizes must be integers, and users must confirm the secret" {
         ],
     );
 
-    let config = collect_config(fake_live_shell(), packaged_files(), ui, "/assets");
+    let config = collect_config(fake_live_shell(), packaged_files(), recording_secrets(), ui, "/assets");
 
     assert
         .equal(
@@ -1000,7 +1243,7 @@ test "swap sizes must be integers, and users must confirm the secret" {
 test "an invalid username is reported with the offending name" {
     let ui = scripted(
         [
-            "/dev/sda (476,9G, Samsung SSD 860)",
+            "es", "/dev/sda (476,9G, Samsung SSD 860)",
             "wipe-all",
             "none",
             "none",
@@ -1010,8 +1253,7 @@ test "an invalid username is reported with the offending name" {
             "ivan",
             "s",
             "s", // rejected, then accepted
-            "es",
-            "UTC",
+                        "UTC",
             "oparch",
             "no",
             "no",
@@ -1019,7 +1261,7 @@ test "an invalid username is reported with the offending name" {
         ],
     );
 
-    let config = collect_config(fake_live_shell(), packaged_files(), ui, "/assets");
+    let config = collect_config(fake_live_shell(), packaged_files(), recording_secrets(), ui, "/assets");
 
     assert.equal(ui.errors, ["Invalid username: Ivan"]);
     if let collected: InstallConfig = config {

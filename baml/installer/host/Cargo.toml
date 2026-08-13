@@ -14,6 +14,7 @@ crossterm = "0.29"
 ratatui = "0.29"
 tokio = { version = "1", features = ["full"] }
 libc = "0.2"
+age = "0.12"
 
 # baml_sdk is generated as its own workspace root; consume it as a path
 # dependency and keep it out of this one.

@@ -39,6 +39,18 @@ function empty_return_message_input() -> ReturnMessageInput {
     }
 }
 
+/// The encrypted secret store an installation is given, for a dotfiles map
+/// that declares secrets. One file and the passphrase that opens it.
+///
+/// The passphrase is here because the values it protects have to reach the
+/// machine before its first boot, and there is no other moment at which anyone
+/// is present to give it. It is never written anywhere the installation leaves
+/// behind, and never shown.
+class SecretStoreInput {
+    archive: Source,
+    passphrase: string,
+}
+
 class InstallConfig {
     disk: string,
     install_mode: string,
@@ -53,6 +65,9 @@ class InstallConfig {
     hostname: string,
     /// Absent when no dotfiles package is taken.
     dotfiles: Source?,
+    /// Absent when the dotfiles map needs no secrets, and absent whenever the
+    /// package is.
+    secret_store: SecretStoreInput?,
     /// Absent when there is no pre-boot return message.
     return_message: ReturnMessageInput?,
     /// Read from the disk once it is partitioned; not part of the file.
@@ -73,6 +88,7 @@ function empty_config() -> InstallConfig {
         timezone: "",
         hostname: "",
         dotfiles: null,
+        secret_store: null,
         return_message: null,
         root_part_uuid: "",
     }
@@ -123,6 +139,10 @@ function summary_rows(config: InstallConfig) -> SummaryRow[] {
 
     if let dotfiles: Source = config.dotfiles {
         rows.push(row("dotfiles package", describe_source(dotfiles)));
+        //# the archive is named; what opens it is not, here or anywhere else
+        if let store: SecretStoreInput = config.secret_store {
+            rows.push(nested_row("secret store", describe_source(store.archive)));
+        }
     } else {
         rows.push(row("dotfiles package", "none"));
     }
