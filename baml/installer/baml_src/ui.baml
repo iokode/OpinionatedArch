@@ -304,3 +304,43 @@ test "index_of_option restores a selection and falls back to the first row" {
     assert.equal(index_of_option(["wipe-all", "keep-homes"], "nonsense"), 0);
     assert.equal(index_of_option([], "anything"), 0)
 }
+
+/// A filesystem that says what it did, in the words of what it did.
+///
+/// The port underneath performs the operation; this only speaks. It exists
+/// because files are no longer touched by the host, so the host cannot see them
+/// go by and log them the way it logs commands.
+///
+/// Only what changes the target is announced. Reading a file, or asking whether
+/// one is there, changes nothing, and a log of every question asked is a log
+/// nobody reads.
+class AnnouncingFiles {
+    inner: root.common.Files,
+    ui: Ui,
+
+    implements root.common.Files {
+        function failure(self) -> string? { self.inner.failure() }
+        function read(self, path: string) -> string? { self.inner.read(path) }
+        function exists(self, path: string) -> bool { self.inner.exists(path) }
+        function read_dir(self, path: string) -> root.common.DirEntry[]? {
+            self.inner.read_dir(path)
+        }
+
+        function write(self, path: string, content: string) -> void {
+            self.ui.action(`Write '${path}'`);
+            self.inner.write(path, content);
+        }
+        function mkdir(self, path: string) -> void {
+            self.ui.action(`Mkdir '${path}'`);
+            self.inner.mkdir(path);
+        }
+        function symlink(self, path: string, points_to: string) -> void {
+            self.ui.action(`Symlink '${path}' to '${points_to}'`);
+            self.inner.symlink(path, points_to);
+        }
+        function chmod(self, path: string, mode: string) -> void {
+            self.ui.action(`Chmod '${mode}' on '${path}'`);
+            self.inner.chmod(path, mode);
+        }
+    }
+}

@@ -254,20 +254,16 @@ test "the environment a shell adds is really added, not put in place of the rest
 /// Used so a phase reads as a sequence of checked steps: a command whose
 /// failure is ignored is a command that corrupts the next one silently.
 ///
-/// Everything the command said on standard error is carried, in full and in
-/// order. What went wrong is not always in the first line or in the last one,
-/// and a message that keeps one of them decides for the reader which part of
-/// the failure mattered. What it wrote to standard output stays in the log,
-/// where the verbose level governs it.
+/// The message says what failed and nothing else. What the command wrote is on
+/// the result, for the caller to put wherever it puts such things: a command
+/// that fails can write thousands of lines, and a message that carries them is
+/// unreadable exactly when it is most needed. A caller with somewhere to put
+/// them shows them there; one with nowhere puts them in the message itself.
 function must(result: CommandResult, what: string) -> string {
-    if (result.exit_code == 0) {
-        return "";
-    }
-    let complaint = nonempty_lines(result.stderr);
-    if (complaint.length() == 0) {
+    if (result.exit_code != 0) {
         return `${what} failed with exit code ${result.exit_code}.`;
     }
-    `${what} failed with exit code ${result.exit_code}:` + "\n" + complaint.join("\n")
+    ""
 }
 
 test "must reports the failure and stays quiet on success" {
@@ -276,7 +272,7 @@ test "must reports the failure and stays quiet on success" {
                  "mount failed with exit code 32.")
 }
 
-test "must carries every line of what the command complained about" {
+test "the message says what failed, and leaves what it said on the result" {
     let refused = CommandResult {
         exit_code: 1,
         stdout: "resolving dependencies...\n",
@@ -284,17 +280,12 @@ test "must carries every line of what the command complained about" {
     };
 
     assert.equal(must(refused, "Installing the base system"),
-                 "Installing the base system failed with exit code 1:\n"
-                     + "error: target not found: ipxe\n"
-                     + "error: failed to commit transaction");
+                 "Installing the base system failed with exit code 1.");
 
-    //# what it printed to standard output belongs to the log, not to the message
-    assert.is_true(!must(refused, "Installing the base system").includes("resolving"))
-}
-
-test "a command that fails without a word is still reported" {
-    assert.equal(must(CommandResult { exit_code: 1, stdout: "", stderr: "  \n\n" }, "cp"),
-                 "cp failed with exit code 1.")
+    //# neither stream is in the message. A failing package manager writes
+    //# thousands of lines, and a caller that wants them has them here
+    assert.is_true(!must(refused, "Installing the base system").includes("ipxe"));
+    assert.is_true(refused.stderr.includes("target not found"))
 }
 
 // ------------------------------------------------- running against a target

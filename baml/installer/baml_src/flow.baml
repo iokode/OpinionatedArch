@@ -193,12 +193,7 @@ function run_installer(
     //# does it here. `system_files()` is built once for the whole run: the
     //# first failure among the operations is asked for once per phase, and it
     //# has to survive until it is asked.
-    install(
-        root.common.HostShell {
-            on_capture: on_capture, on_stream: on_stream, on_feed: on_feed,
-        },
-        root.common.system_files(),
-        HostUi {
+    let ui = HostUi {
             on_outline: on_outline,
             on_step: on_step,
             on_action: on_action,
@@ -211,7 +206,13 @@ function run_installer(
             on_pick_package: on_pick_package,
             on_pick_file: on_pick_file,
             on_review: on_review,
+    };
+    install(
+        root.common.HostShell {
+            on_capture: on_capture, on_stream: on_stream, on_feed: on_feed,
         },
+        AnnouncingFiles { inner: root.common.system_files(), ui: ui },
+        ui,
         asset_dir,
         config_text,
     )

@@ -51,3 +51,26 @@ function absorb_file_failure(files: root.common.Files, diag: Diagnostics) -> nul
     }
     null
 }
+
+/// Records a command that failed: what was being done, and then what it said.
+///
+/// This tool has no log and no verbose level to put the second part behind, so
+/// the message it prints is the only thing an operator ever sees. A caller with
+/// somewhere else to show a command's output keeps its messages to the first
+/// part; this one has nowhere, so it carries both.
+///
+/// Answers true when there was a failure to record.
+function report_failed(diag: Diagnostics, result: root.common.CommandResult,
+                       what: string) -> bool {
+    let problem = root.common.must(result, what);
+    if (problem == "") {
+        return false;
+    }
+    let said = root.common.nonempty_lines(result.stderr);
+    if (said.length() == 0) {
+        diag.report(problem);
+    } else {
+        diag.report(problem + "\n" + said.join("\n"));
+    }
+    true
+}

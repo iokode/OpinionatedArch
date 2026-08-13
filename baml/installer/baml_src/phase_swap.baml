@@ -25,14 +25,12 @@ function configure_swap(shell: root.common.Shell, files: root.common.Files, ui: 
 
     //# zram is a systemd generator: the configuration file is all it needs
     if (config.swap.zram_gb > 0) {
-        ui.action(`Writing the zram configuration: ${config.swap.zram_gb} GB...`);
     files.write(root.common.target_path(target, "/etc/systemd/zram-generator.conf"),
                     zram_config(config.swap.zram_gb));
     }
 
     //# the swap file lives on its own subvolume, mounted at /swap
     if (config.swap.swapfile_gb > 0) {
-        ui.action(`Creating the swapfile: ${config.swap.swapfile_gb} GB...`);
     let created = root.common.run_in(shell, target, "btrfs",
             ["filesystem", "mkswapfile", "--size", `${config.swap.swapfile_gb}G`, "/swap/swapfile"]);
         if (created.exit_code != 0) {

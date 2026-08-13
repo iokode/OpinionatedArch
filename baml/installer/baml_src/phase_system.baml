@@ -17,7 +17,6 @@ function configure_localization(shell: root.common.Shell, files: root.common.Fil
         throws baml.errors.InvalidArgument {
     ui.step("Configuring localization...");
 
-    ui.action("Generating the en_US.UTF-8 locale...");
     let locale_gen = root.common.target_path(target, "/etc/locale.gen");
     if (!root.common.replace_in_file(files, locale_gen, "#en_US.UTF-8 UTF-8", "en_US.UTF-8 UTF-8")) {
         return "/etc/locale.gen is missing from the target.";
@@ -28,14 +27,12 @@ function configure_localization(shell: root.common.Shell, files: root.common.Fil
         return generated;
     }
 
-    ui.action(`Writing the keymap and the timezone: ${config.console_keymap}, ${config.timezone}...`);
     files.write(root.common.target_path(target, "/etc/locale.conf"), "LANG=en_US.UTF-8" + "\n");
     files.write(root.common.target_path(target, "/etc/vconsole.conf"),
                 `KEYMAP=${config.console_keymap}` + "\n");
     files.symlink(root.common.target_path(target, "/etc/localtime"),
                   `/usr/share/zoneinfo/${config.timezone}`);
 
-    ui.action("Setting the hardware clock to UTC...");
     root.common.must(root.common.run_in(shell, target, "hwclock", ["--systohc", "--utc"]), "hwclock")
 }
 
@@ -46,7 +43,6 @@ function configure_identity(files: root.common.Files, ui: Ui,
                             config: InstallConfig, target: root.common.Target) -> string
         throws baml.errors.InvalidArgument {
     ui.step("Configuring system identity...");
-    ui.action(`Writing /etc/hostname: ${config.hostname}...`);
     files.write(root.common.target_path(target, "/etc/hostname"), config.hostname + "\n");
     ""
 }
@@ -59,7 +55,6 @@ function configure_users(shell: root.common.Shell, files: root.common.Files, ui:
         throws baml.errors.InvalidArgument {
     ui.step("Creating users and groups...");
 
-    ui.action("Creating the dotfiles and login-users groups...");
     for (let group in ["dotfiles", "login-users"]) {
         let added = root.common.must(root.common.run_in(shell, target, "groupadd", [group]),
                                      `creating the ${group} group`);
@@ -71,7 +66,6 @@ function configure_users(shell: root.common.Shell, files: root.common.Files, ui:
     if (shared != "") { return shared; }
 
     for (let user in config.login_users) {
-        ui.action(`Creating the account ${user}...`);
         let created = root.common.must(root.common.run_in(shell, target, "useradd",
             ["-M", "-d", `/home/${user}`, "-G", "wheel,dotfiles,login-users",
              "-s", "/bin/bash", user]), `Creating the user ${user}`);
@@ -94,7 +88,6 @@ function configure_users(shell: root.common.Shell, files: root.common.Files, ui:
     }
 
     //# root has no password: administration goes through sudo
-    ui.action("Locking the root account and granting wheel sudo...");
     let locked = root.common.must(root.common.run_in(shell, target, "passwd", ["-l", "root"]),
                                   "locking the root account");
     if (locked != "") { return locked; }
@@ -114,7 +107,6 @@ function configure_network(shell: root.common.Shell, ui: Ui,
                            target: root.common.Target) -> string {
     ui.step("Enabling the network stack...");
     for (let service in ["NetworkManager.service", "systemd-resolved.service"]) {
-        ui.action(`Enabling ${service}...`);
         let enabled = root.common.must(
             root.common.run_in(shell, target, "systemctl", ["enable", service]),
             `Enabling ${service}`);

@@ -161,7 +161,6 @@ function configure_return_message(shell: root.common.Shell, files: root.common.F
     if let message: ReturnMessageInput = config.return_message {
         ui.step("Rendering the pre-boot return message...");
 
-        ui.action("Bringing the logo here...");
         let logo = resolve_logo(shell, files, ui, message.values.logo);
         if (logo.error != "") {
             return logo.error;
@@ -180,13 +179,11 @@ function configure_return_message(shell: root.common.Shell, files: root.common.F
                 logo: logo.source,
             }));
 
-        ui.action("Installing the Plymouth theme...");
         let installed = install_plymouth_theme(shell, files, target, asset_dir);
         if (installed != "") {
             return installed;
         }
 
-        ui.action("Drawing the message...");
         let rendered = root.common.must(
             shell.capture(return_message_renderer(),
                           render_message_args(target, asset_dir, message,

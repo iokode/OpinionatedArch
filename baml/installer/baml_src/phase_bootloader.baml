@@ -62,7 +62,6 @@ function configure_bootloader(shell: root.common.Shell, files: root.common.Files
         throws baml.errors.InvalidArgument {
     ui.step("Installing the bootloader...");
 
-    ui.action("Installing GRUB onto the EFI partition...");
     let installed = root.common.must(
         root.common.run_in(shell, target, "grub-install",
                   ["--target=x86_64-efi", "--efi-directory=/boot",
@@ -72,7 +71,6 @@ function configure_bootloader(shell: root.common.Shell, files: root.common.Files
         return installed;
     }
 
-    ui.action("Writing the boot menu and its settings...");
     let menu = files.read(grub_asset_path(asset_dir));
     if (menu == null) {
         return `The boot menu is not in the assets: ${grub_asset_path(asset_dir)}`;

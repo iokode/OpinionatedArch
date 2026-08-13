@@ -49,7 +49,6 @@ function bootstrap_base_system(shell: root.common.Shell, files: root.common.File
                                config: InstallConfig, target: root.common.Target) -> string
         throws baml.errors.InvalidArgument {
     ui.step("Installing packages...");
-    ui.action(`Installing ${bootstrap_packages(config).length()} packages with pacstrap...`);
     let install = shell.stream("pacstrap", ["-K", target.root].concat(bootstrap_packages(config)));
     let installed = root.common.must(install, "Installing the base system");
     if (installed != "") {
@@ -57,7 +56,6 @@ function bootstrap_base_system(shell: root.common.Shell, files: root.common.File
     }
 
     //# the mount table has to describe the layout that was just mounted
-    ui.action("Writing the mount table...");
     let fstab = shell.capture("genfstab", ["-U", target.root]);
     let read = root.common.must(fstab, "Reading the mount table");
     if (read != "") {
@@ -75,7 +73,6 @@ function bootstrap_base_system(shell: root.common.Shell, files: root.common.File
 function stage_netboot_binary(shell: root.common.Shell, files: root.common.Files, ui: Ui,
                               target: root.common.Target) -> string
         throws baml.errors.InvalidArgument {
-    ui.action("Placing the Arch netboot binary on the EFI partition...");
 
     files.mkdir(root.common.target_path(target, "/boot/EFI"));
     files.mkdir(root.common.target_path(target, "/boot/EFI/OpinionatedArch"));

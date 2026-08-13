@@ -68,14 +68,12 @@ function configure_initramfs(shell: root.common.Shell, files: root.common.Files,
         return `${mkinitcpio_conf_path()} is not in the target.`;
     }
 
-    ui.action("Setting the HOOKS line in /etc/mkinitcpio.conf...");
     let rewritten = set_hooks_line(content, hooks_line(config));
     if (rewritten == null) {
         return `${mkinitcpio_conf_path()} has no HOOKS line to set.`;
     }
     files.write(path, rewritten);
 
-    ui.action("Running mkinitcpio for every installed kernel...");
     root.common.must(root.common.run_in(shell, target, "mkinitcpio", ["-P"]), "mkinitcpio -P")
 }
 

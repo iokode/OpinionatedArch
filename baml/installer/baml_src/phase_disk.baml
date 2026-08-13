@@ -56,7 +56,6 @@ function prepare_layout(shell: root.common.Shell, files: root.common.Files, ui: 
     //# carrying on after one of these fails would encrypt and format a disk
     //# that was never partitioned.
     ui.step("Preparing the disk...");
-    ui.action(`Partitioning ${disk}...`);
     let steps = [
         Step { program: "wipefs", args: ["-af", disk] },
         Step { program: "sgdisk", args: ["--zap-all", disk] },
@@ -72,21 +71,18 @@ function prepare_layout(shell: root.common.Shell, files: root.common.Files, ui: 
         }
     }
 
-    ui.action(`Formatting the EFI partition ${efi_partition}...`);
     let formatted = shell.capture("mkfs.fat", ["-F32", efi_partition]);
     if (formatted.exit_code != 0) {
         return `mkfs.fat failed with exit code ${formatted.exit_code}.`;
     }
 
     //# the passphrase goes in on standard input, never as an argument
-    ui.action(`Creating the LUKS2 container on ${root_partition}...`);
     let created = shell.feed("cryptsetup",
         ["luksFormat", "--type", "luks2", "--batch-mode", "--key-file", "-", root_partition],
         config.shared_secret);
     if (created.exit_code != 0) {
         return `Creating the LUKS2 container failed with exit code ${created.exit_code}.`;
     }
-    ui.action(`Opening the LUKS2 container on ${root_partition}...`);
     let opened = shell.feed("cryptsetup",
         ["open", "--key-file", "-", root_partition, "cryptroot"],
         config.shared_secret);
@@ -94,7 +90,6 @@ function prepare_layout(shell: root.common.Shell, files: root.common.Files, ui: 
         return `Opening the LUKS2 container failed with exit code ${opened.exit_code}.`;
     }
 
-    ui.action("Creating the Btrfs filesystem and its subvolumes...");
     let filesystem = shell.capture("mkfs.btrfs", ["-f", "/dev/mapper/cryptroot"]);
     if (filesystem.exit_code != 0) {
         return `mkfs.btrfs failed with exit code ${filesystem.exit_code}.`;
@@ -122,7 +117,6 @@ function prepare_layout(shell: root.common.Shell, files: root.common.Files, ui: 
     if (unmounted != "") { return unmounted; }
 
     //# now mount the layout the installed system will use
-    ui.action("Mounting the target layout...");
     let remounted = root.common.must(
         shell.capture("mount", ["-o", "subvol=@", "/dev/mapper/cryptroot", target.root]),
         "mounting the root subvolume");

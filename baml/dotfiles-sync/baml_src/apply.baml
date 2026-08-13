@@ -39,11 +39,9 @@ function read_sync_state(files: root.common.Files, state_root: string) -> SyncSt
 function write_sync_state(shell: root.common.Shell, files: root.common.Files,
                           state_root: string, targets: string[], diag: Diagnostics) -> null {
     let state = SyncState { version: 1, targets: targets };
-    let made = root.common.must(
-        shell.capture("install", ["-d", "-m", "0700", "-o", "root", "-g", "root", state_root]),
-        `creating the state directory '${state_root}'`);
-    if (made != "") {
-        diag.report(made);
+    if (report_failed(diag,
+            shell.capture("install", ["-d", "-m", "0700", "-o", "root", "-g", "root", state_root]),
+            `creating the state directory '${state_root}'`)) {
         return null;
     }
     //# whatever this fails with lands in the port, and is absorbed once
@@ -64,11 +62,8 @@ function ensure_parent_directories(
     let ok = true;
     for (let directory in path_ancestors(path_dirname(target))) {
         if (!files.exists(directory)) {
-            let created = root.common.must(
-                shell.capture("install", ["-d", "-o", owner, "-g", group, directory]),
-                `creating directory '${directory}'`);
-            if (created != "") {
-                diag.report(created);
+            if (report_failed(diag, shell.capture("install", ["-d", "-o", owner, "-g", group, directory]),
+                              `creating directory '${directory}'`)) {
                 ok = false;
             }
         }
@@ -77,11 +72,7 @@ function ensure_parent_directories(
 }
 
 function remove_target(shell: root.common.Shell, target: string, diag: Diagnostics) -> bool {
-    let removed = root.common.must(shell.capture("rm", ["-f", target]), `removing '${target}'`);
-    if (removed != "") {
-        diag.report(removed);
-    }
-    removed == ""
+    !report_failed(diag, shell.capture("rm", ["-f", target]), `removing '${target}'`)
 }
 
 function apply_link(shell: root.common.Shell, files: root.common.Files,
@@ -93,18 +84,14 @@ function apply_link(shell: root.common.Shell, files: root.common.Files,
     if (!remove_target(shell, planned.target, diag)) {
         return false;
     }
-    let linked = root.common.must(shell.capture("ln", ["-s", source, planned.target]),
-                                  `linking '${planned.target}' to '${source}'`);
-    if (linked != "") {
-        diag.report(linked);
+    if (report_failed(diag, shell.capture("ln", ["-s", source, planned.target]),
+                      `linking '${planned.target}' to '${source}'`)) {
         return false;
     }
     //# -h so the link itself is owned, not the file it points at
-    let owned = root.common.must(
-        shell.capture("chown", ["-h", `${planned.owner}:${planned.group}`, planned.target]),
-        `setting ownership of '${planned.target}'`);
-    if (owned != "") {
-        diag.report(owned);
+    if (report_failed(diag,
+            shell.capture("chown", ["-h", `${planned.owner}:${planned.group}`, planned.target]),
+            `setting ownership of '${planned.target}'`)) {
         return false;
     }
     true
@@ -129,9 +116,7 @@ function apply_copy(shell: root.common.Shell, files: root.common.Files,
             planned.target,
         ],
     );
-    let problem = root.common.must(installed, `copying '${source}' to '${planned.target}'`);
-    if (problem != "") {
-        diag.report(problem);
+    if (report_failed(diag, installed, `copying '${source}' to '${planned.target}'`)) {
         return false;
     }
     true
@@ -157,9 +142,7 @@ function apply_render(shell: root.common.Shell, files: root.common.Files,
             planned.target,
         ],
     );
-    let problem = root.common.must(installed, `writing rendered target '${planned.target}'`);
-    if (problem != "") {
-        diag.report(problem);
+    if (report_failed(diag, installed, `writing rendered target '${planned.target}'`)) {
         return false;
     }
     true
@@ -255,11 +238,9 @@ function stage_renders(
         return staged;
     }
     let directory = staging_root(state_root);
-    let created = root.common.must(
-        shell.capture("install", ["-d", "-m", "0700", "-o", "root", "-g", "root", directory]),
-        `creating the staging directory '${directory}'`);
-    if (created != "") {
-        diag.report(created);
+    if (report_failed(diag,
+            shell.capture("install", ["-d", "-m", "0700", "-o", "root", "-g", "root", directory]),
+            `creating the staging directory '${directory}'`)) {
         return staged;
     }
 
@@ -351,11 +332,8 @@ function install_packages(shell: root.common.Shell, plan: Plan, diag: Diagnostic
     if (missing.length() == 0) {
         return 0;
     }
-    let installed = root.common.must(
-        shell.capture("pacman", ["-S", "--needed", "--noconfirm"].concat(missing)),
-        `installing ${missing.join(" ")}`);
-    if (installed != "") {
-        diag.report(installed);
+    if (report_failed(diag, shell.capture("pacman", ["-S", "--needed", "--noconfirm"].concat(missing)),
+                      `installing ${missing.join(" ")}`)) {
         return 0;
     }
     missing.length()

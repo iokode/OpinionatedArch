@@ -104,6 +104,11 @@ enum Said {
     Action,
     /// What a command printed while doing it.
     Output,
+    /// What a command wrote to standard error. Its own kind rather than more
+    /// output, because it is what to read first when something went wrong — and
+    /// its own level, because a package manager that fails writes thousands of
+    /// lines and none of them belong in front of an operator who did not ask.
+    Complaint,
     /// Why the installation stopped. Always shown: it is the one line the
     /// operator came for.
     Failed,
@@ -118,6 +123,7 @@ impl Said {
             Said::Phase => 0,
             Said::Action => 1,
             Said::Output => 2,
+            Said::Complaint => 2,
             Said::Failed => 0,
             Said::Finished => 0,
         }
@@ -130,6 +136,9 @@ impl Said {
             Said::Phase => Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
             Said::Action => Style::default().fg(Color::White),
             Said::Output => Style::default().fg(Color::DarkGray),
+            //# red, and no more than that: it is worth finding among the output
+            //# it sits in, and it is not the line that says the run stopped
+            Said::Complaint => Style::default().fg(Color::Red),
             Said::Failed => Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
             Said::Finished => Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
         }
@@ -184,6 +193,19 @@ struct Host {
 }
 
 impl Host {
+    /// Says that a command is about to run. It is said before rather than
+    /// after, because the one worth watching is the one still going.
+    fn announce(&self, program: &str, args: &[String]) {
+        {
+            let mut app = self.app.lock().unwrap();
+            if !app.installing {
+                return;
+            }
+            app.push_log(Said::Action, command_line(program, args));
+        }
+        self.draw(progress_pane);
+    }
+
     /// Draws the standard chrome and lets the caller fill the content pane.
     fn draw<F: FnOnce(&mut Frame, &App, Rect)>(&self, fill: F) {
         let app = self.app.lock().unwrap();
@@ -671,7 +693,7 @@ fn log_as_text(log: &[Logged]) -> Vec<String> {
             let indent = match line.kind {
                 Said::Phase | Said::Finished | Said::Failed => "",
                 Said::Action => "  ",
-                Said::Output => "    ",
+                Said::Output | Said::Complaint => "    ",
             };
             format!("{indent}{}", line.text)
         })
@@ -1673,12 +1695,20 @@ async fn run_unattended(
     let started = Instant::now();
     let host = Arc::new(PlainHost { started });
     let (h_stream, h_step, h_action) = (host.clone(), host.clone(), host.clone());
+    let h_capture = host.clone();
 
     baml_sdk::run_installer_async(
         asset_dir,
         Some(config_text),
-        move |program: String, args: Vec<String>| async move {
-            run_captured(program, args).await
+        {
+            let host = h_capture.clone();
+            move |program: String, args: Vec<String>| {
+                let host = host.clone();
+                async move {
+                    host.line(&command_line(&program, &args));
+                    run_captured(program, args).await
+                }
+            }
         },
         move |program: String, args: Vec<String>| {
             let host = h_stream.clone();
@@ -1732,7 +1762,7 @@ impl PlainHost {
     }
 
     async fn run_streamed(&self, program: String, args: Vec<String>) -> baml_sdk::common::CommandResult {
-        self.line(&format!("running {program} {}", args.join(" ")));
+        self.line(&command_line(&program, &args));
         let mut child = match Command::new(&program)
             .args(&args)
             .stdout(Stdio::piped())
@@ -1822,7 +1852,10 @@ async fn run_interactive(
             None,
             move |program: String, args: Vec<String>| {
                 let host = h_capture.clone();
-                async move { logged(&host, run_captured(program, args).await) }
+                async move {
+                    host.announce(&program, &args);
+                    logged(&host, run_captured(program, args).await)
+                }
             },
             move |program: String, args: Vec<String>| {
                 let host = h_run.clone();
@@ -1830,7 +1863,10 @@ async fn run_interactive(
             },
             move |program: String, args: Vec<String>, input: String| {
                 let host = h_feed.clone();
-                async move { logged(&host, run_fed(program, args, input).await) }
+                async move {
+                    host.announce(&program, &args);
+                    logged(&host, run_fed(program, args, input).await)
+                }
             },
             move |phases: Vec<baml_sdk::Phase>| h_outline.app.lock().unwrap().outline = phases,
             move |title: String| {
@@ -2079,6 +2115,12 @@ fn readable(line: &str) -> String {
     out
 }
 
+/// A command as it was run, for the log. What was actually executed, rather
+/// than a sentence about it: the sentence is the phase, one level up.
+fn command_line(program: &str, args: &[String]) -> String {
+    if args.is_empty() { program.to_string() } else { format!("{program} {}", args.join(" ")) }
+}
+
 /// What a command printed, into the log, so that verbose 2 means the same thing
 /// for every command and not only for the one that streams.
 fn logged(host: &Host, ran: baml_sdk::common::CommandResult) -> baml_sdk::common::CommandResult {
@@ -2087,8 +2129,11 @@ fn logged(host: &Host, ran: baml_sdk::common::CommandResult) -> baml_sdk::common
         if !app.installing {
             return ran;
         }
-        for line in ran.stdout.lines().chain(ran.stderr.lines()) {
+        for line in ran.stdout.lines() {
             app.push_log(Said::Output, readable(line));
+        }
+        for line in ran.stderr.lines() {
+            app.push_log(Said::Complaint, readable(line));
         }
     }
     host.draw(progress_pane);
@@ -2177,6 +2222,7 @@ async fn run_streamed(
     args: Vec<String>,
     started: Instant,
 ) -> baml_sdk::common::CommandResult {
+    host.announce(&program, &args);
     let mut child = match Command::new(&program)
         .args(&args)
         .stdout(Stdio::piped())
@@ -2250,7 +2296,7 @@ async fn run_streamed(
             let mut app = host.app.lock().unwrap();
             if app.installing {
                 for line in complained.lines() {
-                    app.push_log(Said::Output, readable(line));
+                    app.push_log(Said::Complaint, readable(line));
                 }
             }
         }
@@ -2383,34 +2429,35 @@ mod tests {
         (out, complaints.await.expect("the drain finishes"))
     }
 
-    /// The whole of a failure survives the level the run was watched at. What
-    /// a command printed can wait for verbose 2; why the installation stopped
-    /// cannot, and neither can any single line of it.
+    /// Why the run stopped is one line and is always shown. What the command
+    /// wrote is not: a package manager that fails writes thousands of lines, and
+    /// an operator watching at level 0 asked for none of them.
     #[test]
-    fn every_line_of_a_failure_is_shown_at_the_quietest_level() {
+    fn a_failure_says_what_stopped_it_and_keeps_the_rest_for_level_two() {
         let complaint = [
-            "Installing the base system failed with exit code 1:",
             "error: target not found: ipxe",
             "error: failed to commit transaction",
         ];
         let mut log = vec![said(Said::Phase, "Installing packages...")];
-        for i in 0..100 {
-            log.push(said(Said::Output, &format!("line {i}")));
-        }
         for line in complaint {
-            log.push(said(Said::Failed, line));
+            log.push(said(Said::Complaint, line));
         }
+        log.push(said(Said::Failed, "Installing the base system failed with exit code 1."));
         log.push(said(Said::Failed, "Installation aborted."));
 
-        let (view, _) = log_window(&log, 0, 40, 0);
-        let shown: Vec<&str> = view.iter().map(|line| line.text.as_str()).collect();
-
-        for line in complaint {
-            assert!(shown.contains(&line), "{line} is missing at verbose 0");
-        }
+        let (quiet, _) = log_window(&log, 0, 40, 0);
+        let shown: Vec<&str> = quiet.iter().map(|line| line.text.as_str()).collect();
+        assert!(shown.contains(&"Installing the base system failed with exit code 1."));
         assert!(shown.contains(&"Installation aborted."));
-        // ...while the hundred lines of command output still wait for verbose 2.
-        assert!(!shown.iter().any(|line| line.starts_with("line ")));
+        for line in complaint {
+            assert!(!shown.contains(&line), "{line} should wait for verbose 2");
+        }
+
+        let (loud, _) = log_window(&log, 2, 40, 0);
+        let shown: Vec<&str> = loud.iter().map(|line| line.text.as_str()).collect();
+        for line in complaint {
+            assert!(shown.contains(&line), "{line} is missing at verbose 2");
+        }
     }
 
     #[tokio::test]
