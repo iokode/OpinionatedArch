@@ -104,6 +104,7 @@ Development documents have no fixed section order. They open with a summary para
 - [Host Bridge](development/004-host-bridge.md)
 - [BAML Repository Layout](development/005-baml-repository-layout.md)
 - [Where a Command Runs](development/006-where-a-command-runs.md)
+- [Installation Checks](development/007-installation-checks.md)
 
 ## Critical Notes With Replies (Copy of Discussion)
 
