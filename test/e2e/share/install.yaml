@@ -20,6 +20,10 @@ console_keymap: es
 timezone: Europe/Madrid
 hostname: oparch
 
+dotfiles:
+  origin: local
+  location: /oparch/dotfiles
+
 return_message:
   template:
     origin: default

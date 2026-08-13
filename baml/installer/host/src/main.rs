@@ -4,7 +4,7 @@
 //! Which questions get asked, in what order, what counts as a valid answer,
 //! which commands run and what their output means — all of that lives in BAML
 //! and reaches this file only through the callbacks passed to `run_installer`.
-//! See docs/decisions/015-installer-host-bridge.md.
+//! See docs/development/004-host-bridge.md.
 
 use std::cell::Cell;
 use std::fs::File;
@@ -56,6 +56,10 @@ struct App {
     /// Every phase is behind us. Nothing announces this any more — the run
     /// simply ends — so the host is what marks the list off and fills the bar.
     finished: bool,
+    /// The run stopped and will not go on. The phase it stopped in is left
+    /// reading as the phase it was doing: it did not finish, and a list that
+    /// marks it off says it did.
+    failed: bool,
     /// When the operator started it, which is F2 and not when the program did:
     /// what took the time is the installation, not the answering of questions.
     started_at: Option<Instant>,
@@ -100,6 +104,11 @@ enum Said {
     Action,
     /// What a command printed while doing it.
     Output,
+    /// What a command wrote to standard error. Its own kind rather than more
+    /// output, because it is what to read first when something went wrong — and
+    /// its own level, because a package manager that fails writes thousands of
+    /// lines and none of them belong in front of an operator who did not ask.
+    Complaint,
     /// Why the installation stopped. Always shown: it is the one line the
     /// operator came for.
     Failed,
@@ -114,6 +123,7 @@ impl Said {
             Said::Phase => 0,
             Said::Action => 1,
             Said::Output => 2,
+            Said::Complaint => 2,
             Said::Failed => 0,
             Said::Finished => 0,
         }
@@ -126,6 +136,9 @@ impl Said {
             Said::Phase => Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
             Said::Action => Style::default().fg(Color::White),
             Said::Output => Style::default().fg(Color::DarkGray),
+            //# red, and no more than that: it is worth finding among the output
+            //# it sits in, and it is not the line that says the run stopped
+            Said::Complaint => Style::default().fg(Color::Red),
             Said::Failed => Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
             Said::Finished => Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
         }
@@ -180,6 +193,19 @@ struct Host {
 }
 
 impl Host {
+    /// Says that a command is about to run. It is said before rather than
+    /// after, because the one worth watching is the one still going.
+    fn announce(&self, program: &str, args: &[String]) {
+        {
+            let mut app = self.app.lock().unwrap();
+            if !app.installing {
+                return;
+            }
+            app.push_log(Said::Action, command_line(program, args));
+        }
+        self.draw(progress_pane);
+    }
+
     /// Draws the standard chrome and lets the caller fill the content pane.
     fn draw<F: FnOnce(&mut Frame, &App, Rect)>(&self, fill: F) {
         let app = self.app.lock().unwrap();
@@ -449,7 +475,7 @@ fn modal_choose(host: &Host, title: &str, options: &[String]) -> Option<usize> {
 async fn mount_media(host: &Host) {
     let Ok(listing) = baml_sdk::mountable_listing_argv_async().await else { return };
     let found = run_captured(listing.program, listing.args).await;
-    let Ok(devices) = baml_sdk::parse_mountable_async(found.result.stdout).await else { return };
+    let Ok(devices) = baml_sdk::parse_mountable_async(found.stdout).await else { return };
 
     if devices.is_empty() {
         let nothing = baml_sdk::nothing_to_mount_async()
@@ -471,8 +497,8 @@ async fn mount_media(host: &Host) {
 
     let Ok(argv) = baml_sdk::mount_argv_async(path.clone(), at.clone()).await else { return };
     let mounted = run_captured(argv.program, argv.args).await;
-    if mounted.result.exit_code != 0 {
-        let failure = baml_sdk::mount_failed_async(path, mounted.result.exit_code)
+    if mounted.exit_code != 0 {
+        let failure = baml_sdk::mount_failed_async(path, mounted.exit_code)
             .await
             .unwrap_or_else(|_| "Mounting failed.".into());
         modal(host, "Mount media", vec![failure], "Enter or Esc to close");
@@ -667,7 +693,7 @@ fn log_as_text(log: &[Logged]) -> Vec<String> {
             let indent = match line.kind {
                 Said::Phase | Said::Finished | Said::Failed => "",
                 Said::Action => "  ",
-                Said::Output => "    ",
+                Said::Output | Said::Complaint => "    ",
             };
             format!("{indent}{}", line.text)
         })
@@ -767,7 +793,7 @@ fn global_key(host: &Host, key: KeyEvent) -> Option<KeyEvent> {
         }
         KeyCode::F(5) => {
             // Reentrant: BAML is above us on the stack, so the async API is
-            // what may be called, as `015-installer-host-bridge.md` records.
+            // what may be called, as `docs/development/004-host-bridge.md` records.
             tokio::runtime::Handle::current().block_on(mount_media(host));
             None
         }
@@ -1456,13 +1482,60 @@ fn finished_box() -> Vec<Line<'static>> {
     lines
 }
 
+/// What there is left to do once the installation has stopped. A box of its own
+/// for the same reason the finished one is: it is not part of what happened,
+/// and it has no business being saved with the log.
+///
+/// Rebooting is the one thing it does not offer. There is no installed system
+/// to start, and offering it beside a failure is offering to boot a machine
+/// that was never finished.
+fn failed_box() -> Vec<Line<'static>> {
+    let key = Style::default().fg(Color::Gray);
+    let what = Style::default().fg(Color::White);
+    let note = Style::default().fg(Color::DarkGray);
+
+    let keys = [
+        ("F4", "change how much of the log is shown"),
+        ("s", "save the log to a file (all of it, whatever level is shown)"),
+        ("F5", "mount a disk"),
+        ("F6", "leave the installer and stay in the live environment"),
+    ];
+    let width = keys.iter().map(|(pressed, _)| pressed.chars().count()).max().unwrap_or(0);
+    let mut lines: Vec<Line> = keys
+        .into_iter()
+        .map(|(pressed, does)| {
+            Line::from(vec![
+                Span::styled(format!("  {pressed:<width$}   "), key),
+                Span::styled(does, what),
+            ])
+        })
+        .collect();
+
+    lines.push(Line::from(""));
+    for line in [
+        "  What stopped the installation is in red above, in full. At verbose 2 the log also",
+        "  holds everything each command printed, which is where the rest of the story is.",
+    ] {
+        lines.push(Line::from(Span::styled(line, note)));
+    }
+    lines
+}
+
 fn progress_pane(f: &mut Frame, app: &App, area: Rect) {
     // Its own frame rather than the form's: there is no question here, so no
     // room is kept for a prompt or for the note that went with one.
     f.render_widget(Block::default().borders(Borders::ALL).title(" Installing "), area);
     let inner = area.inner(ratatui::layout::Margin { horizontal: 2, vertical: 1 });
     let levels = verbosity_box(app);
-    let ending = if app.finished { finished_box() } else { Vec::new() };
+    // Red without the bold the failure lines carry: the box says where to go
+    // next, and what went wrong is above it and should stay the louder of the two.
+    let (ending, ending_title, ending_style) = if app.finished {
+        (finished_box(), " Finished ", Style::default())
+    } else if app.failed {
+        (failed_box(), " Error ", Style::default().fg(Color::Red))
+    } else {
+        (Vec::new(), "", Style::default())
+    };
     let ending_rows = if ending.is_empty() { 0 } else { ending.len() as u16 + 2 };
     let rows = Layout::default()
         .direction(Direction::Vertical)
@@ -1475,8 +1548,12 @@ fn progress_pane(f: &mut Frame, app: &App, area: Rect) {
         .split(inner);
     if ending_rows > 0 {
         f.render_widget(
-            Paragraph::new(ending)
-                .block(Block::default().borders(Borders::ALL).title(" Finished ")),
+            Paragraph::new(ending).block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(ending_title)
+                    .border_style(ending_style),
+            ),
             rows[2],
         );
     }
@@ -1616,51 +1693,32 @@ async fn run_unattended(
     config_text: String,
 ) -> Result<baml_sdk::InstallSummary, baml_bridge::Error<std::convert::Infallible>> {
     let started = Instant::now();
-    let file_ops = Arc::new(FileOps::default());
     let host = Arc::new(PlainHost { started });
     let (h_stream, h_step, h_action) = (host.clone(), host.clone(), host.clone());
+    let h_capture = host.clone();
 
     baml_sdk::run_installer_async(
         asset_dir,
         Some(config_text),
-        move |program: String, args: Vec<String>| async move {
-            run_captured(program, args).await.result
+        {
+            let host = h_capture.clone();
+            move |program: String, args: Vec<String>| {
+                let host = host.clone();
+                async move {
+                    host.line(&command_line(&program, &args));
+                    run_captured(program, args).await
+                }
+            }
         },
         move |program: String, args: Vec<String>| {
             let host = h_stream.clone();
             async move { host.run_streamed(program, args).await }
         },
             move |program: String, args: Vec<String>, input: String| async move {
-                run_fed(program, args, input).await.result
+                run_fed(program, args, input).await
             },
-            {
-                let ops = file_ops.clone();
-                move || ops.failure()
-            },
-            {
-                let ops = file_ops.clone();
-                move |path: String, content: String| ops.write(path, content)
-            },
-            {
-                let ops = file_ops.clone();
-                move |path: String| ops.read(path)
-            },
-            {
-                let ops = file_ops.clone();
-                move |path: String| ops.exists(path)
-            },
-            {
-                let ops = file_ops.clone();
-                move |path: String| ops.mkdir(path)
-            },
-            {
-                let ops = file_ops.clone();
-                move |path: String, points_to: String| ops.symlink(path, points_to)
-            },
-            {
-                let ops = file_ops.clone();
-                move |path: String, mode: String| ops.chmod(path, mode)
-            },
+        move |path: String| is_sealed(path),
+        move |sealed: String, passphrase: String, plain: String| unsealed(sealed, passphrase, plain),
         move |_phases: Vec<baml_sdk::Phase>| {},
         move |title: String| h_step.line(&title),
         move |message: String| h_action.line(&message),
@@ -1706,20 +1764,25 @@ impl PlainHost {
     }
 
     async fn run_streamed(&self, program: String, args: Vec<String>) -> baml_sdk::common::CommandResult {
-        self.line(&format!("running {program} {}", args.join(" ")));
+        self.line(&command_line(&program, &args));
         let mut child = match Command::new(&program)
             .args(&args)
             .stdout(Stdio::piped())
-            .stderr(Stdio::null())
+            .stderr(Stdio::piped())
             .spawn()
         {
             Ok(c) => c,
             Err(e) => {
                 eprintln!("cannot run {program}: {e}");
-                return baml_sdk::common::CommandResult { exit_code: 127, stdout: String::new() };
+                return baml_sdk::common::CommandResult {
+                    exit_code: 127,
+                    stdout: String::new(),
+                    stderr: String::new(),
+                };
             }
         };
 
+        let complaints = drain_stderr(&mut child);
         let mut captured = String::new();
         let mut lines = BufReader::new(child.stdout.take().expect("piped stdout")).lines();
         while let Ok(Some(line)) = lines.next_line().await {
@@ -1738,9 +1801,14 @@ impl PlainHost {
             }
         }
         let status = child.wait().await;
+        let complained = complaints.await.unwrap_or_default();
+        for line in complained.lines() {
+            self.line(line);
+        }
         baml_sdk::common::CommandResult {
             exit_code: status.ok().and_then(|s| s.code()).unwrap_or(-1) as i64,
             stdout: captured,
+            stderr: complained,
         }
     }
 }
@@ -1771,7 +1839,6 @@ async fn run_interactive(
     splash(&host);
 
     let started = Instant::now();
-    let file_ops = Arc::new(FileOps::default());
 
     let summary = {
         let (h_run, h_outline, h_step, h_err) =
@@ -1787,7 +1854,10 @@ async fn run_interactive(
             None,
             move |program: String, args: Vec<String>| {
                 let host = h_capture.clone();
-                async move { logged(&host, run_captured(program, args).await) }
+                async move {
+                    host.announce(&program, &args);
+                    logged(&host, run_captured(program, args).await)
+                }
             },
             move |program: String, args: Vec<String>| {
                 let host = h_run.clone();
@@ -1795,35 +1865,14 @@ async fn run_interactive(
             },
             move |program: String, args: Vec<String>, input: String| {
                 let host = h_feed.clone();
-                async move { logged(&host, run_fed(program, args, input).await) }
+                async move {
+                    host.announce(&program, &args);
+                    logged(&host, run_fed(program, args, input).await)
+                }
             },
-            {
-                let ops = file_ops.clone();
-                move || ops.failure()
-            },
-            {
-                let ops = file_ops.clone();
-                move |path: String, content: String| ops.write(path, content)
-            },
-            {
-                let ops = file_ops.clone();
-                move |path: String| ops.read(path)
-            },
-            {
-                let ops = file_ops.clone();
-                move |path: String| ops.exists(path)
-            },
-            {
-                let ops = file_ops.clone();
-                move |path: String| ops.mkdir(path)
-            },
-            {
-                let ops = file_ops.clone();
-                move |path: String, points_to: String| ops.symlink(path, points_to)
-            },
-            {
-                let ops = file_ops.clone();
-                move |path: String, mode: String| ops.chmod(path, mode)
+            move |path: String| is_sealed(path),
+            move |sealed: String, passphrase: String, plain: String| {
+                unsealed(sealed, passphrase, plain)
             },
             move |phases: Vec<baml_sdk::Phase>| h_outline.app.lock().unwrap().outline = phases,
             move |title: String| {
@@ -1846,7 +1895,16 @@ async fn run_interactive(
                 }
             },
             move |message: String| {
-                h_action.app.lock().unwrap().push_log(Said::Action, message);
+                // Outside an installation this belongs nowhere: the log is not
+                // on screen, and drawing the progress pane would put it there,
+                // over a form that is still being answered. `announce` says the
+                // same thing about commands, and this is the file operations.
+                let mut app = h_action.app.lock().unwrap();
+                if !app.installing {
+                    return;
+                }
+                app.push_log(Said::Action, message);
+                drop(app);
                 h_action.draw(progress_pane);
             },
             move |message: String| {
@@ -1854,7 +1912,16 @@ async fn run_interactive(
                     let mut app = h_err.app.lock().unwrap();
                     app.error = Some(message.clone());
                     if app.installing {
-                        app.push_log(Said::Failed, message);
+                        // The log is a list of lines, so a message carrying the
+                        // whole of what a command complained about is entered a
+                        // line at a time. All of it is shown whatever the
+                        // verbose level: it is the one thing the operator came
+                        // for, and it is what a failed run is about.
+                        for line in message.lines() {
+                            app.push_log(Said::Failed, readable(line));
+                        }
+                        app.push_log(Said::Failed, "Installation aborted.".into());
+                        app.failed = true;
                     }
                     app.installing
                 };
@@ -1922,9 +1989,11 @@ async fn run_interactive(
         if done.exit_code != 0 && done.exit_code != 130 {
             let said = host.app.lock().unwrap().error.clone().unwrap_or_default();
             diagnostics.push(format!("installation failed: {said}"));
-            tokio::task::block_in_place(|| {
-                modal(&host, "Installation failed", vec![said], "Enter or Esc to close")
-            });
+            //# held rather than shown behind a modal: what stopped it is already
+            //# in the log, in full and in red, and a box over it would cover the
+            //# very lines it is about. Holding the screen is also what makes the
+            //# verbose level worth mentioning — it can still be changed here
+            tokio::task::block_in_place(|| wait_after_failure(&host));
         }
     }
 
@@ -1979,65 +2048,33 @@ fn wait_for_the_end(host: &Host) {
     }
 }
 
-/// Filesystem operations for BAML, and the first failure among them.
+/// Holds the screen after a run that stopped, so the reason stays readable and
+/// the log can still be turned up, scrolled and saved.
 ///
-/// Failures are remembered rather than returned one by one: BAML asks once per
-/// phase, so a failed write can never pass unnoticed without every caller
-/// having to check.
-#[derive(Default)]
-struct FileOps {
-    first_failure: Mutex<Option<String>>,
-}
-
-impl FileOps {
-    fn fail(&self, message: String) {
-        let mut failure = self.first_failure.lock().unwrap();
-        if failure.is_none() {
-            *failure = Some(message);
-        }
-    }
-
-    fn failure(&self) -> Option<String> {
-        self.first_failure.lock().unwrap().clone()
-    }
-
-    fn write(&self, path: String, content: String) {
-        if let Err(e) = std::fs::write(&path, content) {
-            self.fail(format!("cannot write {path}: {e}"));
-        }
-    }
-
-    fn read(&self, path: String) -> Option<String> {
-        std::fs::read_to_string(path).ok()
-    }
-
-    fn exists(&self, path: String) -> bool {
-        std::path::Path::new(&path).exists()
-    }
-
-    fn mkdir(&self, path: String) {
-        if let Err(e) = std::fs::create_dir_all(&path) {
-            self.fail(format!("cannot create {path}: {e}"));
-        }
-    }
-
-    fn symlink(&self, path: String, points_to: String) {
-        if let Err(e) = std::os::unix::fs::symlink(&points_to, &path) {
-            self.fail(format!("cannot link {path} to {points_to}: {e}"));
-        }
-    }
-
-    fn chmod(&self, path: String, mode: String) {
-        match u32::from_str_radix(mode.trim_start_matches('0'), 8) {
-            Ok(bits) => {
-                use std::os::unix::fs::PermissionsExt;
-                if let Err(e) =
-                    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(bits))
-                {
-                    self.fail(format!("cannot set mode {mode} on {path}: {e}"));
-                }
+/// It offers everything the finished screen does but the one thing that screen
+/// leads with: there is no installed system to reboot into.
+fn wait_after_failure(host: &Host) {
+    let _asking = Asking::new(host);
+    loop {
+        host.draw(progress_pane);
+        let Some(key) = next_key() else { continue };
+        match key.code {
+            KeyCode::F(6) => return,
+            KeyCode::F(5) => tokio::runtime::Handle::current().block_on(mount_media(host)),
+            KeyCode::Char('s') | KeyCode::Char('S') => {
+                let written = log_as_text(&host.app.lock().unwrap().log);
+                save_log(host, "Save the installation log", INSTALL_LOG_FILE, &written);
             }
-            Err(e) => self.fail(format!("{mode} is not an octal mode: {e}")),
+            KeyCode::Up => host.app.lock().unwrap().scroll_by(1),
+            KeyCode::Down => host.app.lock().unwrap().scroll_by(-1),
+            KeyCode::PageUp => host.app.lock().unwrap().scroll_by(10),
+            KeyCode::PageDown => host.app.lock().unwrap().scroll_by(-10),
+            KeyCode::End => host.app.lock().unwrap().scrolled.set(0),
+            KeyCode::F(4) => {
+                let mut app = host.app.lock().unwrap();
+                app.verbose = (app.verbose + 1) % (VERBOSE_MAX + 1);
+            }
+            _ => {}
         }
     }
 }
@@ -2093,34 +2130,105 @@ fn readable(line: &str) -> String {
     out
 }
 
-/// What a command produced. BAML is given the exit code and standard output,
-/// which is what it reads; standard error is the host's, for the log.
-struct Ran {
-    result: baml_sdk::common::CommandResult,
-    stderr: String,
+/// A command as it was run, for the log. What was actually executed, rather
+/// than a sentence about it: the sentence is the phase, one level up.
+fn command_line(program: &str, args: &[String]) -> String {
+    if args.is_empty() { program.to_string() } else { format!("{program} {}", args.join(" ")) }
 }
 
 /// What a command printed, into the log, so that verbose 2 means the same thing
 /// for every command and not only for the one that streams.
-fn logged(host: &Host, ran: Ran) -> baml_sdk::common::CommandResult {
+fn logged(host: &Host, ran: baml_sdk::common::CommandResult) -> baml_sdk::common::CommandResult {
     {
         let mut app = host.app.lock().unwrap();
         if !app.installing {
-            return ran.result;
+            return ran;
         }
-        for line in ran.result.stdout.lines().chain(ran.stderr.lines()) {
+        for line in ran.stdout.lines() {
             app.push_log(Said::Output, readable(line));
+        }
+        for line in ran.stderr.lines() {
+            app.push_log(Said::Complaint, readable(line));
         }
     }
     host.draw(progress_pane);
-    ran.result
+    ran
+}
+
+/// Drains a child's standard error while its standard output is still being
+/// read. Reading one of two pipes and leaving the other to fill is what makes a
+/// talkative command block forever, so this is spawned before the stdout loop
+/// rather than collected after it.
+fn drain_stderr(child: &mut tokio::process::Child) -> tokio::task::JoinHandle<String> {
+    let piped = child.stderr.take();
+    tokio::spawn(async move {
+        let mut collected = String::new();
+        let Some(pipe) = piped else { return collected };
+        let mut lines = BufReader::new(pipe).lines();
+        while let Ok(Some(line)) = lines.next_line().await {
+            collected.push_str(&line);
+            collected.push('\n');
+        }
+        collected
+    })
 }
 
 /// Runs a command that reads from standard input. The input is written and the
 /// pipe closed, so a command waiting for end-of-input proceeds.
-async fn run_fed(program: String, args: Vec<String>, input: String) -> Ran {
-    let failed = |code: i64| Ran {
-        result: baml_sdk::common::CommandResult { exit_code: code, stdout: String::new() },
+/// Opens an encrypted secret store, writing what was inside it — still packed —
+/// to `plain`.
+///
+/// This is the one thing the host does that is neither the terminal nor a
+/// process, and it is here because BAML's standard library carries no
+/// cryptography and `age(1)` cannot be handed a passphrase by a program: it
+/// reads one from a terminal and from nowhere else, and given one it would
+/// print its prompt over the interface this binary is drawing. The passphrase
+/// therefore never leaves this process.
+fn unseal_store(sealed: &str, passphrase: &str, plain: &str) -> Result<(), String> {
+    use std::io::Read;
+
+    let bytes = std::fs::read(sealed).map_err(|e| format!("cannot read {sealed}: {e}"))?;
+    let decryptor = age::Decryptor::new(&bytes[..])
+        .map_err(|_| "That file is not an encrypted secret store.".to_string())?;
+    let identity = age::scrypt::Identity::new(age::secrecy::SecretString::from(
+        passphrase.to_owned(),
+    ));
+    let mut reader = decryptor
+        .decrypt(std::iter::once(&identity as &dyn age::Identity))
+        .map_err(|_| "The passphrase does not open the secret store.".to_string())?;
+
+    let mut opened = Vec::new();
+    reader
+        .read_to_end(&mut opened)
+        .map_err(|e| format!("cannot read the secret store: {e}"))?;
+    std::fs::write(plain, opened).map_err(|e| format!("cannot write {plain}: {e}"))
+}
+
+/// Whether a file is a sealed store at all. Nothing is decrypted: the header
+/// says it, which is why this can be asked before anyone has typed anything.
+fn is_sealed(path: String) -> bool {
+    match std::fs::read(&path) {
+        Ok(bytes) => age::Decryptor::new(&bytes[..]).is_ok(),
+        Err(_) => false,
+    }
+}
+
+/// The same, as the bridge takes it: what went wrong, or nothing.
+fn unsealed(sealed: String, passphrase: String, plain: String) -> String {
+    match unseal_store(&sealed, &passphrase, &plain) {
+        Ok(()) => String::new(),
+        Err(message) => message,
+    }
+}
+
+async fn run_fed(
+    program: String,
+    args: Vec<String>,
+    input: String,
+) -> baml_sdk::common::CommandResult {
+    let failed = |code: i64| baml_sdk::common::CommandResult {
+        exit_code: code,
+        stdout: String::new(),
         stderr: String::new(),
     };
     let mut child = match Command::new(&program)
@@ -2138,11 +2246,9 @@ async fn run_fed(program: String, args: Vec<String>, input: String) -> Ran {
         drop(stdin);
     }
     match child.wait_with_output().await {
-        Ok(out) => Ran {
-            result: baml_sdk::common::CommandResult {
-                exit_code: out.status.code().unwrap_or(-1) as i64,
-                stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
-            },
+        Ok(out) => baml_sdk::common::CommandResult {
+            exit_code: out.status.code().unwrap_or(-1) as i64,
+            stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
             stderr: String::from_utf8_lossy(&out.stderr).into_owned(),
         },
         Err(_) => failed(-1),
@@ -2152,17 +2258,16 @@ async fn run_fed(program: String, args: Vec<String>, input: String) -> Ran {
 /// Runs a command for its output. No parsing, no redrawing: this is the path
 /// for commands that merely produce data, and it must stay proportional to
 /// running the command itself.
-async fn run_captured(program: String, args: Vec<String>) -> Ran {
+async fn run_captured(program: String, args: Vec<String>) -> baml_sdk::common::CommandResult {
     match Command::new(&program).args(&args).output().await {
-        Ok(out) => Ran {
-            result: baml_sdk::common::CommandResult {
-                exit_code: out.status.code().unwrap_or(-1) as i64,
-                stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
-            },
+        Ok(out) => baml_sdk::common::CommandResult {
+            exit_code: out.status.code().unwrap_or(-1) as i64,
+            stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
             stderr: String::from_utf8_lossy(&out.stderr).into_owned(),
         },
-        Err(_) => Ran {
-            result: baml_sdk::common::CommandResult { exit_code: 127, stdout: String::new() },
+        Err(_) => baml_sdk::common::CommandResult {
+            exit_code: 127,
+            stdout: String::new(),
             stderr: String::new(),
         },
     }
@@ -2178,20 +2283,26 @@ async fn run_streamed(
     args: Vec<String>,
     started: Instant,
 ) -> baml_sdk::common::CommandResult {
+    host.announce(&program, &args);
     let mut child = match Command::new(&program)
         .args(&args)
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
+        .stderr(Stdio::piped())
         .spawn()
     {
         Ok(c) => c,
         Err(e) => {
             host.app.lock().unwrap().push_log(Said::Action, format!("cannot run {program}: {e}"));
             host.draw(progress_pane);
-            return baml_sdk::common::CommandResult { exit_code: 127, stdout: String::new() };
+            return baml_sdk::common::CommandResult {
+                exit_code: 127,
+                stdout: String::new(),
+                stderr: String::new(),
+            };
         }
     };
 
+    let complaints = drain_stderr(&mut child);
     let mut captured = String::new();
     let mut lines = BufReader::new(child.stdout.take().expect("piped stdout")).lines();
 
@@ -2235,9 +2346,28 @@ async fn run_streamed(
     }
 
     let status = child.wait().await;
+    let complained = complaints.await.unwrap_or_default();
+
+    // A long command's complaints arrive after its output rather than woven
+    // into it. Ordering them exactly would mean draining both pipes into one
+    // sequence, and what a failing command wrote is worth reading whether or
+    // not it sits in the right place.
+    if !complained.is_empty() {
+        {
+            let mut app = host.app.lock().unwrap();
+            if app.installing {
+                for line in complained.lines() {
+                    app.push_log(Said::Complaint, readable(line));
+                }
+            }
+        }
+        host.draw(progress_pane);
+    }
+
     baml_sdk::common::CommandResult {
         exit_code: status.ok().and_then(|s| s.code()).unwrap_or(-1) as i64,
         stdout: captured,
+        stderr: complained,
     }
 }
 
@@ -2338,6 +2468,94 @@ fn restore_terminal() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Spawns a command with both pipes open, drains standard error the way the
+    /// streaming paths do, and reads standard output to the end.
+    async fn both_streams_of(script: &str) -> (String, String) {
+        let mut child = Command::new("sh")
+            .args(["-c", script])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("sh runs");
+
+        let complaints = drain_stderr(&mut child);
+        let mut out = String::new();
+        let mut lines = BufReader::new(child.stdout.take().expect("piped stdout")).lines();
+        while let Ok(Some(line)) = lines.next_line().await {
+            out.push_str(&line);
+            out.push('\n');
+        }
+        let _ = child.wait().await;
+        (out, complaints.await.expect("the drain finishes"))
+    }
+
+    /// Why the run stopped is one line and is always shown. What the command
+    /// wrote is not: a package manager that fails writes thousands of lines, and
+    /// an operator watching at level 0 asked for none of them.
+    #[test]
+    fn a_failure_says_what_stopped_it_and_keeps_the_rest_for_level_two() {
+        let complaint = [
+            "error: target not found: ipxe",
+            "error: failed to commit transaction",
+        ];
+        let mut log = vec![said(Said::Phase, "Installing packages...")];
+        for line in complaint {
+            log.push(said(Said::Complaint, line));
+        }
+        log.push(said(Said::Failed, "Installing the base system failed with exit code 1."));
+        log.push(said(Said::Failed, "Installation aborted."));
+
+        let (quiet, _) = log_window(&log, 0, 40, 0);
+        let shown: Vec<&str> = quiet.iter().map(|line| line.text.as_str()).collect();
+        assert!(shown.contains(&"Installing the base system failed with exit code 1."));
+        assert!(shown.contains(&"Installation aborted."));
+        for line in complaint {
+            assert!(!shown.contains(&line), "{line} should wait for verbose 2");
+        }
+
+        let (loud, _) = log_window(&log, 2, 40, 0);
+        let shown: Vec<&str> = loud.iter().map(|line| line.text.as_str()).collect();
+        for line in complaint {
+            assert!(shown.contains(&line), "{line} is missing at verbose 2");
+        }
+    }
+
+    #[tokio::test]
+    async fn what_a_command_complains_about_is_kept_apart_from_what_it_reports() {
+        let (out, err) = both_streams_of("echo reported; echo complained >&2").await;
+
+        assert_eq!(out, "reported\n");
+        assert_eq!(err, "complained\n");
+    }
+
+    /// The reason the drain is spawned instead of read after the fact: a
+    /// command that fills the standard error pipe while nobody reads it stops
+    /// forever, and it is the failing, talkative command that does so.
+    #[tokio::test]
+    async fn a_command_that_complains_more_than_a_pipe_holds_still_finishes() {
+        let noisy = "i=0; while [ $i -lt 4000 ]; do \
+                     echo 'error: something went wrong' >&2; i=$((i+1)); done; echo done";
+
+        let (out, err) = tokio::time::timeout(
+            std::time::Duration::from_secs(30),
+            both_streams_of(noisy),
+        )
+        .await
+        .expect("draining both pipes at once is what keeps this from blocking");
+
+        assert_eq!(out, "done\n");
+        assert_eq!(err.lines().count(), 4000);
+        assert!(err.len() > 64 * 1024, "the point is to outgrow one pipe buffer");
+    }
+
+    #[tokio::test]
+    async fn a_command_that_says_nothing_on_standard_error_leaves_it_empty() {
+        let (out, err) = both_streams_of("echo quiet").await;
+
+        assert_eq!(out, "quiet\n");
+        assert!(err.is_empty());
+    }
 
     /// A directory holding a subdirectory, an archive and a plain file. Each
     /// test gets its own, because they run at the same time and one tearing

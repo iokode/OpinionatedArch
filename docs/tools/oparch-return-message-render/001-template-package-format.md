@@ -2,7 +2,7 @@
 
 ## Context
 
-The pre-boot return message is defined by a template package rather than by the installer, as decided in `../../decisions/007-preboot-ownership-message.md`. A package carries the wording, in every language it offers, and declares the data that wording needs.
+The pre-boot return message is defined by a template package rather than by the installer, as decided in `../../decisions/006-preboot-ownership-message.md`. A package carries the wording, in every language it offers, and declares the data that wording needs.
 
 `oparch-return-message-render` builds the message from a package. The installer reads the same package to know which values to ask for. The operator may supply their own package, so the format is what a person writes by hand, and the project's own package is expected to grow to many languages.
 
@@ -21,7 +21,7 @@ A package is a directory:
 
 `manifest.yaml` declares the package. Every other file is the message in one language, named after that language's code.
 
-A package is given from any of the origins `../../decisions/018-installer-input-sources.md` defines: a directory or a `tar` archive on the machine, an archive by URL, or a repository whose whole content is the package. An archive is extracted into a directory the installer chooses, and entries that would land anywhere else are refused.
+A package is given from any of the origins `../oparch-installer/003-input-sources.md` defines: a directory or a `tar` archive on the machine, an archive by URL, or a repository whose whole content is the package. An archive is extracted into a directory the installer chooses, and entries that would land anywhere else are refused.
 
 ### Manifest
 
@@ -151,6 +151,6 @@ The installer validates the package before asking anything, and before writing a
 ## Considerations
 
 - The project ships a default package, used when the operator supplies none.
-- What the rendered message looks like is a theme's, defined in `003-theme-format.md` and decided in `../../decisions/017-return-message-themes.md`. Presentation stays deliberately absent from packages, and `kind` is what a theme reads to decorate a value.
+- What the rendered message looks like is a theme's, defined in `003-theme-format.md` and decided in `004-themes.md`. Presentation stays deliberately absent from packages, and `kind` is what a theme reads to decorate a value.
 - A package fetched from a URL is only usable where that URL is reachable at install time.
 - Field names appear in the values file defined in `002-values-format.md`, so renaming a field in a package invalidates every file written for it.

@@ -50,7 +50,7 @@ function return_message_renderer() -> string {
 /// Which logo the message was finally composed with: where it was taken from,
 /// absent when the operator chose to go on without one, or what went wrong.
 class LogoOutcome {
-    source: root.common.Source?,
+    source: Source?,
     error: string,
 }
 
@@ -58,35 +58,17 @@ class LogoOutcome {
 /// copied from this machine. Whichever it is, what the renderer receives is the
 /// file at `staged_logo_path`.
 function fetch_logo(shell: root.common.Shell, files: root.common.Files,
-                    source: root.common.Source) -> string {
-    if (source.origin == "url") {
-        let downloaded = shell.capture("curl",
-            ["-fL", "--retry", "2", "--connect-timeout", "10", "-o", staged_logo_path(),
-             source.location]);
-        if (downloaded.exit_code != 0) {
-            return `Downloading the logo failed with exit code ${downloaded.exit_code}:`
-                + ` ${source.location}`;
-        }
-        return "";
-    }
-
-    if (!files.exists(source.location)) {
-        return `The logo is not there: ${source.location}`;
-    }
-    let copied = shell.capture("cp", [source.location, staged_logo_path()]);
-    if (copied.exit_code != 0) {
-        return `Copying the logo failed with exit code ${copied.exit_code}: ${source.location}`;
-    }
-    ""
+                    source: Source) -> string {
+    bring_file_here(shell, files, source, staged_logo_path(), "logo")
 }
 
 /// Brings the logo here, and asks when it cannot. A mistyped location and a
 /// deliberate omission look identical once the installation is over, so the
 /// operator answers this while there is still someone to ask, as
-/// `decisions/007-preboot-ownership-message.md` requires. Nothing is asked when
+/// `docs/decisions/006-preboot-ownership-message.md` requires. Nothing is asked when
 /// no logo was wanted in the first place.
 function resolve_logo(shell: root.common.Shell, files: root.common.Files, ui: Ui,
-                      logo: root.common.Source?) -> LogoOutcome {
+                      logo: Source?) -> LogoOutcome {
     let none = LogoOutcome { source: null, error: "" };
     if (logo == null) {
         return none;
@@ -115,7 +97,7 @@ function resolve_logo(shell: root.common.Shell, files: root.common.Files, ui: Ui
                                         wanted.location, false) {
             //# the location comes back prefilled, so leaving it alone retries it
             if (answer.trim() != "") {
-                wanted = root.common.source_at(wanted.origin, answer.trim());
+                wanted = source_at(wanted.origin, answer.trim());
             }
         } else {
             return LogoOutcome { source: null, error: failure };
@@ -168,8 +150,7 @@ function configure_return_message(shell: root.common.Shell, files: root.common.F
     if let message: ReturnMessageInput = config.return_message {
         ui.step("Rendering the pre-boot return message...");
 
-        ui.action("Bringing the logo here...");
-        let logo = resolve_logo(shell, files, ui, message.values.logo);
+        let logo = resolve_logo(shell, files, ui, message.logo);
         if (logo.error != "") {
             return logo.error;
         }
@@ -178,22 +159,27 @@ function configure_return_message(shell: root.common.Shell, files: root.common.F
         //# rebuild produces the message this machine boots with. Where the
         //# package and the theme came from is not written: that is not this
         //# file's, and the renderer is handed both.
+        //# the logo line is written here rather than by the format: where it
+        //# came from is what this installer chose, and the renderer carries the
+        //# key without ever reading it
         files.mkdir(root.common.target_path(target, oparch_config_directory()));
-        files.write(
-            root.common.target_path(target, return_message_values_path()),
-            root.return_message.render_values_file(root.return_message.ReturnMessageConfig {
+        let values = root.return_message.render_values_file(
+            root.return_message.ReturnMessageConfig {
                 languages: message.values.languages,
                 fields: message.values.fields,
-                logo: logo.source,
-            }));
+            });
+        let written = if let taken: Source = logo.source {
+            values + render_source("logo", taken, "")
+        } else {
+            values
+        };
+        files.write(root.common.target_path(target, return_message_values_path()), written);
 
-        ui.action("Installing the Plymouth theme...");
         let installed = install_plymouth_theme(shell, files, target, asset_dir);
         if (installed != "") {
             return installed;
         }
 
-        ui.action("Drawing the message...");
         let rendered = root.common.must(
             shell.capture(return_message_renderer(),
                           render_message_args(target, asset_dir, message,
@@ -204,7 +190,7 @@ function configure_return_message(shell: root.common.Shell, files: root.common.F
         }
 
         return root.common.must(
-            in_target(shell, target, "plymouth-set-default-theme", [plymouth_theme_name()]),
+            root.common.run_in(shell, target, "plymouth-set-default-theme", [plymouth_theme_name()]),
             "setting the Plymouth theme");
     }
     ""
@@ -213,13 +199,13 @@ function configure_return_message(shell: root.common.Shell, files: root.common.F
 // -------------------------------------------------------------------- tests
 
 /// A configuration asking for a message in one language, with a logo.
-function return_message_config(logo: root.common.Source?) -> InstallConfig {
+function return_message_config(logo: Source?) -> InstallConfig {
     let config = empty_config();
     let message = empty_return_message_input();
     message.values.languages = ["es"];
     let _ = message.values.fields.set("owner_name", "Ivan");
     let _ = message.values.fields.set("phone", "+376 000 000");
-    message.values.logo = logo;
+    message.logo = logo;
     config.return_message = message;
     config
 }
@@ -233,8 +219,8 @@ function logo_url() -> string {
 }
 
 /// The logo the tests ask for: one file, taken from a URL.
-function logo_source() -> root.common.Source {
-    root.common.source_at("url", logo_url())
+function logo_source() -> Source {
+    source_at("url", logo_url())
 }
 
 function logo_download(url: string) -> string {
@@ -264,7 +250,7 @@ test "the return message phase does nothing at all when none was asked for" {
 
     assert.equal(
         configure_return_message(shell, files, ui, empty_config(),
-                                 root.common.mounted_target("/mnt"), "/assets"),
+                                 root.common.chroot_target("/mnt"), "/assets"),
         "");
 
     assert.equal(shell.commands, []);
@@ -280,7 +266,7 @@ test "the theme is installed and the renderer is run against it, in that order" 
 
     assert.equal(
         configure_return_message(shell, files, ui, return_message_config(logo_source()),
-                                 root.common.mounted_target("/mnt"), "/assets"),
+                                 root.common.chroot_target("/mnt"), "/assets"),
         "");
 
     assert.equal(shell.commands, [
@@ -298,7 +284,7 @@ test "the values are left in the target where the message can be rebuilt from th
     let files = root.common.recording_files();
 
     let _ = configure_return_message(shell, files, silent_ui(), return_message_config(logo_source()),
-                                     root.common.mounted_target("/mnt"), "/assets");
+                                     root.common.chroot_target("/mnt"), "/assets");
 
     //# nothing in the base system creates either directory
     assert.equal(files.directories,
@@ -315,14 +301,14 @@ test "the theme the operator chose is handed to the renderer, not written down" 
     let files = root.common.recording_files();
     let config = empty_config();
     let message = empty_return_message_input();
-    message.theme = root.common.source_at("tar", "https://example.invalid/andorra-dark.tar");
+    message.theme = source_at("tar", "https://example.invalid/andorra-dark.tar");
     message.values.languages = ["es"];
     let _ = message.values.fields.set("owner_name", "Ivan");
     config.return_message = message;
 
     assert.equal(
         configure_return_message(shell, files, silent_ui(), config,
-                                 root.common.mounted_target("/mnt"), "/assets"),
+                                 root.common.chroot_target("/mnt"), "/assets"),
         "");
 
     //# the theme was unpacked into the staging directory, and that is what the
@@ -342,7 +328,7 @@ test "without a logo nothing is downloaded and the renderer is given none" {
 
     assert.equal(
         configure_return_message(shell, files, silent_ui(), return_message_config(null),
-                                 root.common.mounted_target("/mnt"), "/assets"),
+                                 root.common.chroot_target("/mnt"), "/assets"),
         "");
 
     assert.equal(shell.commands, [
@@ -363,7 +349,7 @@ test "a logo that will not download is retried with the URL the operator gives" 
 
     assert.equal(
         configure_return_message(shell, files, ui, return_message_config(logo_source()),
-                                 root.common.mounted_target("/mnt"), "/assets"),
+                                 root.common.chroot_target("/mnt"), "/assets"),
         "");
 
     assert.equal(shell.commands, [
@@ -386,7 +372,7 @@ test "continuing without a logo says so in the values, and the renderer is told 
 
     assert.equal(
         configure_return_message(shell, files, ui, return_message_config(logo_source()),
-                                 root.common.mounted_target("/mnt"), "/assets"),
+                                 root.common.chroot_target("/mnt"), "/assets"),
         "");
 
     assert.is_true(!(files.written.get("/mnt/etc/opinionatedarch/return-message.yaml") ?? "")
@@ -403,8 +389,9 @@ test "a logo failure nobody answers stops the phase before anything is written" 
 
     assert.equal(
         configure_return_message(shell, files, ui, return_message_config(logo_source()),
-                                 root.common.mounted_target("/mnt"), "/assets"),
-        "Downloading the logo failed with exit code 22: https://example.invalid/logo.png");
+                                 root.common.chroot_target("/mnt"), "/assets"),
+        "Downloading the logo from https://example.invalid/logo.png"
+            + " failed with exit code 22.");
 
     assert.equal(shell.commands, [logo_download(logo_url())]);
     assert.is_true(files.written.get("/mnt/etc/opinionatedarch/return-message.yaml") == null)
@@ -418,7 +405,7 @@ test "a theme that cannot be installed never reaches the renderer" {
 
     assert.equal(
         configure_return_message(shell, files, silent_ui(), return_message_config(null),
-                                 root.common.mounted_target("/mnt"), "/assets"),
+                                 root.common.chroot_target("/mnt"), "/assets"),
         "installing the Plymouth theme failed with exit code 1.");
 
     assert.is_true(!shell.commands.includes(rendered_without_logo()));
@@ -432,7 +419,7 @@ test "a message that cannot be drawn never becomes the theme the machine boots" 
 
     assert.equal(
         configure_return_message(shell, files, silent_ui(), return_message_config(null),
-                                 root.common.mounted_target("/mnt"), "/assets"),
+                                 root.common.chroot_target("/mnt"), "/assets"),
         "rendering the return message failed with exit code 1.");
 
     assert.is_true(!shell.commands.includes("arch-chroot /mnt plymouth-set-default-theme opinionatedarch"))

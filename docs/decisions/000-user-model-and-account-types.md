@@ -12,10 +12,12 @@ The installer asks for the complete list of login user names. Logical users are 
 
 Two explicit groups are used:
 
-- `dotfiles`: grants access to shared dotfiles according to the dotfiles policy.
+- `dotfiles`: grants access to shared dotfiles according to the dotfiles policy in `013-dotfiles-policy.md`.
 - `login-users`: marks accounts intended for interactive login.
 
-As specified in `002-disk-layout.md`, each login user home is a dedicated subvolume. This applies both during initial installation and when adding a new login user later on an already installed system.
+As specified in `001-disk-layout.md`, each login user home is a dedicated subvolume. This applies both during initial installation and when adding a new login user later on an already installed system.
+
+Each login user's home directory is `/home/<username>`, and its primary group is a group named after the user.
 
 Authentication is unified: the installer asks one password and uses it both for disk encryption and for all login users.
 
@@ -28,6 +30,7 @@ The `root` account has no password set and is not intended for interactive login
 - Two account types (`logical` and `login`) are required because service accounts need restricted execution identities that are not interactive human login accounts.
 - `dotfiles` and `login-users` are separate groups because dotfiles access and interactive login identity are different permissions. For example, a keymapper service may need to read configuration from `/dotfiles` without being an interactive login account.
 - A unified password for disk encryption and login users is used because the system is operated by one person, so multiple login passwords are unnecessary.
+- Home and primary group are named after the login user because a tool that is told which users a machine has must derive both from the name alone; if either could differ, describing a machine would take three fields where one is enough, and the three could disagree.
 - Root is passwordless and non-interactive because privileged operations are performed through sudo from login users.
 - Passwordless sudo is used because the user has already unlocked the disk and logged in, and this model has one physical operator who owns administrative privileges.
 
@@ -40,7 +43,7 @@ The `root` account has no password set and is not intended for interactive login
 - Root recovery procedures must be documented and available.
 - Login usernames should be validated before creation.
 - Logical users must not be enabled for interactive login unless explicitly requested.
-- Login users should not be created through raw `useradd` flows that bypass the provisioning model defined in `002-disk-layout.md`.
+- Login users should not be created through raw `useradd` flows that bypass the provisioning model defined in `001-disk-layout.md`.
 
 ## Critical Notes With Replies (Copy of Discussion)
 

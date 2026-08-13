@@ -21,7 +21,9 @@ General documents have no fixed section order. They open with a summary paragrap
 
 ## Decision
 
-Documents defining one decision each.
+Documents defining one decision each about the distribution itself: what OpinionatedArch installs and how the installed system behaves.
+
+A decision about how a tool behaves belongs to that tool, and a decision about how the project is built belongs to `development/`. Neither is a decision document.
 
 Directory: `decisions/`
 
@@ -32,25 +34,20 @@ Section order:
 3. Why
 4. Considerations (optional)
 
-- [Installer Inputs and Bootstrap Baseline](decisions/000-installer-inputs-and-bootstrap-baseline.md)
-- [User Model and Account Types](decisions/001-user-model-and-account-types.md)
-- [Disk Layout](decisions/002-disk-layout.md)
-- [Swap Strategy](decisions/003-swap-strategy.md)
-- [Kernel Strategy](decisions/004-kernel-strategy.md)
-- [Snapshot Strategy](decisions/005-snapshot-strategy.md)
-- [Encryption Strategy](decisions/006-encryption-strategy.md)
-- [Pre-Boot Ownership Message](decisions/007-preboot-ownership-message.md)
-- [GRUB Boot Policy](decisions/008-grub-boot-policy.md)
-- [mkinitcpio Hooks Policy](decisions/009-mkinitcpio-hooks-policy.md)
-- [Network Stack Policy](decisions/010-network-stack-policy.md)
-- [Localization and Time Policy](decisions/011-localization-and-time-policy.md)
-- [System Identity Policy](decisions/012-system-identity-policy.md)
-- [Oparch Tools](decisions/013-oparch-tools.md)
-- [BAML as Implementation Language](decisions/014-baml-as-implementation-language.md)
-- [Installer Host Bridge](decisions/015-installer-host-bridge.md)
-- [BAML Repository Layout](decisions/016-baml-repository-layout.md)
-- [Return Message Themes](decisions/017-return-message-themes.md)
-- [Installer Input Sources](decisions/018-installer-input-sources.md)
+- [User Model and Account Types](decisions/000-user-model-and-account-types.md)
+- [Disk Layout](decisions/001-disk-layout.md)
+- [Swap Strategy](decisions/002-swap-strategy.md)
+- [Kernel Strategy](decisions/003-kernel-strategy.md)
+- [Snapshot Strategy](decisions/004-snapshot-strategy.md)
+- [Encryption Strategy](decisions/005-encryption-strategy.md)
+- [Pre-Boot Ownership Message](decisions/006-preboot-ownership-message.md)
+- [GRUB Boot Policy](decisions/007-grub-boot-policy.md)
+- [mkinitcpio Hooks Policy](decisions/008-mkinitcpio-hooks-policy.md)
+- [Network Stack Policy](decisions/009-network-stack-policy.md)
+- [Localization and Time Policy](decisions/010-localization-and-time-policy.md)
+- [System Identity Policy](decisions/011-system-identity-policy.md)
+- [Oparch Tools](decisions/012-oparch-tools.md)
+- [Dotfiles Policy](decisions/013-dotfiles-policy.md)
 
 ## Tool
 
@@ -81,16 +78,22 @@ The `Specification` section uses free `###` subsections.
 - [oparch-password-rotate-interactive](tools/oparch-password-rotate-interactive/000-command.md)
 - [oparch-dotfiles-sync](tools/oparch-dotfiles-sync/000-command.md)
   - [Dotfiles Map Format](tools/oparch-dotfiles-sync/001-map-format.md)
+  - [Secret Store Archive](tools/oparch-dotfiles-sync/002-secret-store-archive.md)
 - [oparch-return-message-render](tools/oparch-return-message-render/000-command.md)
   - [Return Message Template Package Format](tools/oparch-return-message-render/001-template-package-format.md)
   - [Return Message Values Format](tools/oparch-return-message-render/002-values-format.md)
   - [Return Message Theme Format](tools/oparch-return-message-render/003-theme-format.md)
+  - [Return Message Themes](tools/oparch-return-message-render/004-themes.md)
 - [oparch-installer](tools/oparch-installer/000-command.md)
   - [Installer Configuration File Format](tools/oparch-installer/001-config-file-format.md)
+  - [Inputs and Bootstrap Baseline](tools/oparch-installer/002-inputs-and-bootstrap-baseline.md)
+  - [Input Sources](tools/oparch-installer/003-input-sources.md)
 
 ## Development
 
 Documents describing how OpinionatedArch is built, tested and iterated on. They describe the project's own working environment, not the distribution it produces.
+
+A decision about how the project is built is a development document, whatever it decides: the language the tools are written in, how the sources are laid out, and the internal code they share are all part of the working environment and none of them are shipped.
 
 Directory: `development/`
 
@@ -99,6 +102,13 @@ Development documents have no fixed section order. They open with a summary para
 - [End-to-End Testing](development/000-end-to-end-testing.md)
 - [Installer Port Plan](development/001-installer-port-plan.md)
 - [BAML Working Notes](development/002-baml-working-notes.md)
+- [BAML as Implementation Language](development/003-baml-as-implementation-language.md)
+- [Host Bridge](development/004-host-bridge.md)
+- [BAML Repository Layout](development/005-baml-repository-layout.md)
+- [Where a Command Runs](development/006-where-a-command-runs.md)
+- [Installation Checks](development/007-installation-checks.md)
+- [Acting on Another System](development/008-acting-on-another-system.md)
+- [Dotfiles Integration Plan](development/009-dotfiles-integration-plan.md)
 
 ## Critical Notes With Replies (Copy of Discussion)
 

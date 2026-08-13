@@ -3,7 +3,7 @@
 // The dotfiles package, the return message's template package and its theme are
 // not values: they are content held elsewhere. Bringing it here belongs to the
 // installer and to nothing else, as decided in
-// `docs/decisions/018-installer-input-sources.md` — `oparch-return-message-render`
+// `docs/tools/oparch-installer/003-input-sources.md` — `oparch-return-message-render`
 // is handed directories and resolves none of this.
 //
 // Every origin but the project's own ends in the same place: a directory under
@@ -39,7 +39,7 @@ function unpack_archive(shell: root.common.Shell, files: root.common.Files,
     files.mkdir(destination);
     let extracted = shell.capture("tar", ["-xf", archive, "-C", destination]);
     if (extracted.exit_code != 0) {
-        return `Unpacking the ${noun} failed with exit code ${extracted.exit_code}.`;
+        return root.common.must(extracted, `Unpacking the ${noun}`);
     }
     ""
 }
@@ -49,22 +49,30 @@ function unpack_archive(shell: root.common.Shell, files: root.common.Files,
 ///
 /// The project's own content is already where it belongs, so nothing is done
 /// for it: what is read is the asset directory, and the caller knows that.
+///
+/// `keep_history` says whether what is brought is going to stay. Content that
+/// is read here and thrown away needs one revision; content that ends up on the
+/// installed machine as a repository needs the repository.
 function bring_here(shell: root.common.Shell, files: root.common.Files,
-                    source: root.common.Source, staging: string, destination: string,
-                    noun: string) -> string {
-    if (root.common.is_default_source(source)) {
+                    source: Source, staging: string, destination: string,
+                    noun: string, keep_history: bool) -> string {
+    if (is_default_source(source)) {
         return "";
     }
     files.mkdir(staging);
 
     if (source.origin == "git") {
-        //# one revision is all that is read, and a history is not the content
-        let cloned = shell.capture("git", ["clone", "--depth", "1", source.location, destination]);
-        if (cloned.exit_code != 0) {
-            return `Cloning the ${noun} failed with exit code ${cloned.exit_code}:`
-                + ` ${source.location}`;
-        }
-        return "";
+        //# a shallow clone is enough for a package that is read and dropped,
+        //# because a history is not its content. It is not enough for the
+        //# dotfiles package: `decisions/001-disk-layout.md` restores /dotfiles
+        //# through Git, and a shallow clone has nothing to restore from.
+        let argv = if (keep_history) {
+            ["clone", source.location, destination]
+        } else {
+            ["clone", "--depth", "1", source.location, destination]
+        };
+        let cloned = shell.capture("git", argv);
+        return root.common.must(cloned, `Cloning the ${noun} from ${source.location}`);
     }
 
     if (source.origin == "tar") {
@@ -73,9 +81,9 @@ function bring_here(shell: root.common.Shell, files: root.common.Files,
         let archive = `${destination}.tar`;
         let downloaded = shell.capture("curl",
             ["-fL", "--retry", "2", "--connect-timeout", "10", "-o", archive, source.location]);
-        if (downloaded.exit_code != 0) {
-            return `Downloading the ${noun} failed with exit code ${downloaded.exit_code}:`
-                + ` ${source.location}`;
+        let fetched = root.common.must(downloaded, `Downloading the ${noun} from ${source.location}`);
+        if (fetched != "") {
+            return fetched;
         }
         return unpack_archive(shell, files, archive, destination, noun);
     }
@@ -86,16 +94,30 @@ function bring_here(shell: root.common.Shell, files: root.common.Files,
         files.mkdir(destination);
         //# the contents, not the directory: what lands here is the package
         let copied = shell.capture("cp", ["-r", `${source.location}/.`, destination]);
-        if (copied.exit_code != 0) {
-            return `Copying the ${noun} failed with exit code ${copied.exit_code}:`
-                + ` ${source.location}`;
-        }
-        return "";
+        return root.common.must(copied, `Copying the ${noun} from ${source.location}`);
     }
     if (!files.exists(source.location)) {
         return `The ${noun} is not there: ${source.location}`;
     }
     unpack_archive(shell, files, source.location, destination, noun)
+}
+
+/// Brings one file here, whatever its origin: downloaded from a URL, or copied
+/// from this machine. A single file has no archive to unpack and no repository
+/// to clone, so this is the whole of it.
+function bring_file_here(shell: root.common.Shell, files: root.common.Files,
+                         source: Source, destination: string, noun: string) -> string {
+    if (source.origin == "url") {
+        let downloaded = shell.capture("curl",
+            ["-fL", "--retry", "2", "--connect-timeout", "10", "-o", destination, source.location]);
+        return root.common.must(downloaded, `Downloading the ${noun} from ${source.location}`);
+    }
+
+    if (!files.exists(source.location)) {
+        return `The ${noun} is not there: ${source.location}`;
+    }
+    root.common.must(shell.capture("cp", [source.location, destination]),
+                     `Copying the ${noun} from ${source.location}`)
 }
 
 // ------------------------------------------------------- where content lands
@@ -117,11 +139,30 @@ function staged_dotfiles_directory(staging: string) -> string {
     root.common.in_directory(staging, "dotfiles")
 }
 
+/// Where a secret store is unsealed to. The staging directory is on the live
+/// medium's `/tmp`, which is memory, so a store in the clear never reaches a
+/// disk before the one it is being installed onto.
+function staged_secrets_directory(staging: string) -> string {
+    root.common.in_directory(staging, "secrets")
+}
+
+/// Where the sealed archive itself is brought, before anything opens it.
+function staged_store_path(staging: string) -> string {
+    root.common.in_directory(staging, "store.dfsec")
+}
+
+/// And where it lands once opened, still packed. It is separated from the
+/// directory it is unpacked into for the reason a downloaded `.tar` is: two
+/// things being fetched at once never write over one another.
+function staged_store_tar(staging: string) -> string {
+    root.common.in_directory(staging, "store.tar")
+}
+
 /// The directory the template package is finally read from, which is also the
 /// one the renderer is handed: the project's own, or the staging directory
 /// everything else was brought into.
-function package_directory(asset_dir: string, template: root.common.Source) -> string {
-    if (root.common.is_default_source(template)) {
+function package_directory(asset_dir: string, template: Source) -> string {
+    if (is_default_source(template)) {
         root.return_message.default_package_directory(asset_dir)
     } else {
         staged_package_directory(live_staging_dir())
@@ -129,8 +170,8 @@ function package_directory(asset_dir: string, template: root.common.Source) -> s
 }
 
 /// The same, for the theme.
-function theme_directory(asset_dir: string, theme: root.common.Source) -> string {
-    if (root.common.is_default_source(theme)) {
+function theme_directory(asset_dir: string, theme: Source) -> string {
+    if (is_default_source(theme)) {
         root.return_message.default_theme_directory(asset_dir)
     } else {
         staged_theme_directory(live_staging_dir())
@@ -148,9 +189,18 @@ function theme_directory(asset_dir: string, theme: root.common.Source) -> string
 /// on a medium that will be unmounted when the installation starts.
 function bring_every_source(shell: root.common.Shell, files: root.common.Files,
                             config: InstallConfig, staging: string) -> string {
-    if let dotfiles: root.common.Source = config.dotfiles {
+    if let dotfiles: Source = config.dotfiles {
         let problem = bring_here(shell, files, dotfiles, staging,
-                                 staged_dotfiles_directory(staging), "dotfiles package");
+                                 staged_dotfiles_directory(staging), "dotfiles package", true);
+        if (problem != "") {
+            return problem;
+        }
+    }
+
+    if let store: SecretStoreInput = config.secret_store {
+        files.mkdir(staging);
+        let problem = bring_file_here(shell, files, store.archive, staged_store_path(staging),
+                                      "secret store");
         if (problem != "") {
             return problem;
         }
@@ -158,12 +208,12 @@ function bring_every_source(shell: root.common.Shell, files: root.common.Files,
 
     if let message: ReturnMessageInput = config.return_message {
         let package = bring_here(shell, files, message.template, staging,
-                                 staged_package_directory(staging), "template package");
+                                 staged_package_directory(staging), "template package", false);
         if (package != "") {
             return package;
         }
         let theme = bring_here(shell, files, message.theme, staging,
-                               staged_theme_directory(staging), "theme");
+                               staged_theme_directory(staging), "theme", false);
         if (theme != "") {
             return theme;
         }
@@ -173,10 +223,10 @@ function bring_every_source(shell: root.common.Shell, files: root.common.Files,
 
 /// The template package a configuration asks for, brought here and read.
 function resolve_package(shell: root.common.Shell, files: root.common.Files,
-                         asset_dir: string, template: root.common.Source,
+                         asset_dir: string, template: Source,
                          staging: string) -> root.return_message.LoadedPackage {
     let problem = bring_here(shell, files, template, staging,
-                             staged_package_directory(staging), "template package");
+                             staged_package_directory(staging), "template package", false);
     if (problem != "") {
         return root.return_message.LoadedPackage {
             package: root.return_message.empty_package(), bodies: {}, error: problem,
@@ -185,12 +235,124 @@ function resolve_package(shell: root.common.Shell, files: root.common.Files,
     root.return_message.load_package(files, package_directory(asset_dir, template))
 }
 
+// ------------------------------------------------- judging a dotfiles package
+
+/// The synchroniser, as the installer calls it. It is on the live medium
+/// before the installer is, and `docs/development/009-dotfiles-integration-plan.md`
+/// says how it got there.
+function dotfiles_sync() -> string {
+    "oparch-dotfiles-sync"
+}
+
+/// How the tool is called against a package that has been brought here and
+/// installed nowhere: the staged directory is the source, and the machine is
+/// the one being installed rather than the live medium the tool is running on.
+///
+/// The map is not named. It lives inside the source under a name the tool owns,
+/// and naming it here would be this project holding the same constant twice.
+function staged_dotfiles_argv(config: InstallConfig, staging: string, mode: string,
+                              secrets_root: string) -> string[] {
+    let argv = [mode, "--source", staged_dotfiles_directory(staging),
+                "--hostname", config.hostname];
+    for (let user in config.login_users) {
+        argv.push("--user");
+        argv.push(user);
+    }
+    if (secrets_root != "") {
+        argv.push("--secrets-root");
+        argv.push(secrets_root);
+    }
+    argv
+}
+
+/// What the tool says about a staged package, or "" when it says nothing.
+///
+/// The tool is the only thing that reads the map format, so it is the only
+/// thing that judges a package. A package refused here is refused for the same
+/// reason and in the same words it would be refused for at the end of the
+/// installation — the difference is that here there is still someone to ask,
+/// and a disk that has not been touched.
+function refusal_of(result: root.common.CommandResult) -> string {
+    if (result.ok()) {
+        return "";
+    }
+    let said = result.stderr.trim();
+    if (said == "") {
+        return `The dotfiles package was refused, without saying why (exit code ${result.exit_code}).`;
+    }
+    said
+}
+
+function check_dotfiles_package(shell: root.common.Shell, config: InstallConfig,
+                                staging: string, secrets_root: string) -> string {
+    refusal_of(shell.capture(dotfiles_sync(),
+                             staged_dotfiles_argv(config, staging, "--dry-run", secrets_root)))
+}
+
+/// What the staged package needs from a secret store, one store-relative path
+/// per line. Empty when it needs none, which is how the form knows not to ask.
+class RequiredSecrets {
+    files: string[],
+    error: string,
+}
+
+function required_dotfiles_secrets(shell: root.common.Shell, config: InstallConfig,
+                                   staging: string) -> RequiredSecrets {
+    let asked = shell.capture(dotfiles_sync(),
+                              staged_dotfiles_argv(config, staging, "--list-secrets", ""));
+    let refused = refusal_of(asked);
+    if (refused != "") {
+        return RequiredSecrets { files: [], error: refused };
+    }
+    RequiredSecrets { files: root.common.nonempty_lines(asked.stdout), error: "" }
+}
+
+/// The dotfiles package a configuration asks for, brought here and judged.
+///
+/// Asking what it needs from a store is how it is judged, because that question
+/// is answered by building the whole plan: everything a package can be wrong
+/// about — a map that does not parse, an include that is not there, a file it
+/// declares and does not hold — is answered along with it. What is deliberately
+/// not answered is whether the store is complete, which is the one thing that
+/// cannot be known before the store has been asked for.
+function resolve_dotfiles(shell: root.common.Shell, files: root.common.Files,
+                          config: InstallConfig, source: Source,
+                          staging: string) -> RequiredSecrets {
+    let problem = bring_here(shell, files, source, staging,
+                             staged_dotfiles_directory(staging), "dotfiles package", true);
+    if (problem != "") {
+        return RequiredSecrets { files: [], error: problem };
+    }
+    required_dotfiles_secrets(shell, config, staging)
+}
+
+/// Opens the store that was brought here, and unpacks it where the tool will be
+/// pointed at it. Decrypting is the port's; everything after it is the same
+/// unpacking every other archive gets, including the refusal of an entry that
+/// would be written outside where it is put.
+function open_secret_store(shell: root.common.Shell, files: root.common.Files, secrets: Secrets,
+                           passphrase: string, staging: string) -> string {
+    let failure = secrets.unseal(staged_store_path(staging), passphrase, staged_store_tar(staging));
+    if (failure != "") {
+        return failure;
+    }
+    unpack_archive(shell, files, staged_store_tar(staging), staged_secrets_directory(staging),
+                   "secret store")
+}
+
+/// Whether the store that was unsealed into the staging directory holds what
+/// the package needs. Asked only when the package needs anything at all.
+function check_staged_secrets(shell: root.common.Shell, config: InstallConfig,
+                              staging: string) -> string {
+    check_dotfiles_package(shell, config, staging, staged_secrets_directory(staging))
+}
+
 /// The theme a configuration asks for, brought here exactly as the package is.
 function resolve_theme(shell: root.common.Shell, files: root.common.Files,
-                       asset_dir: string, theme: root.common.Source,
+                       asset_dir: string, theme: Source,
                        staging: string) -> root.return_message.ThemeParse {
     let problem = bring_here(shell, files, theme, staging,
-                             staged_theme_directory(staging), "theme");
+                             staged_theme_directory(staging), "theme", false);
     if (problem != "") {
         return root.return_message.ThemeParse {
             theme: root.return_message.empty_theme(), error: problem,
@@ -207,6 +369,36 @@ function fetching_shell() -> root.common.RecordingShell {
     }
 }
 
+test "a refusal is relayed in the tool's own words" {
+    let refused = root.common.CommandResult {
+        exit_code: 1,
+        stdout: "",
+        stderr: "error: source 'hypr/keybindings.lua' does not exist under '/tmp/oparch/dotfiles'\n",
+    };
+
+    assert.equal(refusal_of(refused),
+                 "error: source 'hypr/keybindings.lua' does not exist under '/tmp/oparch/dotfiles'");
+    //# nothing to relay is still a refusal, and says so rather than passing
+    assert.equal(refusal_of(root.common.CommandResult { exit_code: 2, stdout: "", stderr: "" }),
+                 "The dotfiles package was refused, without saying why (exit code 2).");
+    assert.equal(refusal_of(root.common.CommandResult { exit_code: 0, stdout: "", stderr: "" }), "")
+}
+
+test "the tool is asked about the staged package, for the machine being installed" {
+    let config = empty_config();
+    config.hostname = "oparch";
+    config.login_users = ["ivan", "work"];
+
+    assert.equal(staged_dotfiles_argv(config, "/tmp/oparch", "--list-secrets", ""),
+                 ["--list-secrets", "--source", "/tmp/oparch/dotfiles",
+                  "--hostname", "oparch", "--user", "ivan", "--user", "work"]);
+    //# the map is not named: it lives inside the source under a name the tool owns
+    assert.equal(staged_dotfiles_argv(config, "/tmp/oparch", "--dry-run", "/tmp/oparch/secrets"),
+                 ["--dry-run", "--source", "/tmp/oparch/dotfiles",
+                  "--hostname", "oparch", "--user", "ivan", "--user", "work",
+                  "--secrets-root", "/tmp/oparch/secrets"])
+}
+
 test "escaping_entry names the first bad entry of a listing" {
     assert.is_true(escaping_entry("manifest.yaml\nes.txt\n") == null);
     assert.equal(escaping_entry("manifest.yaml\n../../etc/passwd\nes.txt\n"), "../../etc/passwd")
@@ -215,22 +407,36 @@ test "escaping_entry names the first bad entry of a listing" {
 test "the project's own content is not brought anywhere" {
     let shell = fetching_shell();
 
-    assert.equal(bring_here(shell, root.common.recording_files(), root.common.default_source(),
-                            "/tmp/oparch", "/tmp/oparch/theme", "theme"),
+    assert.equal(bring_here(shell, root.common.recording_files(), default_source(),
+                            "/tmp/oparch", "/tmp/oparch/theme", "theme", false),
                  "");
     assert.equal(shell.commands, [])
 }
 
-test "a repository is cloned at one revision" {
+test "a repository read and dropped is cloned at one revision" {
     let shell = fetching_shell();
 
     assert.equal(
         bring_here(shell, root.common.recording_files(),
-                   root.common.source_at("git", "https://example.invalid/dotfiles.git"),
-                   "/tmp/oparch", "/tmp/oparch/dotfiles", "dotfiles package"),
+                   source_at("git", "https://example.invalid/theme.git"),
+                   "/tmp/oparch", "/tmp/oparch/theme", "theme", false),
         "");
     assert.equal(shell.commands, [
-        "git clone --depth 1 https://example.invalid/dotfiles.git /tmp/oparch/dotfiles",
+        "git clone --depth 1 https://example.invalid/theme.git /tmp/oparch/theme",
+    ])
+}
+
+test "a repository that stays is cloned whole" {
+    let shell = fetching_shell();
+
+    assert.equal(
+        bring_here(shell, root.common.recording_files(),
+                   source_at("git", "https://example.invalid/dotfiles.git"),
+                   "/tmp/oparch", "/tmp/oparch/dotfiles", "dotfiles package", true),
+        "");
+    //# /dotfiles is restored through Git, and a shallow clone restores nothing
+    assert.equal(shell.commands, [
+        "git clone https://example.invalid/dotfiles.git /tmp/oparch/dotfiles",
     ])
 }
 
@@ -241,9 +447,10 @@ test "a clone that failed is reported with what was asked for" {
 
     assert.equal(
         bring_here(shell, root.common.recording_files(),
-                   root.common.source_at("git", "https://example.invalid/gone.git"),
-                   "/tmp/oparch", "/tmp/oparch/dotfiles", "dotfiles package"),
-        "Cloning the dotfiles package failed with exit code 128: https://example.invalid/gone.git")
+                   source_at("git", "https://example.invalid/gone.git"),
+                   "/tmp/oparch", "/tmp/oparch/dotfiles", "dotfiles package", false),
+        "Cloning the dotfiles package from https://example.invalid/gone.git"
+            + " failed with exit code 128.")
 }
 
 test "a remote archive is downloaded, inspected and unpacked in that order" {
@@ -252,8 +459,8 @@ test "a remote archive is downloaded, inspected and unpacked in that order" {
 
     assert.equal(
         bring_here(shell, root.common.recording_files(),
-                   root.common.source_at("tar", "https://example.invalid/pkg.tar"),
-                   "/tmp/oparch", "/tmp/oparch/template-package", "template package"),
+                   source_at("tar", "https://example.invalid/pkg.tar"),
+                   "/tmp/oparch", "/tmp/oparch/template-package", "template package", false),
         "");
     assert.equal(shell.commands, [
         "curl -fL --retry 2 --connect-timeout 10 -o /tmp/oparch/template-package.tar"
@@ -271,9 +478,10 @@ test "a download that failed is reported and nothing is unpacked" {
 
     assert.equal(
         bring_here(shell, root.common.recording_files(),
-                   root.common.source_at("tar", "https://example.invalid/theme.tar"),
-                   "/tmp/oparch", "/tmp/oparch/theme", "theme"),
-        "Downloading the theme failed with exit code 22: https://example.invalid/theme.tar");
+                   source_at("tar", "https://example.invalid/theme.tar"),
+                   "/tmp/oparch", "/tmp/oparch/theme", "theme", false),
+        "Downloading the theme from https://example.invalid/theme.tar"
+            + " failed with exit code 22.");
     assert.equal(shell.commands.length(), 1)
 }
 
@@ -284,8 +492,8 @@ test "an archive is refused whole before anything is unpacked" {
 
     assert.equal(
         bring_here(shell, root.common.recording_files(),
-                   root.common.source_at("tar", "https://example.invalid/pkg.tar"),
-                   "/tmp/oparch", "/tmp/oparch/template-package", "template package"),
+                   source_at("tar", "https://example.invalid/pkg.tar"),
+                   "/tmp/oparch", "/tmp/oparch/template-package", "template package", false),
         "The template package holds an entry that would be written outside it: ../escape.txt");
     assert.is_true(!shell.commands.includes(
         "tar -xf /tmp/oparch/template-package.tar -C /tmp/oparch/template-package"))
@@ -296,8 +504,8 @@ test "a local directory is copied here, contents and all" {
 
     assert.equal(
         bring_here(shell, root.common.recording_files(),
-                   root.common.source_at("local", "/run/oparch/media/sdb1/andorra"),
-                   "/tmp/oparch", "/tmp/oparch/template-package", "template package"),
+                   source_at("local", "/run/oparch/media/sdb1/andorra"),
+                   "/tmp/oparch", "/tmp/oparch/template-package", "template package", false),
         "");
     //# `test -d` is what tells a directory from an archive, not the name
     assert.equal(shell.commands, [
@@ -315,8 +523,8 @@ test "a local archive is unpacked here rather than read where it lies" {
 
     assert.equal(
         bring_here(shell, files,
-                   root.common.source_at("local", "/run/oparch/media/sdb1/andorra.tar"),
-                   "/tmp/oparch", "/tmp/oparch/theme", "theme"),
+                   source_at("local", "/run/oparch/media/sdb1/andorra.tar"),
+                   "/tmp/oparch", "/tmp/oparch/theme", "theme", false),
         "");
     assert.equal(shell.commands, [
         "test -d /run/oparch/media/sdb1/andorra.tar",
@@ -331,21 +539,21 @@ test "a local location that is neither a directory nor a file is reported" {
 
     assert.equal(
         bring_here(shell, root.common.recording_files(),
-                   root.common.source_at("local", "/run/oparch/media/sdb1/gone"),
-                   "/tmp/oparch", "/tmp/oparch/theme", "theme"),
+                   source_at("local", "/run/oparch/media/sdb1/gone"),
+                   "/tmp/oparch", "/tmp/oparch/theme", "theme", false),
         "The theme is not there: /run/oparch/media/sdb1/gone")
 }
 
 test "the directory the renderer is handed is where the content ended up" {
-    let brought = root.common.source_at("tar", "https://example.invalid/pkg.tar");
+    let brought = source_at("tar", "https://example.invalid/pkg.tar");
 
-    assert.equal(package_directory("/assets", root.common.default_source()),
+    assert.equal(package_directory("/assets", default_source()),
                  "/assets/return-message");
     assert.equal(package_directory("/assets", brought), "/tmp/oparch/template-package");
 
-    assert.equal(theme_directory("/assets", root.common.default_source()),
+    assert.equal(theme_directory("/assets", default_source()),
                  "/assets/return-message-theme");
-    assert.equal(theme_directory("/assets", root.common.source_at("local", "/media/pen/dark")),
+    assert.equal(theme_directory("/assets", source_at("local", "/media/pen/dark")),
                  "/tmp/oparch/theme")
 }
 
@@ -358,7 +566,7 @@ test "resolve_package reads what was brought into the staging directory" {
     files.write("/tmp/oparch/template-package/ca.txt", "Hola {{owner_name}}");
 
     let loaded = resolve_package(shell, files, "/assets",
-                                 root.common.source_at("tar", "https://example.invalid/pkg.tar"),
+                                 source_at("tar", "https://example.invalid/pkg.tar"),
                                  "/tmp/oparch");
 
     assert.equal(loaded.error, "");

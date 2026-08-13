@@ -20,7 +20,7 @@ The installer's configuration file is what makes the run automatable. With `--co
 
 1. Create a disposable disk from a base image with `qemu-img create -f qcow2 -b`, so each run starts from the same state and leaves nothing behind.
 2. Boot the Arch ISO with that disk attached, the kernel and initramfs extracted from the ISO so `console=ttyS0` can be passed on the kernel command line, and `-nographic -serial mon:stdio` so the guest's console is the harness's standard output.
-3. Expose the installer binary, its runtime library, `oparch-return-message-render`, the assets and the configuration file to the guest through a 9p mount, so a new build is tested without rebuilding anything.
+3. Expose the installer binary, its runtime library, `oparch-return-message-render`, `oparch-dotfiles-sync`, the assets, the fixtures and the configuration file to the guest through a 9p mount, so a new build is tested without rebuilding anything.
 4. Run the installer with `--config`, and read its output from the serial console.
 5. Boot the resulting disk again, this time without the ISO, and assert on the boot: the bootloader entry, the passphrase prompt, and reaching a login.
 
@@ -33,6 +33,7 @@ The harness boots the **official Arch ISO**, not the one this project will ship.
 Two things follow, and they are the harness's own work rather than the installer's:
 
 - The live environment is missing what the return message is drawn with. The harness installs `imagemagick` and `noto-fonts` with `pacman` in the guest before running the installer. On the project's own ISO they are already installed, so this step disappears when that ISO arrives.
+- It is also missing `git`, which the installer clones the dotfiles package with when its origin is a repository. The harness installs it the same way, and it disappears the same way.
 - There is no package cache to install from, so the guest reaches the network, both for those two packages and for `pacstrap`. The project's own ISO will carry its packages in its cache; until then, a run needs the network and is only as reproducible as the mirrors it hits.
 
 The ISO is provided rather than downloaded: the harness is given a path to one and does not go looking for it. It is not versioned — it is over a gigabyte, and it is an input to a test rather than part of the project.
@@ -51,9 +52,27 @@ None of this applies to the ISO this project will ship, which carries its own pa
 
 ### What this harness cannot see
 
-Its guest runs with `-nographic`, so there is no display for a splash. Plymouth falls back to the text prompt `../decisions/007-preboot-ownership-message.md` requires, which is worth knowing works, but the harness therefore never draws the composed message and never runs the script the renderer writes.
+Its guest runs with `-nographic`, so there is no display for a splash. Plymouth falls back to the text prompt `../decisions/006-preboot-ownership-message.md` requires, which is worth knowing works, but the harness therefore never draws the composed message and never runs the script the renderer writes.
 
 That is a limit of this harness. The splash itself was seen on 2026-08-11, on VMware and by hand: the machine booted to the return message screen, and Escape moved between it and the text prompt. A run with a display attached is what would bring that under the harness.
+
+## The dotfiles step, case by case
+
+These are the cases the dotfiles step has to be covered by. They are written here because there is nowhere else yet; each of them is a document of its own once there is a place for test specifications, and this section goes when they move.
+
+Two fixtures are needed for all of them: a dotfiles package whose map declares a link, a copy and a render, and an encrypted store holding what that render references. Both live beside the configuration file the harness already hands the guest.
+
+**A package is applied.** The configuration names a dotfiles package. After the installation, `/dotfiles` holds what the package held; its directories are `2775` and its files `664`; the default ACL `decisions/013-dotfiles-policy.md` requires is on it; `/dotfiles` is in git's system `safe.directory`; and each of the three operations the map declared has produced its target, owned by the user the map named.
+
+**A repository stays a repository.** The same run with the package taken from a `git` origin. Afterwards `/dotfiles` is a repository with its history and its remote, not a checkout of one revision.
+
+**A map that needs secrets gets them.** The configuration also names the encrypted store and its passphrase. Afterwards the rendered target holds the secret's value, and the store on the installed system is `0700` at its root and `0600` at each file, owned `root:root`.
+
+**A package that does not hold what it declares is refused.** A map naming a file that is not in the package. The run stops before the disk is touched, and says which file and where the map says it should be.
+
+**A passphrase that does not open the store is refused.** The same, stopping for that reason and saying so, with the disk equally untouched.
+
+The last two are what makes the first three worth having: they are the cases where the installation is meant not to happen, and the assertion is on the disk being as it was.
 
 ## State
 

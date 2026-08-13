@@ -15,8 +15,12 @@ function allowed_top_keys() -> string[] {
     [
         "disk", "install_mode", "preserved_home_users", "ucode_package", "gpu_driver",
         "swap", "login_users", "shared_secret", "console_keymap", "timezone",
-        "hostname", "dotfiles", "return_message",
+        "hostname", "dotfiles", "secret_store", "return_message",
     ]
+}
+
+function allowed_secret_store_keys() -> string[] {
+    ["archive", "passphrase"]
 }
 
 function allowed_swap_keys() -> string[] {
@@ -106,6 +110,17 @@ function parse_config_file(text: string) -> ConfigParse {
         return ConfigParse { config: config, error: dotfiles_problem };
     }
 
+    let store_problem = read_secret_store(top, config);
+    if (store_problem != "") {
+        return ConfigParse { config: config, error: store_problem };
+    }
+    if (config.secret_store != null && config.dotfiles == null) {
+        return ConfigParse {
+            config: config,
+            error: "secret_store is only read with dotfiles: nothing else uses one.",
+        };
+    }
+
     let message_problem = read_return_message(top, config);
     if (message_problem != "") {
         return ConfigParse { config: config, error: message_problem };
@@ -180,18 +195,52 @@ function read_users(top: map<string, baml.json.json>, config: InstallConfig) -> 
 
 //# a section that is there turns its feature on; there is no separate flag
 function read_dotfiles(top: map<string, baml.json.json>, config: InstallConfig) -> string {
-    let read = root.common.read_source(top, "dotfiles", root.common.package_origins(), "dotfiles");
+    let read = read_source(top, "dotfiles", package_origins(), "dotfiles");
     if (read.error != "") {
         return read.error;
     }
     if (read.present) {
         //# the project ships no dotfiles, so there is nothing for a default to
         //# mean here: a section that is there names where its content is
-        if (root.common.is_default_source(read.source)) {
+        if (is_default_source(read.source)) {
             return "dotfiles.origin cannot be default: the project carries no dotfiles.";
         }
         config.dotfiles = read.source;
     }
+    ""
+}
+
+//# the store is one file, so it is named the way a file is named, and the
+//# passphrase sits beside it because there is nobody at the terminal to type one
+function read_secret_store(top: map<string, baml.json.json>, config: InstallConfig) -> string {
+    if (!top.keys().includes("secret_store")) {
+        return "";
+    }
+    let raw = top.get("secret_store");
+    let fields = root.common.as_map(raw) ?? root.common.empty_json_map();
+    if (root.common.as_map(raw) == null) {
+        return "secret_store must be a mapping.";
+    }
+    if let unknown: string = root.common.unknown_key(fields, allowed_secret_store_keys()) {
+        return `Unknown key in config file: secret_store.${unknown}`;
+    }
+
+    let archive = read_source(fields, "archive", file_origins(), "secret_store.archive");
+    if (archive.error != "") {
+        return archive.error;
+    }
+    if (!archive.present) {
+        return "secret_store.archive is required.";
+    }
+    let passphrase = root.common.read_text(fields, "passphrase", "secret_store.passphrase");
+    if (passphrase.error != "") {
+        return passphrase.error;
+    }
+    if (passphrase.value == "") {
+        return "secret_store.passphrase cannot be empty.";
+    }
+
+    config.secret_store = SecretStoreInput { archive: archive.source, passphrase: passphrase.value };
     ""
 }
 
@@ -221,21 +270,31 @@ function read_return_message(top: map<string, baml.json.json>, config: InstallCo
             return parsed.error;
         }
 
-        let template = root.common.read_source(section, "template", root.common.package_origins(),
+        let template = read_source(section, "template", package_origins(),
                                                "return_message.template");
         if (template.error != "") {
             return template.error;
         }
-        let theme = root.common.read_source(section, "theme", root.common.package_origins(),
+        let theme = read_source(section, "theme", package_origins(),
                                             "return_message.theme");
         if (theme.error != "") {
             return theme.error;
         }
 
+        //# the values format carries this key and does not read it: where the
+        //# logo came from is the installer's question, so the installer reads it
+        let logo = read_source(section, "logo", file_origins(), "return_message.logo");
+        if (logo.error != "") {
+            return logo.error;
+        }
+
         //# a key that is not there is the project's own, which is what the
         //# format says an absent origin means
         config.return_message = ReturnMessageInput {
-            template: template.source, theme: theme.source, values: parsed.message,
+            template: template.source,
+            theme: theme.source,
+            values: parsed.message,
+            logo: if (logo.present) { logo.source } else { null },
         };
     }
     ""
@@ -250,7 +309,7 @@ function one_of(value: string, options: string[]) -> bool {
 /// Everything the file cannot decide on its own: that the disk is really a
 /// block device, that the timezone exists, that the templates are installed.
 /// Returns "" when the config describes something this machine can install.
-function check_config(shell: root.common.Shell, files: root.common.Files,
+function check_config(shell: root.common.Shell, files: root.common.Files, secrets: Secrets,
                       config: InstallConfig, asset_dir: string) -> string {
     //# everything the file points at is brought here first, before a single
     //# check has been made: this is the last moment at which a medium is
@@ -288,6 +347,33 @@ function check_config(shell: root.common.Shell, files: root.common.Files,
     }
     if (!validate_hostname(config.hostname)) {
         return "Invalid hostname.";
+    }
+
+    //# the map decides what the package has to hold, and only the tool reads
+    //# maps; it is asked here, after the hostname and the users it plans for
+    //# have been found sound, and before the disk is touched
+    if (config.dotfiles != null) {
+        let wanted = required_dotfiles_secrets(shell, config, live_staging_dir());
+        if (wanted.error != "") {
+            return wanted.error;
+        }
+        //# a store is only opened and judged when the map asks for one, and what
+        //# judges it is the same plan, this time held to the files being there.
+        //# A file that names no store and needs one is answered by the tool
+        //# naming what is missing, rather than by a sentence written here.
+        if (wanted.files.length() > 0) {
+            if let store: SecretStoreInput = config.secret_store {
+                let failure = open_secret_store(shell, files, secrets, store.passphrase,
+                                                live_staging_dir());
+                if (failure != "") {
+                    return failure;
+                }
+            }
+            let refused = check_staged_secrets(shell, config, live_staging_dir());
+            if (refused != "") {
+                return refused;
+            }
+        }
     }
 
     //# the package decides which languages exist and which fields are needed,
@@ -395,7 +481,7 @@ test "a section that is present turns its feature on" {
     let parsed = parse_config_file(text);
 
     assert.equal(parsed.error, "");
-    if let dotfiles: root.common.Source = parsed.config.dotfiles {
+    if let dotfiles: Source = parsed.config.dotfiles {
         assert.equal(dotfiles.origin, "git");
         assert.equal(dotfiles.location, "https://example.invalid/dotfiles.git")
     }
@@ -473,7 +559,7 @@ test "check_config accepts a configuration this machine can install" {
     let shell = checking_shell();
     let parsed = parse_config_file(full_config_text());
 
-    assert.equal(check_config(shell, packaged_files(), parsed.config, "/assets"), "");
+    assert.equal(check_config(shell, packaged_files(), recording_secrets(), parsed.config, "/assets"), "");
     assert.is_true(shell.commands.includes("test -b /dev/sda"))
 }
 
@@ -482,7 +568,7 @@ test "check_config rejects a disk that is not a block device" {
     let _ = shell.exit_codes.set("test -b /dev/sda", 1);
     let parsed = parse_config_file(full_config_text());
 
-    assert.equal(check_config(shell, packaged_files(), parsed.config, "/assets"),
+    assert.equal(check_config(shell, packaged_files(), recording_secrets(), parsed.config, "/assets"),
                  "disk must be an existing block device: /dev/sda")
 }
 
@@ -490,7 +576,7 @@ test "check_config rejects a timezone that is not in the canonical list" {
     let parsed = parse_config_file(full_config_text());
     parsed.config.timezone = "Mars/Olympus";
 
-    assert.equal(check_config(checking_shell(), packaged_files(), parsed.config, "/assets"),
+    assert.equal(check_config(checking_shell(), packaged_files(), recording_secrets(), parsed.config, "/assets"),
                  "Invalid timezone: Mars/Olympus")
 }
 
@@ -510,7 +596,7 @@ test "a template named by URL is fetched before it is read" {
     let parsed = parse_config_file(text);
 
     assert.equal(parsed.error, "");
-    assert.equal(check_config(shell, files, parsed.config, "/assets"), "");
+    assert.equal(check_config(shell, files, recording_secrets(), parsed.config, "/assets"), "");
     assert.is_true(shell.commands.includes("tar -tf /tmp/oparch/template-package.tar"))
 }
 
@@ -526,7 +612,7 @@ test "check_config refuses a theme that is not where the file says" {
 
     assert.equal(parsed.error, "");
     //# the location the file named, not the staging path it would have landed in
-    assert.equal(check_config(shell, packaged_files(), parsed.config, "/assets"),
+    assert.equal(check_config(shell, packaged_files(), recording_secrets(), parsed.config, "/assets"),
                  "The theme is not there: /nowhere")
 }
 
@@ -537,7 +623,7 @@ test "check_config refuses a number of languages the theme does not lay out" {
     let parsed = parse_config_file(text);
 
     //# the package offers all three; the theme is what refuses three of them
-    assert.equal(check_config(checking_shell(), three_language_files(), parsed.config, "/assets"),
+    assert.equal(check_config(checking_shell(), three_language_files(), recording_secrets(), parsed.config, "/assets"),
                  "The theme lays out 1, 2 or 4 languages, and 3 were selected.")
 }
 
@@ -553,7 +639,7 @@ test "a theme named by URL is fetched into a directory of its own" {
         + "  languages:\n    - \"es\"\n  fields:\n    owner_name: \"Ivan\"\n";
     let parsed = parse_config_file(text);
 
-    assert.equal(check_config(shell, files, parsed.config, "/assets"), "");
+    assert.equal(check_config(shell, files, recording_secrets(), parsed.config, "/assets"), "");
     assert.is_true(shell.commands.includes(
         "tar -xf /tmp/oparch/theme.tar -C /tmp/oparch/theme"))
 }
@@ -565,24 +651,24 @@ test "everything the file names is brought here before a single check is made" {
     let parsed = parse_config_file(text);
 
     assert.equal(parsed.error, "");
-    assert.equal(check_config(shell, packaged_files(), parsed.config, "/assets"), "");
+    assert.equal(check_config(shell, packaged_files(), recording_secrets(), parsed.config, "/assets"), "");
     //# nothing consumes the dotfiles yet, and it is brought all the same: the
     //# medium it came from is gone once the installation starts
     assert.is_true(shell.commands.includes(
-        "git clone --depth 1 https://example.invalid/dotfiles.git /tmp/oparch/dotfiles"))
+        "git clone https://example.invalid/dotfiles.git /tmp/oparch/dotfiles"))
 }
 
 test "a source that cannot be brought here stops the run before anything is checked" {
     let shell = checking_shell();
     let _ = shell.exit_codes.set(
-        "git clone --depth 1 https://example.invalid/gone.git /tmp/oparch/dotfiles", 128);
+        "git clone https://example.invalid/gone.git /tmp/oparch/dotfiles", 128);
     let text = full_config_text()
         + "dotfiles:\n  origin: git\n  location: \"https://example.invalid/gone.git\"\n";
     let parsed = parse_config_file(text);
 
-    assert.equal(check_config(shell, packaged_files(), parsed.config, "/assets"),
-                 "Cloning the dotfiles package failed with exit code 128:"
-                     + " https://example.invalid/gone.git");
+    assert.equal(check_config(shell, packaged_files(), recording_secrets(), parsed.config, "/assets"),
+                 "Cloning the dotfiles package from https://example.invalid/gone.git"
+                     + " failed with exit code 128.");
     //# the disk was never even looked at
     assert.is_true(!shell.commands.includes("test -b /dev/sda"))
 }
@@ -598,7 +684,7 @@ test "a package fetched from a URL that tries to escape is refused" {
         + "  languages:\n    - \"es\"\n  fields:\n    owner_name: \"Ivan\"\n";
     let parsed = parse_config_file(text);
 
-    assert.equal(check_config(shell, root.common.recording_files(), parsed.config, "/assets"),
+    assert.equal(check_config(shell, root.common.recording_files(), recording_secrets(), parsed.config, "/assets"),
                  "The template package holds an entry that would be written outside it: ../../etc/passwd");
     assert.is_true(!shell.commands.includes(
         "tar -xf /tmp/oparch/template-package.tar -C /tmp/oparch/template-package"))

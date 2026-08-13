@@ -13,17 +13,20 @@ function live_staging_dir() -> string {
     "/tmp/oparch"
 }
 
-function netboot_url() -> string {
-    "https://archlinux.org/static/netboot/ipxe-arch.efi"
+/// Where the `ipxe` package puts the Arch-scripted netboot binary inside the
+/// target. Its embedded script is what makes it the Arch one rather than a
+/// plain iPXE build, and it is the file `pacstrap` has just installed.
+function packaged_netboot_binary() -> string {
+    "/usr/share/ipxe/x86_64/ipxe-arch.efi"
 }
 
-/// The package set from `decisions/000-installer-inputs-and-bootstrap-baseline.md`,
+/// The package set from `docs/tools/oparch-installer/002-inputs-and-bootstrap-baseline.md`,
 /// plus the packages the selected hardware and options require.
 function bootstrap_packages(config: InstallConfig) -> string[] {
     let packages = [
         "base", "linux", "linux-headers", "linux-firmware", "mkinitcpio",
         "iptables-nft", "btrfs-progs", "cryptsetup", "grub", "efibootmgr",
-        "sudo", "networkmanager",
+        "sudo", "networkmanager", "ipxe",
     ];
     if (config.ucode_package != "none") {
         packages.push(config.ucode_package);
@@ -46,17 +49,17 @@ function bootstrap_base_system(shell: root.common.Shell, files: root.common.File
                                config: InstallConfig, target: root.common.Target) -> string
         throws baml.errors.InvalidArgument {
     ui.step("Installing packages...");
-    ui.action(`Installing ${bootstrap_packages(config).length()} packages with pacstrap...`);
     let install = shell.stream("pacstrap", ["-K", target.root].concat(bootstrap_packages(config)));
-    if (install.exit_code != 0) {
-        return `Installing the base system failed with exit code ${install.exit_code}.`;
+    let installed = root.common.must(install, "Installing the base system");
+    if (installed != "") {
+        return installed;
     }
 
     //# the mount table has to describe the layout that was just mounted
-    ui.action("Writing the mount table...");
     let fstab = shell.capture("genfstab", ["-U", target.root]);
-    if (fstab.exit_code != 0) {
-        return `Reading the mount table failed with exit code ${fstab.exit_code}.`;
+    let read = root.common.must(fstab, "Reading the mount table");
+    if (read != "") {
+        return read;
     }
     files.write(root.common.target_path(target, "/etc/fstab"), fstab.stdout);
 
@@ -64,24 +67,18 @@ function bootstrap_base_system(shell: root.common.Shell, files: root.common.File
 }
 
 /// The Arch netboot binary is placed on the ESP so the machine can always be
-/// booted into a live environment from its own disk.
+/// booted into a live environment from its own disk. It is taken from the
+/// package `pacstrap` has just installed, so the artifact arrives the way every
+/// other one does and is vouched for the way every other one is.
 function stage_netboot_binary(shell: root.common.Shell, files: root.common.Files, ui: Ui,
                               target: root.common.Target) -> string
         throws baml.errors.InvalidArgument {
-    ui.action("Downloading the Arch netboot binary...");
-    let local = `${live_staging_dir()}/netbootx64.efi`;
-    files.mkdir(live_staging_dir());
-
-    let download = shell.capture("curl",
-        ["-fL", "--retry", "2", "--connect-timeout", "10", "-o", local, netboot_url()]);
-    if (download.exit_code != 0) {
-        return `Downloading the netboot binary failed with exit code ${download.exit_code}.`;
-    }
 
     files.mkdir(root.common.target_path(target, "/boot/EFI"));
     files.mkdir(root.common.target_path(target, "/boot/EFI/OpinionatedArch"));
     root.common.must(shell.capture("cp",
-        [local, root.common.target_path(target, "/boot/EFI/OpinionatedArch/netbootx64.efi")]),
+        [root.common.target_path(target, packaged_netboot_binary()),
+         root.common.target_path(target, "/boot/EFI/OpinionatedArch/netbootx64.efi")]),
         "copying the netboot binary to the ESP")
 }
 
@@ -95,7 +92,7 @@ test "bootstrap_packages is the documented baseline when nothing is selected" {
     assert.equal(bootstrap_packages(config), [
         "base", "linux", "linux-headers", "linux-firmware", "mkinitcpio",
         "iptables-nft", "btrfs-progs", "cryptsetup", "grub", "efibootmgr",
-        "sudo", "networkmanager",
+        "sudo", "networkmanager", "ipxe",
     ])
 }
 
@@ -152,16 +149,56 @@ test "bootstrap installs, writes fstab and stages the netboot binary" {
     config.gpu_driver = "none";
 
     assert.equal(
-        bootstrap_base_system(shell, files, ui, config, root.common.mounted_target("/mnt")), "");
+        bootstrap_base_system(shell, files, ui, config, root.common.chroot_target("/mnt")), "");
 
     assert.equal(shell.streamed, [
         "pacstrap -K /mnt base linux linux-headers linux-firmware mkinitcpio iptables-nft"
-            + " btrfs-progs cryptsetup grub efibootmgr sudo networkmanager amd-ucode",
+            + " btrfs-progs cryptsetup grub efibootmgr sudo networkmanager ipxe amd-ucode",
     ]);
     assert.equal(files.written.get("/mnt/etc/fstab"), "UUID=5f3a / btrfs subvol=@ 0 0\n");
     assert.is_true(files.directories.includes("/mnt/boot/EFI/OpinionatedArch"));
     assert.is_true(shell.commands.includes(
-        "cp /tmp/oparch/netbootx64.efi /mnt/boot/EFI/OpinionatedArch/netbootx64.efi"))
+        "cp /mnt/usr/share/ipxe/x86_64/ipxe-arch.efi"
+            + " /mnt/boot/EFI/OpinionatedArch/netbootx64.efi"))
+}
+
+test "the netboot binary is taken from the target, never fetched or staged" {
+    let shell = bootstrap_shell();
+    let files = root.common.recording_files();
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
+    let config = layout_config();
+    config.ucode_package = "none";
+    config.gpu_driver = "none";
+
+    assert.equal(
+        bootstrap_base_system(shell, files, ui, config, root.common.chroot_target("/mnt")), "");
+
+    //# one source and one transfer path: nothing reaches the network for it,
+    //# and nothing passes through the live environment on its way to the ESP
+    let ran = shell.commands.join(" ");
+    assert.is_true(!ran.includes("curl"));
+    assert.is_true(!ran.includes("http"));
+    assert.is_true(!ran.includes(live_staging_dir()));
+    assert.is_true(!files.directories.includes(live_staging_dir()))
+}
+
+test "a netboot binary that cannot be placed stops the installation" {
+    let shell = bootstrap_shell();
+    let files = root.common.recording_files();
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
+    let config = layout_config();
+    config.ucode_package = "none";
+    config.gpu_driver = "none";
+
+    let copying = `cp /mnt${packaged_netboot_binary()}`
+        + " /mnt/boot/EFI/OpinionatedArch/netbootx64.efi";
+    let _ = shell.exit_codes.set(copying, 1);
+
+    //# a recovery convenience is still a required step: the run does not go on
+    //# without it, as `AGENTS.md` section 5 requires
+    assert.equal(
+        bootstrap_base_system(shell, files, ui, config, root.common.chroot_target("/mnt")),
+        "copying the netboot binary to the ESP failed with exit code 1.")
 }
 
 test "bootstrap stops and says so when pacstrap fails" {
@@ -179,7 +216,7 @@ test "bootstrap stops and says so when pacstrap fails" {
     let _ = shell.exit_codes.set(failing, 1);
 
     assert.equal(
-        bootstrap_base_system(shell, files, ui, config, root.common.mounted_target("/mnt")),
+        bootstrap_base_system(shell, files, ui, config, root.common.chroot_target("/mnt")),
         "Installing the base system failed with exit code 1.");
     assert.is_true(files.written.get("/mnt/etc/fstab") == null)
 }

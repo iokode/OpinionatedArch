@@ -1,6 +1,6 @@
 // The bootloader: GRUB on the EFI partition, and the menu the project designed.
 //
-// The policy is `docs/decisions/008-grub-boot-policy.md`. `grub-mkconfig` is
+// The policy is `docs/decisions/007-grub-boot-policy.md`. `grub-mkconfig` is
 // not used: the menu is an artifact this project owns, kept in `assets/grub/`,
 // and it is installed exactly as it is. What differs from one machine to the
 // next is written beside it, and the menu reads it.
@@ -62,9 +62,8 @@ function configure_bootloader(shell: root.common.Shell, files: root.common.Files
         throws baml.errors.InvalidArgument {
     ui.step("Installing the bootloader...");
 
-    ui.action("Installing GRUB onto the EFI partition...");
     let installed = root.common.must(
-        in_target(shell, target, "grub-install",
+        root.common.run_in(shell, target, "grub-install",
                   ["--target=x86_64-efi", "--efi-directory=/boot",
                    "--bootloader-id=OpinionatedArch"]),
         "grub-install");
@@ -72,7 +71,6 @@ function configure_bootloader(shell: root.common.Shell, files: root.common.Files
         return installed;
     }
 
-    ui.action("Writing the boot menu and its settings...");
     let menu = files.read(grub_asset_path(asset_dir));
     if (menu == null) {
         return `The boot menu is not in the assets: ${grub_asset_path(asset_dir)}`;
@@ -115,7 +113,7 @@ test "the menu is installed exactly as the project keeps it" {
 
     assert.equal(
         configure_bootloader(shell, files, ui, bootloader_config(true, "amd-ucode"),
-                             root.common.mounted_target("/mnt"), "/assets"),
+                             root.common.chroot_target("/mnt"), "/assets"),
         "");
 
     //# byte for byte: nothing generates it and nothing edits it
@@ -136,7 +134,7 @@ test "what the machine needs is written beside the menu, not into it" {
 
     assert.equal(
         configure_bootloader(shell, files, silent_ui(), bootloader_config(true, "amd-ucode"),
-                             root.common.mounted_target("/mnt"), "/assets"),
+                             root.common.chroot_target("/mnt"), "/assets"),
         "");
 
     assert.equal(files.written.get("/mnt/boot/grub/oparch.cfg"),
@@ -152,7 +150,7 @@ test "a machine with no microcode and no message says so in what it writes" {
 
     assert.equal(
         configure_bootloader(shell, files, silent_ui(), bootloader_config(false, "none"),
-                             root.common.mounted_target("/mnt"), "/assets"),
+                             root.common.chroot_target("/mnt"), "/assets"),
         "");
 
     assert.equal(files.written.get("/mnt/boot/grub/oparch.cfg"),
@@ -176,7 +174,7 @@ test "a failing grub-install stops before anything is written" {
 
     assert.equal(
         configure_bootloader(shell, files, silent_ui(), bootloader_config(true, "none"),
-                             root.common.mounted_target("/mnt"), "/assets"),
+                             root.common.chroot_target("/mnt"), "/assets"),
         "grub-install failed with exit code 1.");
     assert.is_true(files.written.get("/mnt/boot/grub/grub.cfg") == null)
 }
@@ -189,6 +187,6 @@ test "assets without the menu are reported, and nothing is written" {
     assert.equal(
         configure_bootloader(shell, root.common.recording_files(), silent_ui(),
                              bootloader_config(true, "none"),
-                             root.common.mounted_target("/mnt"), "/assets"),
+                             root.common.chroot_target("/mnt"), "/assets"),
         "The boot menu is not in the assets: /assets/grub/grub.cfg")
 }

@@ -21,17 +21,34 @@ class SwapConfig {
 /// never reach it: the renderer is handed directories, and resolving an origin
 /// into one is the installer's job.
 class ReturnMessageInput {
-    template: root.common.Source,
-    theme: root.common.Source,
+    template: Source,
+    theme: Source,
     values: root.return_message.ReturnMessageConfig,
+    /// Where the logo was taken from, when there is one. It rides here rather
+    /// than in the values the renderer reads, because choosing between a URL
+    /// and a file on this machine is a question this installer asks and the
+    /// renderer is handed the answer to.
+    logo: Source?,
 }
 
 function empty_return_message_input() -> ReturnMessageInput {
     ReturnMessageInput {
-        template: root.common.default_source(),
-        theme: root.common.default_source(),
+        template: default_source(),
+        theme: default_source(),
         values: root.return_message.empty_return_message(),
     }
+}
+
+/// The encrypted secret store an installation is given, for a dotfiles map
+/// that declares secrets. One file and the passphrase that opens it.
+///
+/// The passphrase is here because the values it protects have to reach the
+/// machine before its first boot, and there is no other moment at which anyone
+/// is present to give it. It is never written anywhere the installation leaves
+/// behind, and never shown.
+class SecretStoreInput {
+    archive: Source,
+    passphrase: string,
 }
 
 class InstallConfig {
@@ -47,7 +64,10 @@ class InstallConfig {
     timezone: string,
     hostname: string,
     /// Absent when no dotfiles package is taken.
-    dotfiles: root.common.Source?,
+    dotfiles: Source?,
+    /// Absent when the dotfiles map needs no secrets, and absent whenever the
+    /// package is.
+    secret_store: SecretStoreInput?,
     /// Absent when there is no pre-boot return message.
     return_message: ReturnMessageInput?,
     /// Read from the disk once it is partitioned; not part of the file.
@@ -68,14 +88,15 @@ function empty_config() -> InstallConfig {
         timezone: "",
         hostname: "",
         dotfiles: null,
+        secret_store: null,
         return_message: null,
         root_part_uuid: "",
     }
 }
 
 /// A source as the review screen shows it: what was chosen, and from where.
-function describe_source(source: root.common.Source) -> string {
-    if (root.common.is_default_source(source)) {
+function describe_source(source: Source) -> string {
+    if (is_default_source(source)) {
         return "the project's own";
     }
     `${source.origin}: ${source.location}`
@@ -116,8 +137,12 @@ function summary_rows(config: InstallConfig) -> SummaryRow[] {
         row("hostname", config.hostname),
     ];
 
-    if let dotfiles: root.common.Source = config.dotfiles {
+    if let dotfiles: Source = config.dotfiles {
         rows.push(row("dotfiles package", describe_source(dotfiles)));
+        //# the archive is named; what opens it is not, here or anywhere else
+        if let store: SecretStoreInput = config.secret_store {
+            rows.push(nested_row("secret store", describe_source(store.archive)));
+        }
     } else {
         rows.push(row("dotfiles package", "none"));
     }
@@ -130,7 +155,7 @@ function summary_rows(config: InstallConfig) -> SummaryRow[] {
         for (let name in values.fields.keys().sort_by_key((k) -> { k })) {
             rows.push(nested_row(name, values.fields.get(name) ?? ""));
         }
-        if let logo: root.common.Source = values.logo {
+        if let logo: Source = message.logo {
             rows.push(nested_row("logo", describe_source(logo)));
         }
     } else {
@@ -166,7 +191,7 @@ test "summary_lines describes an installation without optional sections" {
 
 test "summary_lines says where each source comes from" {
     let config = empty_config();
-    config.dotfiles = root.common.source_at("git", "https://example.invalid/dotfiles.git");
+    config.dotfiles = source_at("git", "https://example.invalid/dotfiles.git");
     config.return_message = empty_return_message_input();
 
     let lines = summary_lines(config);
@@ -180,12 +205,11 @@ test "summary_lines says where each source comes from" {
 test "summary_lines lists the return message fields it was given" {
     let config = empty_config();
     config.return_message = ReturnMessageInput {
-        template: root.common.default_source(),
-        theme: root.common.default_source(),
+        template: default_source(),
+        theme: default_source(),
         values: root.return_message.ReturnMessageConfig {
             languages: ["es", "ca"],
             fields: { "phone": "+376 000 000", "owner_name": "Ivan" },
-            logo: null,
         },
     };
     let lines = summary_lines(config);

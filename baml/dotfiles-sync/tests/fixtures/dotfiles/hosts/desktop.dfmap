@@ -1,0 +1,5 @@
+oparch dotfiles map
+version = '0.1'
+
+[dotfiles.hypr]
+link 'hypr/monitors_desktop.lua' to '&HOME/.config/hypr/monitors.lua'

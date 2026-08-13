@@ -75,6 +75,8 @@ mkdir -p "${WORK}/share/lib"
 
 readonly INSTALLER="${ROOT}/baml/installer/host/target/release/oparch-installer"
 readonly RENDERER="${ROOT}/baml/return-message-render/oparch-return-message-render"
+readonly DOTFILES_SYNC="${ROOT}/baml/dotfiles-sync/oparch-dotfiles-sync"
+readonly DOTFILES_PACKAGE="${ROOT}/test/e2e/share/dotfiles"
 readonly CONFIG="${ROOT}/test/e2e/share/install.yaml"
 
 require() {
@@ -97,8 +99,16 @@ echo "harness: building the renderer"
 ( cd "${ROOT}/baml/return-message-render" \
     && baml pack main --output ./oparch-return-message-render >/dev/null )
 
+# The installer enters the target and runs this there, so what is tested is the
+# tool as it ships rather than the one the unit tests link against.
+echo "harness: building the dotfiles tool"
+( cd "${ROOT}/baml/dotfiles-sync" \
+    && baml pack main --output ./oparch-dotfiles-sync >/dev/null )
+
 require "${INSTALLER}" "cargo build --release --manifest-path baml/installer/host/Cargo.toml"
 require "${RENDERER}" "cd baml/return-message-render && baml pack main --output ./oparch-return-message-render"
+require "${DOTFILES_SYNC}" "cd baml/dotfiles-sync && baml pack main --output ./oparch-dotfiles-sync"
+require "${DOTFILES_PACKAGE}/main.dfmap" "it is committed; see test/e2e/share/dotfiles"
 require "${CONFIG}" "write it; see docs/tools/oparch-installer/001-config-file-format.md"
 
 # The host binary loads the BAML runtime as a shared library. It is given the
@@ -110,7 +120,8 @@ baml_library="$(find "${HOME}/.cache/baml/libs" -name 'libbaml_cffi-*.so' 2>/dev
     exit 1
 }
 
-cp "${INSTALLER}" "${RENDERER}" "${CONFIG}" "${WORK}/share/"
+cp "${INSTALLER}" "${RENDERER}" "${DOTFILES_SYNC}" "${CONFIG}" "${WORK}/share/"
+cp -r "${DOTFILES_PACKAGE}" "${WORK}/share/dotfiles"
 cp "${baml_library}" "${WORK}/share/lib/"
 cp -r "${ROOT}/assets" "${WORK}/share/assets"
 
@@ -305,10 +316,12 @@ echo "harness: installing what the live environment is missing"
 # that, but not the kernel: replacing `linux` takes the running kernel's modules
 # with it, and the next `cryptsetup open` fails with `crypt: unknown target
 # type` because the module for the kernel that is actually running is gone.
-run_in_guest "pacman -Syu --noconfirm --ignore linux --ignore linux-firmware imagemagick pango noto-fonts" 1200
+run_in_guest "pacman -Syu --noconfirm --ignore linux --ignore linux-firmware imagemagick pango noto-fonts git" 1200
 
 # The installer runs the renderer by name, so it has to be findable by name.
 run_in_guest "install -m755 ${SHARE}/oparch-return-message-render /usr/local/bin/"
+# The installer looks the tool up by name to copy it into the target.
+run_in_guest "install -m755 ${SHARE}/oparch-dotfiles-sync /usr/local/bin/"
 
 # ----------------------------------------------------------- the installation
 
@@ -337,6 +350,24 @@ fi
 
 echo
 echo "harness: the installation reported success"
+
+# ------------------------------------------------------------- the dotfiles
+#
+# The case in docs/development/000-end-to-end-testing.md: a package is applied.
+# What is checked is what nobody would notice missing — the modes and the ACL
+# that decide whether the operator can edit their own configuration afterwards,
+# and one target per operation the map declares.
+
+echo
+echo "harness: what the dotfiles step left behind"
+run_in_guest "test \"\$(stat -c '%a %U:%G' /mnt/dotfiles)\" = '2775 root:dotfiles'"
+run_in_guest "getfacl -p /mnt/dotfiles | grep -q '^default:group::rwx'"
+run_in_guest "test \"\$(stat -c '%a' /mnt/dotfiles/shell)\" = '2775'"
+run_in_guest "grep -q 'directory = /dotfiles' /mnt/etc/gitconfig"
+run_in_guest "test -L /mnt/home/personal/.aliases.sh"
+run_in_guest "test -f /mnt/home/work/.profile"
+run_in_guest "grep -q 'personal@example.invalid' /mnt/home/personal/.gitconfig"
+run_in_guest "grep -q 'work@example.invalid' /mnt/home/work/.gitconfig"
 
 # ---------------------------------------------------------------- the reboot
 #

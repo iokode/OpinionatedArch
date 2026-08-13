@@ -30,6 +30,13 @@
 - Do not introduce duplicate download/copy paths for the same artifact.
 - Do not patch a downstream symptom without tracing the upstream data flow that produces it.
 
-## 5. Language
+## 5. All Or Nothing
+
+- An installation either finishes in full or it fails. There is no third outcome: a run that stops leaves a machine that is not to be booted, not a machine missing a piece.
+- Every step of a flow is required. A step that produces a convenience rather than a requirement is still required, and its failure stops the run exactly like any other.
+- Never downgrade a failure to a warning so that a run can continue. A step that is allowed to fail without consequence does not belong in the flow at all.
+- Never leave a partial result standing as good enough, and never route around a failing step. Trace it to its cause and fix the cause.
+
+## 6. Language
 
 - The repository's English-only rule has one exception: files under `assets/` may contain non-English localization or resource text when their purpose is multilingual user-facing content.

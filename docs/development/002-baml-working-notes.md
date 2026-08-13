@@ -4,9 +4,35 @@ What working in BAML has actually required, as opposed to what it looks like it 
 
 This is a working document. An entry disappears when the toolchain stops needing it.
 
+## An interface method called inside a closure crashes the compiler
+
+Calling a method on an interface-typed value from inside a closure makes the
+emitter panic rather than report anything:
+
+```
+thread '<unnamed>' panicked at crates/baml_compiler2_emit/src/emit.rs:1934:32:
+undefined function: user.common.Shell.capture
+```
+
+`baml check` panics the same way, so there is no diagnostic to read and nothing
+names the file or the line. The same call written outside a closure compiles.
+
+```baml
+// panics
+members.map((name) -> { shell.capture("getent", ["passwd", name]) })
+
+// compiles
+for (let name in members) { let passwd = shell.capture("getent", ["passwd", name]); }
+```
+
+It is worth knowing because the workaround is invisible from the code that
+needs it: a `for` loop where a `map` would read better, for a reason that is
+not in the file. A closure that touches no interface is unaffected, so the
+`filter` beside the loop in `read_dotfiles_users` stays a closure.
+
 ## Packaging a tool as an executable
 
-`baml pack <function>` produces a standalone binary. For `oparch-return-message-render` it came out at 18 MB linked against `libc`, `libm` and `libgcc` only: no shared library to find and nothing downloaded on first run. That is not the situation of a tool with a generated SDK, described in `../decisions/015-installer-host-bridge.md`, where the host loads a ~25 MB library.
+`baml pack <function>` produces a standalone binary. For `oparch-return-message-render` it came out at 18 MB linked against `libc`, `libm` and `libgcc` only: no shared library to find and nothing downloaded on first run. That is not the situation of a tool with a generated SDK, described in `004-host-bridge.md`, where the host loads a ~25 MB library.
 
 Three things about the generated entry point:
 

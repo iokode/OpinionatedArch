@@ -56,7 +56,6 @@ function prepare_layout(shell: root.common.Shell, files: root.common.Files, ui: 
     //# carrying on after one of these fails would encrypt and format a disk
     //# that was never partitioned.
     ui.step("Preparing the disk...");
-    ui.action(`Partitioning ${disk}...`);
     let steps = [
         Step { program: "wipefs", args: ["-af", disk] },
         Step { program: "sgdisk", args: ["--zap-all", disk] },
@@ -72,21 +71,18 @@ function prepare_layout(shell: root.common.Shell, files: root.common.Files, ui: 
         }
     }
 
-    ui.action(`Formatting the EFI partition ${efi_partition}...`);
     let formatted = shell.capture("mkfs.fat", ["-F32", efi_partition]);
     if (formatted.exit_code != 0) {
         return `mkfs.fat failed with exit code ${formatted.exit_code}.`;
     }
 
     //# the passphrase goes in on standard input, never as an argument
-    ui.action(`Creating the LUKS2 container on ${root_partition}...`);
     let created = shell.feed("cryptsetup",
         ["luksFormat", "--type", "luks2", "--batch-mode", "--key-file", "-", root_partition],
         config.shared_secret);
     if (created.exit_code != 0) {
         return `Creating the LUKS2 container failed with exit code ${created.exit_code}.`;
     }
-    ui.action(`Opening the LUKS2 container on ${root_partition}...`);
     let opened = shell.feed("cryptsetup",
         ["open", "--key-file", "-", root_partition, "cryptroot"],
         config.shared_secret);
@@ -94,7 +90,6 @@ function prepare_layout(shell: root.common.Shell, files: root.common.Files, ui: 
         return `Opening the LUKS2 container failed with exit code ${opened.exit_code}.`;
     }
 
-    ui.action("Creating the Btrfs filesystem and its subvolumes...");
     let filesystem = shell.capture("mkfs.btrfs", ["-f", "/dev/mapper/cryptroot"]);
     if (filesystem.exit_code != 0) {
         return `mkfs.btrfs failed with exit code ${filesystem.exit_code}.`;
@@ -122,7 +117,6 @@ function prepare_layout(shell: root.common.Shell, files: root.common.Files, ui: 
     if (unmounted != "") { return unmounted; }
 
     //# now mount the layout the installed system will use
-    ui.action("Mounting the target layout...");
     let remounted = root.common.must(
         shell.capture("mount", ["-o", "subvol=@", "/dev/mapper/cryptroot", target.root]),
         "mounting the root subvolume");
@@ -188,7 +182,7 @@ test "prepare_layout runs the whole sequence in order" {
     let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
     let config = layout_config();
 
-    assert.equal(prepare_layout(shell, files, ui, config, root.common.mounted_target("/mnt")), "");
+    assert.equal(prepare_layout(shell, files, ui, config, root.common.chroot_target("/mnt")), "");
 
     assert.equal(shell.commands, [
         "wipefs -af /dev/sda",
@@ -232,7 +226,7 @@ test "prepare_layout keeps the passphrase off every command line" {
     let config = layout_config();
 
     let _ = prepare_layout(shell, root.common.recording_files(), ui, config,
-                           root.common.mounted_target("/mnt"));
+                           root.common.chroot_target("/mnt"));
 
     assert.is_true(!shell.commands.join(" ").includes(config.shared_secret));
     assert.equal(shell.fed, [
@@ -248,7 +242,7 @@ test "prepare_layout creates the directories the layout needs" {
     };
     let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
-    let _ = prepare_layout(shell, files, ui, layout_config(), root.common.mounted_target("/mnt"));
+    let _ = prepare_layout(shell, files, ui, layout_config(), root.common.chroot_target("/mnt"));
 
     assert.equal(files.directories, [
         "/mnt/boot", "/mnt/home", "/mnt/var", "/mnt/var/log", "/mnt/var/cache",
@@ -270,7 +264,7 @@ test "prepare_layout records the root partition UUID for later phases" {
     let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     let _ = prepare_layout(shell, root.common.recording_files(), ui, config,
-                           root.common.mounted_target("/mnt"));
+                           root.common.chroot_target("/mnt"));
 
     assert.equal(config.root_part_uuid, "9c1e-2f77")
 }
@@ -284,7 +278,7 @@ test "prepare_layout gives every login user a home subvolume and a mount" {
     let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     let _ = prepare_layout(shell, root.common.recording_files(), ui, config,
-                           root.common.mounted_target("/mnt"));
+                           root.common.chroot_target("/mnt"));
 
     assert.is_true(shell.commands.includes("btrfs subvolume create /mnt/home/@ivan"));
     assert.is_true(shell.commands.includes("btrfs subvolume create /mnt/home/@work"));
@@ -300,7 +294,7 @@ test "prepare_layout refuses keep-homes without touching the disk" {
     let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     assert.equal(prepare_layout(shell, root.common.recording_files(), ui, config,
-                                root.common.mounted_target("/mnt")),
+                                root.common.chroot_target("/mnt")),
                  "keep-homes install mode is not supported yet.");
     assert.equal(shell.commands, [])
 }
@@ -312,7 +306,7 @@ test "prepare_layout stops at the first destructive command that fails" {
 
     assert.equal(
         prepare_layout(shell, root.common.recording_files(), ui, layout_config(),
-                       root.common.mounted_target("/mnt")),
+                       root.common.chroot_target("/mnt")),
         "wipefs failed with exit code 1.");
     //# nothing was encrypted or formatted on a disk that was not partitioned
     assert.equal(shell.commands, ["wipefs -af /dev/sda"]);
@@ -326,7 +320,7 @@ test "prepare_layout stops when the partition table cannot be written" {
 
     assert.equal(
         prepare_layout(shell, root.common.recording_files(), ui, layout_config(),
-                       root.common.mounted_target("/mnt")),
+                       root.common.chroot_target("/mnt")),
         "sgdisk failed with exit code 4.");
     assert.is_true(!shell.commands.includes("mkfs.btrfs -f /dev/mapper/cryptroot"))
 }
@@ -339,7 +333,7 @@ test "prepare_layout stops when the container cannot be created" {
 
     assert.equal(
         prepare_layout(shell, root.common.recording_files(), ui, layout_config(),
-                       root.common.mounted_target("/mnt")),
+                       root.common.chroot_target("/mnt")),
         "Creating the LUKS2 container failed with exit code 1.");
     assert.is_true(!shell.commands.includes("mkfs.btrfs -f /dev/mapper/cryptroot"))
 }
@@ -351,7 +345,7 @@ test "prepare_layout stops when the filesystem cannot be mounted" {
 
     assert.equal(
         prepare_layout(shell, root.common.recording_files(), ui, layout_config(),
-                       root.common.mounted_target("/mnt")),
+                       root.common.chroot_target("/mnt")),
         "mount failed with exit code 32.");
     //# without this check the subvolumes would be created on the live system
     assert.is_true(!shell.commands.includes("btrfs subvolume create /mnt/@"))

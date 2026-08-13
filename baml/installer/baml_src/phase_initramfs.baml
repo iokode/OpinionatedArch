@@ -2,7 +2,7 @@
 // from them.
 //
 // Which hooks, and in what order, is decided in
-// `docs/decisions/009-mkinitcpio-hooks-policy.md`. The order is part of that
+// `docs/decisions/008-mkinitcpio-hooks-policy.md`. The order is part of that
 // policy: nothing here reorders it, and `plymouth` comes before `encrypt`
 // because the screen has to be up before the passphrase is asked for.
 
@@ -68,15 +68,13 @@ function configure_initramfs(shell: root.common.Shell, files: root.common.Files,
         return `${mkinitcpio_conf_path()} is not in the target.`;
     }
 
-    ui.action("Setting the HOOKS line in /etc/mkinitcpio.conf...");
     let rewritten = set_hooks_line(content, hooks_line(config));
     if (rewritten == null) {
         return `${mkinitcpio_conf_path()} has no HOOKS line to set.`;
     }
     files.write(path, rewritten);
 
-    ui.action("Running mkinitcpio for every installed kernel...");
-    root.common.must(in_target(shell, target, "mkinitcpio", ["-P"]), "mkinitcpio -P")
+    root.common.must(root.common.run_in(shell, target, "mkinitcpio", ["-P"]), "mkinitcpio -P")
 }
 
 // -------------------------------------------------------------------- tests
@@ -145,7 +143,7 @@ test "the phase sets the hooks and then builds every image" {
 
     assert.equal(
         configure_initramfs(shell, files, ui, initramfs_config(true),
-                            root.common.mounted_target("/mnt")),
+                            root.common.chroot_target("/mnt")),
         "");
 
     assert.is_true((files.written.get("/mnt/etc/mkinitcpio.conf") ?? "").includes(
@@ -163,7 +161,7 @@ test "without a return message the image is built without plymouth" {
 
     assert.equal(
         configure_initramfs(shell, files, silent_ui(), initramfs_config(false),
-                            root.common.mounted_target("/mnt")),
+                            root.common.chroot_target("/mnt")),
         "");
     assert.is_true(!(files.written.get("/mnt/etc/mkinitcpio.conf") ?? "").includes("plymouth"))
 }
@@ -178,7 +176,7 @@ test "a build that fails is reported, and reported as what failed" {
 
     assert.equal(
         configure_initramfs(shell, files, silent_ui(), initramfs_config(true),
-                            root.common.mounted_target("/mnt")),
+                            root.common.chroot_target("/mnt")),
         "mkinitcpio -P failed with exit code 1.")
 }
 
@@ -189,7 +187,7 @@ test "a target without the configuration is reported before anything is built" {
 
     assert.equal(
         configure_initramfs(shell, root.common.recording_files(), silent_ui(),
-                            initramfs_config(true), root.common.mounted_target("/mnt")),
+                            initramfs_config(true), root.common.chroot_target("/mnt")),
         "/etc/mkinitcpio.conf is not in the target.");
     assert.equal(shell.commands, [])
 }

@@ -1,20 +1,31 @@
-// Writing into a filesystem the tool does not necessarily own.
+// Writing into a filesystem the caller does not necessarily own.
 //
-// An installer works on two roots at once: the live system it runs from, and
-// the system it is building. `Target` names which one a path belongs to, so a
-// path is never accidentally written to the wrong root.
+// A program can have more than one root in play at once: the system it is
+// running on, and a system mounted somewhere else. `Target` names which of
+// them a path belongs to, so a path is never written to the wrong one.
 
 class Target {
-    /// "/" for the live system, or the mount point of the system being built.
+    /// "/" for the system this program runs on, or the mount point of another.
     root: string,
+    /// Whether a command aimed at this target has to be run inside it.
+    ///
+    /// It is answered rather than derived from the root, because the two are
+    /// different questions about the same volume: a mounted system is written
+    /// to and read from directly whatever the answer, and only a command that
+    /// has to see it as its own root is entered with `arch-chroot`. A volume
+    /// can be inspected without being entered, and a root of "/" is never
+    /// entered at all.
+    uses_chroot: bool,
 }
 
+/// The system this program is running on.
 function local_target() -> Target {
-    Target { root: "/" }
+    Target { root: "/", uses_chroot: false }
 }
 
-function mounted_target(root: string) -> Target {
-    Target { root: root }
+/// A system mounted elsewhere, whose commands are run inside it.
+function chroot_target(root: string) -> Target {
+    Target { root: root, uses_chroot: true }
 }
 
 /// Resolves an absolute path inside a target. Paths are always written as
@@ -45,6 +56,17 @@ test "in_directory joins with exactly one slash" {
     assert.equal(in_directory("/pkg/", "manifest.yaml"), "/pkg/manifest.yaml")
 }
 
+/// One entry of a directory listing. Its own class rather than the one the
+/// filesystem module returns, so that what implements the port is not named by
+/// the port itself. What is asked of an entry is what it is, and a caller that
+/// must not follow a link needs to be told about one before it does.
+class DirEntry {
+    name: string,
+    is_dir: bool,
+    is_file: bool,
+    is_symlink: bool,
+}
+
 interface Files {
     /// The first operation that failed, if any. File operations do not report
     /// failure one by one, because a phase would then have to check every
@@ -55,29 +77,15 @@ interface Files {
     function write(self, path: string, content: string) -> void throws never
     function read(self, path: string) -> string? throws never
     function exists(self, path: string) -> bool throws never
+    /// What a directory holds, or null when it cannot be listed. Being unable
+    /// to list one is not recorded as a failure, for the reason `read` is not:
+    /// asking what is in a directory is how a caller finds out whether it is
+    /// there at all.
+    function read_dir(self, path: string) -> DirEntry[]? throws never
     function mkdir(self, path: string) -> void throws never
     function symlink(self, path: string, points_to: string) -> void throws never
     /// Mode as an octal string, as `chmod` takes it: "0755".
     function chmod(self, path: string, mode: string) -> void throws never
-}
-
-class HostFiles {
-    on_failure: () -> string? throws never,
-    on_write: (string, string) -> void throws never,
-    on_read: (string) -> string? throws never,
-    on_exists: (string) -> bool throws never,
-    on_mkdir: (string) -> void throws never,
-    on_symlink: (string, string) -> void throws never,
-    on_chmod: (string, string) -> void throws never,
-    implements Files {
-        function failure(self) -> string? { self.on_failure() }
-        function write(self, path: string, content: string) -> void { self.on_write(path, content) }
-        function read(self, path: string) -> string? { self.on_read(path) }
-        function exists(self, path: string) -> bool { self.on_exists(path) }
-        function mkdir(self, path: string) -> void { self.on_mkdir(path) }
-        function symlink(self, path: string, points_to: string) -> void { self.on_symlink(path, points_to) }
-        function chmod(self, path: string, mode: string) -> void { self.on_chmod(path, mode) }
-    }
 }
 
 /// Records what would be written instead of writing it, so a phase can be
@@ -99,9 +107,60 @@ class RecordingFiles {
         function read(self, path: string) -> string? {
             self.written.get(path)
         }
+        /// Everything this double has been told about counts as being there,
+        /// including a directory it was asked to make. Anything else would have
+        /// it answer that what it just created is not there, which no
+        /// filesystem does and no caller should have to work around.
         function exists(self, path: string) -> bool {
-            self.present.includes(path) || self.written.get(path) != null
+            self.present.includes(path)
+                || self.written.get(path) != null
+                || self.directories.includes(path)
+                || self.symlinks.get(path) != null
         }
+        /// A listing assembled from what this double has been told about. A
+        /// directory it has never heard of cannot be listed, which is what a
+        /// real one answers for a path that is not there.
+        ///
+        /// What a child is, is decided by which list it came from: one that was
+        /// made a directory, or that has anything below it, is a directory; one
+        /// that was linked is a link; anything else that is known is a file.
+        function read_dir(self, path: string) -> DirEntry[]? {
+            if (!self.directories.includes(path)) {
+                return null;
+            }
+            let prefix = if (path.ends_with("/")) { path } else { path + "/" };
+            let known = self
+                .directories
+                .concat(self.present)
+                .concat(self.written.keys())
+                .concat(self.symlinks.keys());
+
+            let named: string[] = [];
+            let out: DirEntry[] = [];
+            for (let entry in known) {
+                if (!entry.starts_with(prefix)) {
+                    continue;
+                }
+                let rest = entry.substring(prefix.length(), entry.length());
+                let name = (rest.split("/").at(0)) ?? "";
+                if (name == "" || named.includes(name)) {
+                    continue;
+                }
+                named.push(name);
+
+                let child = prefix + name;
+                let is_dir = self.directories.includes(child) || rest.includes("/");
+                let is_symlink = self.symlinks.get(child) != null;
+                out.push(DirEntry {
+                    name: name,
+                    is_dir: is_dir,
+                    is_file: !is_dir && !is_symlink,
+                    is_symlink: is_symlink,
+                });
+            }
+            out
+        }
+
         function mkdir(self, path: string) -> void {
             if (!self.directories.includes(path)) { self.directories.push(path); }
         }
@@ -122,12 +181,12 @@ function recording_files() -> RecordingFiles {
 
 test "target_path prefixes a mounted root and leaves the local one alone" {
     assert.equal(target_path(local_target(), "/etc/hostname"), "/etc/hostname");
-    assert.equal(target_path(mounted_target("/mnt"), "/etc/hostname"), "/mnt/etc/hostname");
-    assert.equal(target_path(mounted_target("/mnt/"), "/etc/hostname"), "/mnt/etc/hostname")
+    assert.equal(target_path(chroot_target("/mnt"), "/etc/hostname"), "/mnt/etc/hostname");
+    assert.equal(target_path(chroot_target("/mnt/"), "/etc/hostname"), "/mnt/etc/hostname")
 }
 
 test "target_path refuses a relative path" {
-    let failed = target_path(mounted_target("/mnt"), "etc/hostname")
+    let failed = target_path(chroot_target("/mnt"), "etc/hostname")
         catch (e) { baml.errors.InvalidArgument => "refused" };
     assert.equal(failed, "refused")
 }
@@ -145,6 +204,33 @@ test "RecordingFiles remembers what a phase produced" {
     assert.equal(files.modes.get("/root/script.sh"), "0755");
     assert.is_true(files.exists("/etc/hostname"));
     assert.is_true(!files.exists("/etc/fstab"))
+}
+
+test "RecordingFiles lists what it was told a directory holds" {
+    let files = recording_files();
+    files.mkdir("/dotfiles");
+    files.mkdir("/dotfiles/hypr");
+    files.write("/dotfiles/main.dfmap", "[map]\n");
+    files.symlink("/dotfiles/link", "/elsewhere");
+    files.write("/other/thing", "x");
+
+    let empty: DirEntry[] = [];
+    let listed = files.read_dir("/dotfiles") ?? empty;
+    let names = listed.map((entry) -> { entry.name });
+
+    assert.equal(names, ["hypr", "main.dfmap", "link"]);
+    assert.is_true(listed.find((e) -> { e.name == "hypr" })?.is_dir ?? false);
+    assert.is_true(listed.find((e) -> { e.name == "main.dfmap" })?.is_file ?? false);
+    assert.is_true(listed.find((e) -> { e.name == "link" })?.is_symlink ?? false)
+}
+
+test "a directory nothing knows about cannot be listed" {
+    let files = recording_files();
+    files.write("/dotfiles/main.dfmap", "[map]\n");
+
+    //# writing into it never said it was there, and a listing that answered
+    //# with nothing would be a directory that exists and is empty
+    assert.equal(files.read_dir("/dotfiles"), null)
 }
 
 /// Rewrites a file, replacing the first occurrence of `from`. Returns false

@@ -21,7 +21,7 @@ The manifest is mandatory. The installer asks for exactly the fields the manifes
 
 The operator may supply their own package, from a local directory or a URL. When none is supplied, the project's default package is used. The default package provides the message in several languages.
 
-The message is shown in the languages the operator selects from those the package provides. How many may be selected is what the theme accepts, as decided in `017-return-message-themes.md`.
+The message is shown in the languages the operator selects from those the package provides. How many may be selected is what the theme accepts, as decided in `../tools/oparch-return-message-render/004-themes.md`.
 
 ### The message is data
 
@@ -35,7 +35,7 @@ The rendered image is scaled proportionally and centred at boot, so it does not 
 
 The image is rendered larger than any display it is expected to meet, so the scaling is always downwards. Enlarging is what turns text into a blur; reducing never does.
 
-The composition follows from the number of selected languages, preferring a wide arrangement over a tall one, because a composition shaped like the screen leaves the text larger after scaling. Which arrangement each number gets, and what fraction of the screen the result is scaled to, are the theme's, as decided in `017-return-message-themes.md`.
+The composition follows from the number of selected languages, preferring a wide arrangement over a tall one, because a composition shaped like the screen leaves the text larger after scaling. Which arrangement each number gets, and what fraction of the screen the result is scaled to, are the theme's, as decided in `../tools/oparch-return-message-render/004-themes.md`.
 
 Language identity is shown from the language's own name, not from flags.
 
@@ -43,7 +43,7 @@ Language identity is shown from the language's own name, not from flags.
 
 Everything the unlock screen shows is an image: the message, the prompt asking for the passphrase, and the glyph that marks each typed character. The boot splash draws no text, so the installed system carries no font for it.
 
-The prompt is in English, and is not part of a template package. The system language is English, as decided in `011-localization-and-time-policy.md`; a template package translates what a finder reads, not what the owner reads.
+The prompt is in English, and is not part of a template package. The system language is English, as decided in `010-localization-and-time-policy.md`; a template package translates what a finder reads, not what the owner reads.
 
 The prompt asks for the secret and names nothing else. It does not say that a disk is being unlocked, and it does not call the secret a passphrase.
 
@@ -90,7 +90,7 @@ Boot-time rendering is fully offline. Everything the unlock screen needs is loca
 - If the boot splash fails, unlock must still fall back to a functional text-mode prompt.
 - Runtime unlock must never fetch remote assets; everything must be local before the initramfs is built.
 - Return-message readability must be validated on the real display resolutions used by the target machines.
-- What the rendered message looks like is a theme's, decided in `017-return-message-themes.md`. Nothing here fixes a colour, a font or an arrangement; this document fixes what the screen is for and what may not be on it.
+- What the rendered message looks like is a theme's, decided in `../tools/oparch-return-message-render/004-themes.md`. Nothing here fixes a colour, a font or an arrangement; this document fixes what the screen is for and what may not be on it.
 
 ## Critical Notes With Replies (Copy of Discussion)
 

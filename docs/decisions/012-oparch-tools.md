@@ -16,7 +16,7 @@ Tool names use the `oparch-{entity}-{action}` format. The `entity` identifies th
 
 Command-line tools own behavior and perform the actual operation. Interactive tools are interfaces only: they browse choices, filter lists, ask for confirmation, collect input, and then call the matching command-line tool with explicit parameters.
 
-The language these tools are written in is decided in `014-baml-as-implementation-language.md`.
+The language these tools are written in is decided in `../development/003-baml-as-implementation-language.md`.
 
 ## Why
 

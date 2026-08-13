@@ -2,13 +2,13 @@
 
 ## Context
 
-Three of the installer's inputs are not values but content held elsewhere: the dotfiles package, the return message's template package, and the theme it is composed with. A fourth, the logo, is a single file rather than a set of them.
+Several of the installer's inputs are not values but content held elsewhere: the dotfiles package, the return message's template package, and the theme it is composed with are sets of files. The logo and the encrypted secret store are single files rather than sets of them.
 
 Each was asked for as one line of text, and what the line meant was deduced from its shape: empty was the project's own, a string carrying a scheme was a URL to a `.tar` to download and unpack, and anything else was a directory. The operator had to know the convention, a git repository could not be named at all, and a directory could only be reached by typing its absolute path from memory — on a machine that is not theirs, in a live environment where the medium holding it is usually not mounted yet.
 
 `oparch-return-message-render` reads the same locations from the other side. It is given a values file that names a `template` and a `theme`, and resolves them itself, downloading and unpacking when they are URLs. Its own command document already states the opposite rule for the logo: *"The logo arrives as a file, not as the URL the configuration names. Obtaining it — downloading it, or letting the operator pick one from disk — belongs to whoever calls this tool."*
 
-## Decision
+## Specification
 
 ### An input is a package or a file, and its origin is asked for
 
@@ -21,7 +21,7 @@ A **package input** is a set of files: the dotfiles package, the template packag
 | remote `.tar` | a URL |
 | git repository | a URL; the whole content of the clone is the package |
 
-A **file input** is one file: the logo. Its origin is a URL, or a local file chosen with a picker.
+A **file input** is one file: the logo, or the encrypted secret store. Its origin is a URL, or a local file chosen with a picker.
 
 The origin is a question of its own, answered before the location, and nothing is deduced from the text of an answer. The project's own package and theme are chosen explicitly rather than by leaving a field empty.
 
@@ -63,6 +63,8 @@ Decision 015 gives the host the terminal and the running of processes, and gives
 
 The configuration file that drives an unattended installation names the origin explicitly too, as a kind and a location. The pickers are the interactive way to answer that question, not a second way of asking it.
 
-Nothing consumes the dotfiles package yet: the installer collects it, and the tool that will use it does not exist. It is asked for in the same way as the others so that the screen does not have to change on the day it does.
+A dotfiles package is cloned whole where the other two are cloned at one revision. The others are read here and dropped, and a history is not their content; the dotfiles package stays, as the repository `../../decisions/001-disk-layout.md` restores `/dotfiles` from, so its history is part of what is being fetched. A package taken as a directory or an archive leaves no repository, and that restore path does not exist on that machine.
+
+The encrypted secret store is a file input, obtained the same way the logo is. What it holds and what opens it are specified in `../oparch-dotfiles-sync/002-secret-store-archive.md`.
 
 What would change this decision: a rebuild of the return message that runs unattended on an installed system — a timer, or a tool rebuilding after an edit — has no one to pass the flags. That is when the values file would have to name the template and the theme again, as local paths the installer put there, and the copy into the installed system would come with it.

@@ -35,7 +35,7 @@ Keyboard layout for unlock is provided by installer input, written to `/etc/vcon
 - `base`, `udev`, `block`, and `filesystems` are required because they provide the minimum boot path from initramfs to mounted root; if any is missing, early boot cannot complete reliably.
 - `encrypt` is required because root is encrypted with LUKS; if it is missing, root cannot be unlocked during boot.
 - `plymouth` is required only when the return message is enabled because that screen needs custom visual rendering; if the return message is disabled, the plain unlock prompt is sufficient.
-- No hook prepares Plymouth for text because Plymouth draws none: everything the unlock screen shows is an image, as decided in `007-preboot-ownership-message.md`. A hook setting the process locale existed to make its label renderer decode text correctly, and there is no text left for it to decode.
+- No hook prepares Plymouth for text because Plymouth draws none: everything the unlock screen shows is an image, as decided in `006-preboot-ownership-message.md`. A hook setting the process locale existed to make its label renderer decode text correctly, and there is no text left for it to decode.
 - `keyboard` and `keymap` are required because passphrase input must work with the expected layout; if omitted, unlock can fail from wrong key interpretation.
 - `kms` is required because early graphics setup should be consistent across boot paths and supports Plymouth rendering when the return message is enabled; if omitted, rendering quality and handoff behavior can degrade.
 - `microcode` is included because CPU microcode updates should be applied early; if omitted, the system still boots but loses early mitigation/CPU-fix coverage.

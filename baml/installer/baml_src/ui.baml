@@ -182,8 +182,21 @@ class ScriptedUi {
     /// are a decision of the screen, so a test can hold them to it.
     limits: string[],
 
+    /// The next scripted answer, or backing out when the script says nothing.
+    ///
+    /// A script that has run out keeps answering `<back>`, which is what a test
+    /// wanting to step back scripts, so there is nothing to notice about the
+    /// first few. What has to be noticed is the end state: the first screen has
+    /// nowhere to go back to, so a form whose script ran out asks it again, and
+    /// again, for ever — allocating on every turn until the machine running the
+    /// test gives up. The ceiling is far above what any honest form test asks
+    /// and is reached in milliseconds by one that spins.
     function next(self) -> string {
-        self.answers.shift() ?? "<back>"
+        if let scripted: string = self.answers.shift() {
+            return scripted;
+        }
+        assert.is_true(self.asked.length() < 200);
+        "<back>"
     }
 
     implements Ui {
@@ -303,4 +316,44 @@ test "index_of_option restores a selection and falls back to the first row" {
     assert.equal(index_of_option(["wipe-all", "keep-homes"], "keep-homes"), 1);
     assert.equal(index_of_option(["wipe-all", "keep-homes"], "nonsense"), 0);
     assert.equal(index_of_option([], "anything"), 0)
+}
+
+/// A filesystem that says what it did, in the words of what it did.
+///
+/// The port underneath performs the operation; this only speaks. It exists
+/// because the host does not touch files, so it cannot see them go by and log
+/// them the way it logs the commands it runs.
+///
+/// Only what changes the target is announced. Reading a file, or asking whether
+/// one is there, changes nothing, and a log of every question asked is a log
+/// nobody reads.
+class AnnouncingFiles {
+    inner: root.common.Files,
+    ui: Ui,
+
+    implements root.common.Files {
+        function failure(self) -> string? { self.inner.failure() }
+        function read(self, path: string) -> string? { self.inner.read(path) }
+        function exists(self, path: string) -> bool { self.inner.exists(path) }
+        function read_dir(self, path: string) -> root.common.DirEntry[]? {
+            self.inner.read_dir(path)
+        }
+
+        function write(self, path: string, content: string) -> void {
+            self.ui.action(`Write '${path}'`);
+            self.inner.write(path, content);
+        }
+        function mkdir(self, path: string) -> void {
+            self.ui.action(`Mkdir '${path}'`);
+            self.inner.mkdir(path);
+        }
+        function symlink(self, path: string, points_to: string) -> void {
+            self.ui.action(`Symlink '${path}' to '${points_to}'`);
+            self.inner.symlink(path, points_to);
+        }
+        function chmod(self, path: string, mode: string) -> void {
+            self.ui.action(`Chmod '${mode}' on '${path}'`);
+            self.inner.chmod(path, mode);
+        }
+    }
 }
