@@ -14,6 +14,9 @@ type Resolution = Resolved | Unresolved;
 /// A secret declaration together with the store file its value would come from.
 class SecretLocation {
     decl: SecretDecl,
+    /// Where the file sits inside the store, which is what anything carrying a
+    /// store from one machine to another has to hold.
+    relative: string,
     path: string,
 }
 
@@ -125,18 +128,21 @@ class Catalog {
         }
         if (scope == "user") {
             if let username: string = context.username {
-                SecretLocation {
-                    decl: declaration,
-                    path: `${self.secrets_root}/user/${username}/${name}`,
-                }
+                self.at_store(declaration, `user/${username}/${name}`)
             } else {
                 Unresolved {
                     message: `user-scoped secret '${name}' is referenced by a global target`,
                 }
             }
         } else {
-            SecretLocation { decl: declaration, path: `${self.secrets_root}/global/${name}` }
+            self.at_store(declaration, `global/${name}`)
         }
+    }
+
+    /// One place decides where inside the store a secret lives, so what is read
+    /// and what an archive of the store has to carry can never disagree.
+    function at_store(self, decl: SecretDecl, relative: string) -> SecretLocation {
+        SecretLocation { decl: decl, relative: relative, path: `${self.secrets_root}/${relative}` }
     }
 
     /// A reference must resolve to exactly one declared value or secret.
@@ -238,6 +244,7 @@ test "value resolution is default plus override" {
                     selectors: [],
                     loc: loc,
                 },
+                relative: "user/iokode/github.token",
                 path: "/etc/oparch/dotfiles-sync/secrets/user/iokode/github.token",
             },
         );

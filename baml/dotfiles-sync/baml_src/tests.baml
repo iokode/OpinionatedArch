@@ -196,7 +196,7 @@ test "expand the fixture include graph into a plan" {
         };
     assert.equal(map.files.length(), 3);
 
-    let plan = build_plan(fixture_files(), map, fixture_machine(), fixture_source_root(), fixture_secrets_root(), diag);
+    let plan = build_plan(fixture_files(), map, fixture_machine(), fixture_source_root(), fixture_secrets_root(), true, diag);
     assert.equal(diag.errors, []);
     //# host selectors keep the laptop-only package out of the desktop plan
     assert.equal(plan.packages, ["hyprland", "uwsm", "nvidia"]);
@@ -250,6 +250,61 @@ test "expand the fixture include graph into a plan" {
     assert.equal(link?.sources ?? [], ["tests/fixtures/dotfiles/hypr/keybindings.lua"])
 }
 
+/// The fixture map, loaded, for a test that only cares about the plan built
+/// from it.
+function fixture_document(diag: Diagnostics) -> MapDocument {
+    load_map_document(fixture_files(), `${fixture_source_root()}/main.dfmap`,
+                      fixture_source_root(), diag)
+        ?? MapDocument {
+            version: MapVersion { major: 0, minor: 0 },
+            files: [],
+            packages: [],
+            values: [],
+            secrets: [],
+            operations: [],
+        }
+}
+
+test "what a plan needs from the store can be asked for before there is one" {
+    let diag = new_diagnostics();
+    let document = fixture_document(diag);
+
+    //# a store that is not there: the question is what would have to be in it
+    let plan = build_plan(fixture_files(), document, fixture_machine(), fixture_source_root(),
+                          "tests/fixtures/no-such-store", false, diag);
+
+    assert.equal(diag.errors, []);
+    //# named as it sits inside the store, which is what an archive has to hold,
+    //# and a user-scoped secret is a file per login user rather than one file
+    assert.equal(required_secret_files(plan),
+                 ["user/personal/github.token", "user/work/github.token"])
+}
+
+test "the same plan, meant to be carried out, says the store file is missing" {
+    let diag = new_diagnostics();
+    let document = fixture_document(diag);
+
+    let _ = build_plan(fixture_files(), document, fixture_machine(), fixture_source_root(),
+                       "tests/fixtures/no-such-store", true, diag);
+
+    assert.is_true(diag.has_errors());
+    assert.is_true(diag.errors.join("\n")
+        .includes("secret 'github.token' is required but its store file is missing"))
+}
+
+test "a plan that needs no secrets asks for none" {
+    let diag = new_diagnostics();
+    let document = fixture_document(diag);
+    //# the render belongs to a user target, so a machine with no login users
+    //# reaches no secret at all
+    let empty = Machine { hostname: "desktop", users: [] };
+
+    let plan = build_plan(fixture_files(), document, empty, fixture_source_root(),
+                          fixture_secrets_root(), false, diag);
+
+    assert.equal(required_secret_files(plan), [])
+}
+
 test "the fixture plan renders with the staged secret store" {
     let diag = new_diagnostics();
     let document = load_map_document(fixture_files(), `${fixture_source_root()}/main.dfmap`, fixture_source_root(), diag);
@@ -263,7 +318,7 @@ test "the fixture plan renders with the staged secret store" {
             operations: [],
         };
     let machine = fixture_machine();
-    let plan = build_plan(fixture_files(), map, machine, fixture_source_root(), fixture_secrets_root(), diag);
+    let plan = build_plan(fixture_files(), map, machine, fixture_source_root(), fixture_secrets_root(), true, diag);
     let catalog = Catalog { values: map.values, secrets: map.secrets, secrets_root: fixture_secrets_root() };
 
     let render = plan
@@ -288,6 +343,7 @@ test "the fixture plan renders with the staged secret store" {
                 template: "",
                 value_refs: [],
                 secret_refs: [],
+                secret_files: [],
                 loc: SourceLoc { file: "", line: 0 },
             },
         catalog,
@@ -338,7 +394,7 @@ test "reject conflicting and out-of-bounds rules" {
         hostname: "desktop",
         users: [DotfilesUser { name: "personal", home: "/home/personal", group: "personal" }],
     };
-    let _ = build_plan(fixture_files(), document, single_user, fixture_source_root(), fixture_secrets_root(), diag);
+    let _ = build_plan(fixture_files(), document, single_user, fixture_source_root(), fixture_secrets_root(), true, diag);
 
     let joined = diag.errors.join("\n");
     assert.is_true(joined.includes("is already produced by the active operation"));
@@ -422,6 +478,7 @@ function planned_target(action: "link" | "copy" | "render", sources: string[],
         template: null,
         value_refs: [],
         secret_refs: [],
+        secret_files: [],
         loc: SourceLoc { file: "main.dfmap", line: 1 },
     }
 }

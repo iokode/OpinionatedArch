@@ -15,6 +15,10 @@ class PlannedTarget {
     template: string?,
     value_refs: string[],
     secret_refs: string[],
+    /// Where in the store each of those secrets is read from, relative to its
+    /// root. This is what has to be present for the target to be rendered, and
+    /// so what anything asked to supply a store is being asked for.
+    secret_files: string[],
     loc: SourceLoc,
 }
 
@@ -228,12 +232,18 @@ function action_of(kind: OperationKind) -> "link" | "copy" | "render" {
 /// Resolves every value and secret a composed template references, recording
 /// the reference names on the planned target. Secret values are never read
 /// here; only the existence of the store file is checked.
+///
+/// `require_files` is false when what is wanted is the list of secrets rather
+/// than a plan that can be carried out — a store that is not there yet is the
+/// question being asked, not an answer that is wrong. The secrets are recorded
+/// either way, so the two modes disagree about nothing but the diagnostic.
 function bind_template_references(
     files: root.common.Files,
     planned: PlannedTarget,
     template: string,
     catalog: Catalog,
     context: SelectorContext,
+    require_files: bool,
     diag: Diagnostics,
 ) -> null {
     for (let name in template_builtin_references(template)) {
@@ -262,13 +272,14 @@ function bind_template_references(
                             diag.at(planned.loc, failure.message);
                         },
                         let location: SecretLocation => {
-                            if (!files.exists(location.path)) {
+                            if (require_files && !files.exists(location.path)) {
                                 diag.at(
                                     planned.loc,
                                     `secret '${name}' is required but its store file is missing`,
                                 );
                             }
                             let _ = planned.secret_refs.push(name);
+                            let _ = planned.secret_files.push(location.relative);
                         },
                     }
                 }
@@ -287,6 +298,7 @@ function expand_operation(
     source_root: string,
     catalog: Catalog,
     plan: Plan,
+    require_secret_files: bool,
     diag: Diagnostics,
 ) -> null {
     let loc = operation.loc;
@@ -359,9 +371,11 @@ function expand_operation(
             template: composed,
             value_refs: [],
             secret_refs: [],
+            secret_files: [],
             loc: loc,
         };
-        bind_template_references(files, planned, composed, catalog, context, diag);
+        bind_template_references(files, planned, composed, catalog, context,
+                                 require_secret_files, diag);
         let _ = plan.targets.push(planned);
     } else if (classify_path(files, sources.at(0) ?? "") == "directory") {
         //# a directory source maps every normal file under it, preserving
@@ -389,6 +403,7 @@ function expand_operation(
                         template: null,
                         value_refs: [],
                         secret_refs: [],
+                        secret_files: [],
                         loc: loc,
                     },
                 );
@@ -409,6 +424,7 @@ function expand_operation(
                     template: null,
                     value_refs: [],
                     secret_refs: [],
+                    secret_files: [],
                     loc: loc,
                 },
             );
@@ -471,12 +487,17 @@ function collect_packages(
 }
 
 /// Builds and validates the complete current-machine plan.
+///
+/// `require_secret_files` is what tells a plan meant to be carried out from one
+/// built to be read: the first needs every secret it reaches to be in the
+/// store, and the second is how the store is found out about in the first place.
 function build_plan(
     files: root.common.Files,
     document: MapDocument,
     machine: Machine,
     source_root: string,
     secrets_root: string,
+    require_secret_files: bool,
     diag: Diagnostics,
 ) -> Plan {
     let plan = Plan { targets: [], packages: [], aur_packages: [] };
@@ -490,7 +511,8 @@ function build_plan(
             for (let member in machine.users) {
                 let context = user_context(machine.hostname, member.name);
                 if (selectors_pass(operation.selectors, context)) {
-                    expand_operation(files, operation, context, member, source_root, catalog, plan, diag);
+                    expand_operation(files, operation, context, member, source_root, catalog, plan,
+                                     require_secret_files, diag);
                 }
             }
         } else {
@@ -503,7 +525,8 @@ function build_plan(
             } else {
                 let context = global_context(machine.hostname);
                 if (selectors_pass(operation.selectors, context)) {
-                    expand_operation(files, operation, context, null, source_root, catalog, plan, diag);
+                    expand_operation(files, operation, context, null, source_root, catalog, plan,
+                                     require_secret_files, diag);
                 }
             }
         }
