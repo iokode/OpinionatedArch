@@ -47,6 +47,7 @@ Section order:
 - [Localization and Time Policy](decisions/010-localization-and-time-policy.md)
 - [System Identity Policy](decisions/011-system-identity-policy.md)
 - [Oparch Tools](decisions/012-oparch-tools.md)
+- [Dotfiles Policy](decisions/013-dotfiles-policy.md)
 
 ## Tool
 
@@ -106,6 +107,7 @@ Development documents have no fixed section order. They open with a summary para
 - [Where a Command Runs](development/006-where-a-command-runs.md)
 - [Installation Checks](development/007-installation-checks.md)
 - [Acting on Another System](development/008-acting-on-another-system.md)
+- [Dotfiles Integration Plan](development/009-dotfiles-integration-plan.md)
 
 ## Critical Notes With Replies (Copy of Discussion)
 

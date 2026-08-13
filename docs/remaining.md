@@ -27,12 +27,14 @@ It is a backlog, not a specification. Nothing listed here is decided.
 - Add `imagemagick` and `pango` to the ISO and to the installed system: `oparch-return-message-render` composes the message image with the first and draws its text through the second. `pango` is an optional dependency of `imagemagick` on Arch, by that package's own metadata, so installing the one does not bring the other. Whether the drawing fails without it has not been observed: the end-to-end run that looked for it failed earlier, on a live environment too old for the ImageMagick its mirrors offered.
 - Reimplement `oparch-user-remove` in BAML. Its current `sh` implementation is obsolete, and every built-in tool is written in the language `development/003-baml-as-implementation-language.md` decides. Whether it needs a host is answered the same way as for any other tool, in `development/004-host-bridge.md`.
 - Add `noto-fonts` to the ISO and to the installed system: it is the family the message is drawn with, and the one the fallback draws from.
+- Add `git` to the ISO and to the installed system: the installer clones the dotfiles package when its origin is a repository, and `/dotfiles` stays a repository afterwards, which `decisions/001-disk-layout.md` makes the way it is restored. The official Arch live medium does not carry it, so until the project's own ISO exists a run that takes a repository has nothing to clone with, and the end-to-end harness has to install it the way it installs the two above.
 
 ## Tools Pending Specification
 
 - `**oparch-network-manager**` — wifi and wired network manager.
 - `**oparch-pacman**` — browser across pacman repositories and package installer.
 - `**oparch-aur**` (with PKGBUILD analytics) — browser across AUR repository, PKGBUILD inspector (LLM-based) and package installer, using `paru`.
+- `**oparch-secret-export**` — writes the local dotfiles secret store out as one encrypted archive. The installer takes such an archive as an input when the dotfiles map declares secrets, so it is how a machine gets its credentials before first boot without every token being typed at the console. The archive is meant to travel on a removable medium or from a URL, which is what its encryption has to hold up. What it is encrypted with, and whether restoring a store is this tool or a second command, are part of its specification.
 
 ## Recovery Tools Pending Specification
 
