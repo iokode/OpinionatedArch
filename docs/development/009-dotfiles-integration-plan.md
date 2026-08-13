@@ -73,6 +73,16 @@ It has to be the host because BAML's standard library carries no cryptography at
 
 The decrypted store is staged in the live system's `/tmp`, which is memory, so a plaintext store never reaches a disk. It is validated by the same `--dry-run`, with `--secrets-root` pointing at it, and copied into the target as `0700` on the store root and `0600` on each file, `root:root`, as the map format requires. `development/007-installation-checks.md` gains a row for that.
 
+## The keymap comes first
+
+Nothing typed into the form is typed under the keymap the operator chose. The installer writes that keymap into the target and never applies it to the console the form is being answered on, so every answer is given under whatever the live medium defaults to.
+
+That is already wrong for the shared secret, which `remaining.md` records: it is masked, it unlocks the disk, and it is confirmed against a second copy of the same mistake. The passphrase of the `.dfsec` makes it worse — it is the longest thing anyone types into this form, and it is masked too.
+
+So the keymap is asked before every other input, on a screen of its own ahead of the disk, and `loadkeys` applies it the moment it is answered. Everything after it is typed under it, including the screen it is changed from when the operator goes back to it.
+
+This moves the order `tools/oparch-installer/000-command.md` lists for the screens and the one `tools/oparch-installer/002-inputs-and-bootstrap-baseline.md` numbers for the inputs, and it settles the entry `remaining.md` carries.
+
 ## Running it
 
 The tool is entered, not aimed: the phase runs `arch-chroot /mnt oparch-dotfiles-sync` with no arguments, so inside the chroot the hostname, the group, the homes and `/dotfiles` all mean what they say. This is `development/008-acting-on-another-system.md`, and it is why the machine parameters above exist for validation and not for application.
@@ -88,9 +98,12 @@ Being entered means being installed in what is entered. Until the tools ship as 
 - `bring_every_source` stops being reachable only from the configuration-file path, which is the defect `remaining.md` records.
 - `bring_here` stops cloning every origin shallow.
 - The `Secrets` port, with its recording double beside the others.
+- The keymap becomes the first screen, applied with `loadkeys` as soon as it is answered.
 
 **In the tool.** `--hostname`, `--user`, `--secrets-root`, and the mode that lists the secrets a plan requires. No change to what is validated or in which order.
 
 **In the host.** The `age` crate, and the implementation of the new port.
 
-**In the documentation.** The tool's command document gains its new parameters, and a document of its own for the `.dfsec` archive beside the one for the map. The installer's input documents gain the secrets archive, record that a dotfiles clone keeps its history where a package clone does not, and lose the sentence saying nothing consumes the dotfiles package. The configuration file format gains the archive and its passphrase — in clear text, beside `shared_secret`, which that document already warns makes the file as sensitive as what it contains. `development/004-host-bridge.md` records that the bridge now carries one thing that is neither a terminal nor a command, and why. `development/007-installation-checks.md` gains the secret store's modes and what `decisions/013-dotfiles-policy.md` requires of `/dotfiles`. `remaining.md` loses the issue about the package never being fetched.
+**Around it.** `deploy-to-vm.sh` packs and copies `oparch-dotfiles-sync` beside the installer and the renderer, and links it into the guest's path, which is how it reaches a medium that is not the project's own. The end-to-end harness hands it to the guest the same way, installs `git` there, and carries the two fixtures the cases in `development/000-end-to-end-testing.md` are written against.
+
+**In the documentation.** The tool's command document gains its new parameters, and a document of its own for the `.dfsec` archive beside the one for the map. The installer's input documents gain the secrets archive, record that a dotfiles clone keeps its history where a package clone does not, put the keymap first in the order they both give, and lose the sentence saying nothing consumes the dotfiles package. The configuration file format gains the archive and its passphrase — in clear text, beside `shared_secret`, which that document already warns makes the file as sensitive as what it contains. `development/004-host-bridge.md` records that the bridge now carries one thing that is neither a terminal nor a command, and why. `development/007-installation-checks.md` gains the secret store's modes and what `decisions/013-dotfiles-policy.md` requires of `/dotfiles`. `remaining.md` loses the issue about the package never being fetched.
