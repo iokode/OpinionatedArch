@@ -287,11 +287,19 @@ class SourceAnswer {
 
 /// What each origin is called on screen. The names belong to the format; the
 /// wording is the screen's, and says what the operator will be asked for next.
-function origin_label(origin: string) -> string {
+///
+/// `local` is the one origin whose wording depends on what is being asked for,
+/// because it is the one that names the content rather than a transport: a
+/// package on this machine is a directory or an archive, and a file is a file.
+function origin_label(origin: string, packages: bool) -> string {
     if (origin == "default") {
         "the one this project ships"
     } else if (origin == "local") {
-        "a directory or a .tar on this machine"
+        if (packages) {
+            "a directory or a .tar on this machine"
+        } else {
+            "a file on this machine"
+        }
     } else if (origin == "tar") {
         "a .tar by URL"
     } else if (origin == "git") {
@@ -301,12 +309,22 @@ function origin_label(origin: string) -> string {
     }
 }
 
-function origin_labels(origins: string[]) -> string[] {
+function origin_labels(origins: string[], packages: bool) -> string[] {
     let labels: string[] = [];
     for (let origin in origins) {
-        labels.push(origin_label(origin));
+        labels.push(origin_label(origin, packages));
     }
     labels
+}
+
+test "the origin on this machine is named after what is being asked for" {
+    assert.equal(origin_labels(file_origins(), false), ["a URL", "a file on this machine"]);
+    assert.equal(origin_labels(supplied_package_origins(), true),
+                 ["a directory or a .tar on this machine", "a .tar by URL", "a git repository"]);
+    //# the origins that name a transport read the same either way
+    assert.equal(origin_label("tar", true), origin_label("tar", false));
+    assert.equal(origin_label("git", true), origin_label("git", false));
+    assert.equal(origin_label("default", true), origin_label("default", false))
 }
 
 /// What the location is called, once the origin is known. Asking "URL or path"
@@ -351,7 +369,8 @@ test "a picker starts where the last choice was, or at the top" {
 /// A location that is somewhere else is typed, because a URL cannot be walked
 /// to. A location on this machine is walked to, because it can: nobody should
 /// have to remember a path on a machine they are installing. `packages` says
-/// which of the two pickers that is.
+/// which of the two pickers that is, and what the origin on this machine is
+/// called.
 ///
 /// Nothing is deduced from the answer. Backing out of the location returns to
 /// the origin, so a wrong choice is one keystroke to undo.
@@ -363,7 +382,7 @@ function ask_source(ui: Ui, tips: Tips, note: string, title: string, prompt: str
                     origins: string[], packages: bool,
                     current: Source) -> SourceAnswer {
     let refused = SourceAnswer { source: default_source(), answered: false };
-    let labels = origin_labels(origins);
+    let labels = origin_labels(origins, packages);
     let at = index_of_option(origins, current.origin);
     let location = current.location;
 
