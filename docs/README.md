@@ -105,6 +105,7 @@ Development documents have no fixed section order. They open with a summary para
 - [BAML Repository Layout](development/005-baml-repository-layout.md)
 - [Where a Command Runs](development/006-where-a-command-runs.md)
 - [Installation Checks](development/007-installation-checks.md)
+- [Acting on Another System](development/008-acting-on-another-system.md)
 
 ## Critical Notes With Replies (Copy of Discussion)
 
