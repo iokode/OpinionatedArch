@@ -1,0 +1,15 @@
+oparch dotfiles map
+version = '0.1'
+
+# The smallest map that exercises all three operations, for the end-to-end
+# case in docs/development/006-end-to-end-testing.md. It declares no secrets:
+# the store has a case of its own.
+
+[values.git]
+email = 'personal@example.invalid' for user 'personal'
+email = 'work@example.invalid'     for user 'work'
+
+[dotfiles.shell]
+link 'shell/aliases.sh' to '&HOME/.aliases.sh'
+copy 'shell/profile' to '&HOME/.profile'
+render 'git/config.tpl' to '&HOME/.gitconfig' with mode '0600'

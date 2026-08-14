@@ -30,7 +30,7 @@ It is not confirmed against a second copy of itself, anywhere it is asked for. A
 
 Whoever opens one decrypts it and unpacks the archive that comes out. The two are separate: unpacking is what every other archive in this project gets, including the refusal of an entry that would be written outside the directory it is unpacked into.
 
-Nothing writes a `.dfsec`. Producing one is `oparch-secret-export`, which does not exist yet and is tracked in `../../remaining.md`.
+Nothing writes a `.dfsec`. Producing one is `oparch-secret-export`, which does not exist yet and is tracked in `../../state/001-remaining.md`.
 
 ## Why
 

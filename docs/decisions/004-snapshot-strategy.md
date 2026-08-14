@@ -11,7 +11,7 @@ Snapshot policy is split by scope:
 - System scope (`@`): snapshot at boot start, on each package installation/update transaction, and on explicit manual request.
 - User scope (`home/@<login-user>` subvolume): snapshot at login start for that specific user and on explicit manual request.
 
-Home snapshots are per-user because rollback scope must be isolated per login user. Because Btrfs snapshots are created at subvolume level, each login user home is a dedicated subvolume.
+Home snapshots are per-context because rollback scope must be isolated per work context. Because Btrfs snapshots are created at subvolume level, each work context's home is a dedicated subvolume.
 All snapshots are stored in a single `@snapshots` subvolume mounted at `/snapshots` with structured paths:
 
 - `/snapshots/system/automatic`
@@ -38,7 +38,7 @@ Snapshot strategy is restore-only. Snapshots are not boot targets in GRUB.
 - Manual per-user home snapshots are used because some user operations are intentionally high-risk (for example bulk moves or destructive cleanup); if omitted, those operations have no explicit pre-change recovery anchor.
 - Dedicated home subvolumes are required because Btrfs can snapshot only at subvolume boundaries; if homes are not split per user subvolume, isolated per-user rollback cannot be implemented.
 - A single snapshot storage subvolume (`@snapshots`) is required because this model centralizes snapshot data while keeping a simple mount layout; if omitted, storage layout drifts from the chosen single-container policy.
-- Structured paths (`system`, `home/<login-user>`, `automatic`, and `manual`) inside `/snapshots` are required because system and per-user histories must remain targetable independently without reserving login usernames; if omitted, create/restore operations are easier to misapply.
+- Structured paths (`system`, `home/<work-context>`, `automatic`, and `manual`) inside `/snapshots` are required because the system history and each context's history must remain targetable independently without reserving names; if omitted, create/restore operations are easier to misapply.
 - Keeping 60 automatic snapshots in `@` and 60 per-user home snapshots is used because recovery history must be long enough to be useful but still bounded; if too low, useful rollback points disappear too quickly, and if unbounded, disk usage grows without control.
 - Never auto-purging manual snapshots is used because manual snapshots are deliberate operator checkpoints; if auto-purged, explicitly chosen recovery anchors can disappear without operator intent.
 - Requiring a human-readable justification in manual snapshot name/label is used because indefinitely retained snapshots need future cleanup decisions; if unlabeled, old manual snapshots become hard to evaluate and safe cleanup becomes guesswork.
@@ -61,6 +61,6 @@ Create/restore command interface for this single-`@snapshots` path model is inte
 ## Critical Notes With Replies (Copy of Discussion)
 
 1. Assistant critique: snapshotting a single `@home` subvolume at login can cause rollback side effects across users.
-   Reply: switch to per-user home subvolumes so rollback scope stays isolated per login user.
+   Reply: switch to per-context home subvolumes so rollback scope stays isolated per work context.
 2. Assistant critique: per-user home subvolumes add lifecycle complexity when creating users after installation.
    Reply: handle user creation through a dedicated provisioning command/script that always creates the user home subvolume.

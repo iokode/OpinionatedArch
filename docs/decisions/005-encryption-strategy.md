@@ -10,7 +10,7 @@ Encryption is mandatory for this installer. There is no installer option to disa
 
 The BTRFS system partition is always encrypted with `LUKS2`.
 
-Authentication is unified for the main system unlock path: the installer asks one secret and uses it both as the LUKS passphrase for the root container and as the password value for all login users.
+Authentication is unified for the main system unlock path: the installer asks one secret and uses it both as the LUKS passphrase for the root container and as the password value for every work context.
 
 The EFI partition remains unencrypted.
 
@@ -20,7 +20,7 @@ Hibernation and resume are not configured.
 
 - Mandatory encryption with no disable toggle is required because this project assumes sensitive data at rest on every machine; if encryption can be skipped interactively, an insecure install can be produced by operator error.
 - `LUKS2` is used because it is the current standard Linux full-disk encryption format with strong tooling support; if a weaker/legacy format is used without need, long-term maintainability and security posture degrade.
-- One shared secret for root LUKS unlock and login users is used because the operator explicitly prioritizes one strong memorized secret over multiple secrets likely to be externalized; if split into many secrets in this model, practical secret-handling risk increases.
+- One shared secret for root LUKS unlock and every work context is used because the operator explicitly prioritizes one strong memorized secret over multiple secrets likely to be externalized; if split into many secrets in this model, practical secret-handling risk increases.
 - EFI stays unencrypted because the UEFI boot flow must read boot artifacts before root decryption; if EFI encryption is forced in this design, boot reliability and implementation complexity increase sharply.
 - Swapfiles are protected by the existing Btrfs-on-LUKS2 encryption boundary because persistent swap is stored inside the encrypted filesystem; if a second swap-specific encryption layer is added, the design gains redundant encryption and extra failure surface without improving the selected at-rest boundary.
 

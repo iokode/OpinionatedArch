@@ -2,7 +2,7 @@
 
 ## Description
 
-`oparch-password-rotate-interactive` is the interactive interface for rotating the shared secret used by disk encryption and login users. It collects the existing shared secret and replacement shared secret, then calls `oparch-password-rotate --old-password <password> --new-password <password>`.
+`oparch-password-rotate-interactive` is the interactive interface for rotating the shared secret used by disk encryption and every work context. It collects the existing shared secret and replacement shared secret, then calls `oparch-password-rotate --old-password <password> --new-password <password>`.
 
 ## Why is needed
 

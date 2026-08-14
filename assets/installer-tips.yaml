@@ -32,11 +32,11 @@ zram:
 swapfile:
   - "Swap on the disk, for when memory runs out and zram is not enough. 0 creates none."
 
-usernames:
-  - "One account per work context. They share their configuration through /dotfiles and keep their sessions and data apart."
+work_contexts:
+  - "One area of your activity, such as personal or a given client. Each one is a user account of its own: they share their configuration through /dotfiles and keep their sessions and data apart."
 
 shared_secret:
-  - "One secret unlocks the disk at boot and logs in every account."
+  - "One secret unlocks the disk at boot and logs in every work context."
 
 confirm_secret:
   - "Typed again because nothing on screen shows what was typed."

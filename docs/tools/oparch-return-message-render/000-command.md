@@ -46,6 +46,19 @@ Rendering it during installation only would mean that changing a phone number re
 
 Building an image, rather than having the boot splash draw text, is decided in `../../decisions/006-preboot-ownership-message.md`. The short of it: the splash draws with one font and no fallback, so any writing system that font does not cover renders as blanks, and it cannot justify, wrap or emphasise.
 
+## Requirements
+
+What has to be installed where this runs. None of it is on the official Arch live medium, which is what makes this the list worth reading before a first run: the failures it prevents look like defects in the rendering.
+
+- **ImageMagick**, for `magick` and `identify`. It composes every image and reads back the size of what it drew.
+- **Pango**, as ImageMagick's delegate. The text is drawn through it, which is what makes markup, wrapping and per-value styling possible at all. On Arch `pango` is an *optional* dependency of `imagemagick` by that package's own metadata, so installing the one does not bring the other, and ImageMagick without it is an ImageMagick that draws no text.
+- **The font family the theme names**, and a fallback for what it does not cover. The project's own theme names `Noto Sans`, and takes its icons from Noto Sans Symbols through fontconfig's substitution, so `noto-fonts` covers both. A theme that names another family needs that one instead.
+- **`fontconfig`**, for `fc-scan`, when the theme carries a font of its own: the family a font file declares is read from the file rather than trusted from the manifest.
+
+There is no BAML runtime library in this list. This tool has no host, so `baml pack` makes it a standalone binary — the distinction is `../../development/001-host-bridge.md`.
+
+The commands are called by name and nothing checks for them first. What a missing one produces is the exit status of a command that is not there, reported as the drawing step that failed.
+
 ## Input parameters
 
 - `--config <path>`: Optional. Read the values from this file instead of `/etc/opinionatedarch/return-message.yaml`.

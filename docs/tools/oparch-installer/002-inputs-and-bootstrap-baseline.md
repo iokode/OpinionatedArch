@@ -26,8 +26,8 @@ The installer asks for:
 6. GPU driver (`nvidia`, `nvidia-open`, `nouveau`, or `none`)
 7. zram swap size in GB
 8. disk swapfile size in GB (if 0, do not create any swapfile)
-9. login usernames list (in `keep-homes`, this creates additional users beyond the preserved-home users)
-10. shared secret (used for root LUKS unlock and login-user password)
+9. work context names (in `keep-homes`, these are created in addition to the contexts whose homes are preserved)
+10. shared secret (used for root LUKS unlock and as the password of every work context)
 11. timezone
 12. hostname
 13. public dotfiles package (`yes/no`)
@@ -53,7 +53,7 @@ Whether a package needs secrets at all is not asked: the installer asks the tool
 
 When a public dotfiles package is enabled, the installer puts its content into `/dotfiles` and then runs `oparch-dotfiles-sync`. Where that content comes from — a directory, an archive or a repository — is defined in `003-input-sources.md`.
 
-It is the last thing the installation does, and it is judged long before it: the package is brought to the staging path while the form is still being answered, and `oparch-dotfiles-sync` is asked what it makes of it, for the hostname and the login users this installation is creating. A package it will not apply is refused there, with the disk untouched.
+It is the last thing the installation does, and it is judged long before it: the package is brought to the staging path while the form is still being answered, and `oparch-dotfiles-sync` is asked what it makes of it, for the hostname and the work contexts this installation is creating. A package it will not apply is refused there, with the disk untouched.
 
 What `/dotfiles` is left as — its modes, the default ACL that keeps them true, and the `safe.directory` entry that lets git work in a tree it does not own — is decided in `../../decisions/013-dotfiles-policy.md`.
 

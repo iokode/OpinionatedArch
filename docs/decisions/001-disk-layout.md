@@ -44,7 +44,7 @@ The Btrfs layout uses subvolumes as explicit snapshot and rollback boundaries:
 - `@` is the normal system root subvolume.
 - `@recovery` is a separate recovery root subvolume. It is not part of the normal system.
 - `home` is a container for login-user home subvolumes.
-- `home/@<login-user>` is one dedicated home subvolume per login user.
+- `home/@<work-context>` is one dedicated home subvolume per work context.
 - `@snapshots` is the snapshot-storage subvolume.
 - `@snapshots/system/{automatic,manual}` contains automatic and manual snapshots for the `@` subvolume.
 - `@snapshots/home/<login-user>/{automatic,manual}` contains automatic and manual snapshots for each `home/@<login-user>` subvolume.
@@ -118,7 +118,7 @@ The installer supports two install modes: `wipe-all` and `keep-homes`.
 
 In `wipe-all` mode, the selected disk is repartitioned and all previous data on that disk is destroyed.
 
-In `keep-homes` mode, the system is reinstalled while preserving selected existing `home/@<login-user>` subvolumes. The installer asks which existing home users to preserve, creates those users with their preserved homes, and also creates any additional users provided in the login usernames step.
+In `keep-homes` mode, the system is reinstalled while preserving selected existing `home/@<work-context>` subvolumes. The installer asks which of the existing homes to preserve, recreates those work contexts with the homes they had, and also creates any further context named in the work contexts step.
 
 Snapshot paths under `/snapshots/system` and `/snapshots/home/<login-user>` are initialized when the corresponding subvolumes are provisioned.
 

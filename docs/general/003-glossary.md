@@ -4,12 +4,11 @@ Terms used across the OpinionatedArch documentation.
 
 ## Accounts
 
-- **Work context** — one area of the operator's activity, such as personal use or a specific client. Each work context gets its own login user.
-- **Login user** — an interactive account representing one work context. Member of the `login-users` group.
-- **Logical user** — a non-login account used to run a restricted background process. Created by baseline policy, never prompted for.
-- `**login-users**` — group marking accounts intended for interactive login.
-- `**dotfiles**` — group granting access to shared configuration under `/dotfiles`.
-- **Shared secret** — the single value chosen at install time, used both as the LUKS passphrase and as the password of every login user.
+- **Work context** — one area of the operator's activity, such as personal use or a specific client. It is a user account, with its own name, home, session and data. Member of the `work-contexts` group.
+- **User**, **account** — a Linux account, whatever it is for. Every work context is one; not every one is a work context, which is why the word is still needed.
+- `**work-contexts**` — group marking the accounts that are work contexts.
+- `**dotfiles**` — group granting access to shared configuration under `/dotfiles`. Separate from the one above, so that something which is not a work context can still read what is there.
+- **Shared secret** — the single value chosen at install time, used both as the LUKS passphrase and as the password of every work context.
 
 ## Installation
 
@@ -30,7 +29,7 @@ Terms used across the OpinionatedArch documentation.
 
 ## Dotfiles
 
-- `**/dotfiles**` — the shared source of configuration for all login users, outside every home directory.
+- `**/dotfiles**` — the shared source of configuration for every work context, outside every home directory.
 - **Dotfiles map** — the declarative `.dfmap` file describing how shared configuration is applied. It cannot execute commands.
 - **Selector** — a clause restricting an entry to given users or hosts.
 - **Operation** — what an entry does with a source path: `link`, `copy`, or `render`.
@@ -43,4 +42,4 @@ Terms used across the OpinionatedArch documentation.
 
 ## End-to-end testing
 
-- **Harness** — the apparatus around what is being tested: it puts the real system into a state where it can run, starts it, feeds it its inputs, watches what comes back and decides whether the run passed. It is not the thing under test and it is not the assertions; it is what makes running them possible at all. Here it is `test/e2e/run.sh`, and what it tests is the installer and the system the installer leaves behind. The word is the one used for a wiring harness — the thing that connects and drives — and not for anything to do with the tools this project is written with. Described in `../development/000-end-to-end-testing.md`.
+- **Harness** — the apparatus around what is being tested: it puts the real system into a state where it can run, starts it, feeds it its inputs, watches what comes back and decides whether the run passed. It is not the thing under test and it is not the assertions; it is what makes running them possible at all. Here it is `tests/e2e/run.sh`, and what it tests is the installer and the system the installer leaves behind. The word is the one used for a wiring harness — the thing that connects and drives — and not for anything to do with the tools this project is written with. Described in `../development/006-end-to-end-testing.md`.

@@ -6,7 +6,7 @@ The pre-boot return message is rendered to an image, as decided in `../../decisi
 
 Until now nothing carried it. The look lived in the renderer — one font, one set of colours, one arrangement for each number of languages, all of them constants in its source. An operator who wanted the message to look like anything else had to change the tool.
 
-`007` left the question open and `../remaining.md` recorded it: whether the rendered message may be decorated by something supplied the way a template is, and what such a thing may control.
+`007` left the question open and `../../state/001-remaining.md` recorded it: whether the rendered message may be decorated by something supplied the way a template is, and what such a thing may control.
 
 ## Specification
 

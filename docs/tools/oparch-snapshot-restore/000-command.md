@@ -13,5 +13,5 @@ Recovery must be deterministic during incidents, and restore safety differs by s
 ## Input parameters
 
 - `<scope>`: Mandatory. Restore scope. Accepted values: `system`, `home`.
-- `<user>`: Mandatory for `home` scope. Login user whose home scope is restored.
+- `<name>`: Mandatory for `home` scope. Work context whose home scope is restored.
 - `<snapshot>`: Mandatory. Concrete snapshot path or identifier to restore.

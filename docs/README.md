@@ -1,10 +1,14 @@
-# Documentation
+# Document Types
 
-This directory contains the OpinionatedArch documentation.
+What a document of this project may be: the types, what each one is for, and the shape it takes. This is also where `docs/` starts, so it says where the rest is.
+
+What documents there actually are is the [Index](INDEX.md), the other half of this directory, kept apart from this one so that adding a document does not touch the rules and changing a rule does not touch the list. A new document is listed there and nowhere else.
 
 Every document belongs to exactly one document type. Each type has its own directory and defines the section order its documents follow. Every document is numbered inside its directory, and the number is part of the file name: `<number>-<name>.md`.
 
-Implementation plans are not part of these documents. When a plan is needed, it is written as its own dedicated document.
+A document says what something is, or what was decided and why. It does not say what is going to be done about it, and it does not say how far along it is: a plan is a document of its own, under `plans/`, and where the project stands is `state/`. Keeping those out of the rest is what lets a document be read as true rather than as true-for-now.
+
+A reference to another document is a relative path from the document making it, so it can be followed from where it is written.
 
 ## General
 
@@ -12,12 +16,7 @@ Documents describing what OpinionatedArch is and how it works.
 
 Directory: `general/`
 
-General documents have no fixed section order. They open with a summary paragraph and use free `##` sections.
-
-- [What is OpinionatedArch](general/000-what-is-opinionatedarch.md)
-- [Operating Model](general/001-operating-model.md)
-- [Installation Overview](general/002-installation-overview.md)
-- [Glossary](general/003-glossary.md)
+General documents have no fixed section order. They open with an introduction and use free `##` sections.
 
 ## Decision
 
@@ -34,21 +33,6 @@ Section order:
 3. Why
 4. Considerations (optional)
 
-- [User Model and Account Types](decisions/000-user-model-and-account-types.md)
-- [Disk Layout](decisions/001-disk-layout.md)
-- [Swap Strategy](decisions/002-swap-strategy.md)
-- [Kernel Strategy](decisions/003-kernel-strategy.md)
-- [Snapshot Strategy](decisions/004-snapshot-strategy.md)
-- [Encryption Strategy](decisions/005-encryption-strategy.md)
-- [Pre-Boot Ownership Message](decisions/006-preboot-ownership-message.md)
-- [GRUB Boot Policy](decisions/007-grub-boot-policy.md)
-- [mkinitcpio Hooks Policy](decisions/008-mkinitcpio-hooks-policy.md)
-- [Network Stack Policy](decisions/009-network-stack-policy.md)
-- [Localization and Time Policy](decisions/010-localization-and-time-policy.md)
-- [System Identity Policy](decisions/011-system-identity-policy.md)
-- [Oparch Tools](decisions/012-oparch-tools.md)
-- [Dotfiles Policy](decisions/013-dotfiles-policy.md)
-
 ## Tool
 
 Documents defining one tool each. Every tool has its own directory, named after the command, and its documents are numbered inside it: `tools/<tool-name>/<number>-<name>.md`.
@@ -57,8 +41,11 @@ The first document of a tool is its command document, `000-command.md`, with thi
 
 1. Description
 2. Why is needed
-3. Input parameters (when applicable)
-4. Interactive usage (when applicable)
+3. Requirements (when the tool is written)
+4. Input parameters (when applicable)
+5. Interactive usage (when applicable)
+
+`Requirements` states what the tool needs to find already installed on the system it runs on, and what those things have to be able to do — a package that is useless without an optional dependency is not met by installing the package. It names what the tool calls rather than what any one medium carries: which media carry what is decided where the media are, and a tool that named a medium would have to be edited every time one changed. A tool that is only specified has no such section, because what it needs follows from how it is written and it has not been written.
 
 Any further document of a tool specifies part of what the tool defines — a format, a syntax, a protocol — with this section order:
 
@@ -69,46 +56,35 @@ Any further document of a tool specifies part of what the tool defines — a for
 
 The `Specification` section uses free `###` subsections.
 
-- [oparch-user-create](tools/oparch-user-create/000-command.md)
-- [oparch-user-remove](tools/oparch-user-remove/000-command.md)
-- [oparch-snapshot-system-create](tools/oparch-snapshot-system-create/000-command.md)
-- [oparch-snapshot-user-create](tools/oparch-snapshot-user-create/000-command.md)
-- [oparch-snapshot-restore](tools/oparch-snapshot-restore/000-command.md)
-- [oparch-password-rotate](tools/oparch-password-rotate/000-command.md)
-- [oparch-password-rotate-interactive](tools/oparch-password-rotate-interactive/000-command.md)
-- [oparch-dotfiles-sync](tools/oparch-dotfiles-sync/000-command.md)
-  - [Dotfiles Map Format](tools/oparch-dotfiles-sync/001-map-format.md)
-  - [Secret Store Archive](tools/oparch-dotfiles-sync/002-secret-store-archive.md)
-- [oparch-return-message-render](tools/oparch-return-message-render/000-command.md)
-  - [Return Message Template Package Format](tools/oparch-return-message-render/001-template-package-format.md)
-  - [Return Message Values Format](tools/oparch-return-message-render/002-values-format.md)
-  - [Return Message Theme Format](tools/oparch-return-message-render/003-theme-format.md)
-  - [Return Message Themes](tools/oparch-return-message-render/004-themes.md)
-- [oparch-installer](tools/oparch-installer/000-command.md)
-  - [Installer Configuration File Format](tools/oparch-installer/001-config-file-format.md)
-  - [Inputs and Bootstrap Baseline](tools/oparch-installer/002-inputs-and-bootstrap-baseline.md)
-  - [Input Sources](tools/oparch-installer/003-input-sources.md)
-
 ## Development
 
 Documents describing how OpinionatedArch is built, tested and iterated on. They describe the project's own working environment, not the distribution it produces.
 
 A decision about how the project is built is a development document, whatever it decides: the language the tools are written in, how the sources are laid out, and the internal code they share are all part of the working environment and none of them are shipped.
 
+These are the documents that outlast the work. What is being done next is a plan, and how much of it is done is state; neither belongs here.
+
 Directory: `development/`
 
-Development documents have no fixed section order. They open with a summary paragraph and use free `##` sections.
+Development documents have no fixed section order. They open with an introduction and use free `##` sections.
 
-- [End-to-End Testing](development/000-end-to-end-testing.md)
-- [Installer Port Plan](development/001-installer-port-plan.md)
-- [BAML Working Notes](development/002-baml-working-notes.md)
-- [BAML as Implementation Language](development/003-baml-as-implementation-language.md)
-- [Host Bridge](development/004-host-bridge.md)
-- [BAML Repository Layout](development/005-baml-repository-layout.md)
-- [Where a Command Runs](development/006-where-a-command-runs.md)
-- [Installation Checks](development/007-installation-checks.md)
-- [Acting on Another System](development/008-acting-on-another-system.md)
-- [Dotfiles Integration Plan](development/009-dotfiles-integration-plan.md)
+## Plan
+
+Documents describing work that is going to be done: where it goes, in what order, and why that way and not another. One plan per document.
+
+A plan is finite. It is written when work is large enough that deciding it while doing it would mean deciding it badly, and it is deleted when that work is done — unless the argument it makes is written down nowhere else, in which case it stays and says at its head that it has been carried out. It is never maintained as a description of what exists: that is the other documents' job.
+
+Directory: `plans/`
+
+Plans have no fixed section order. They open with what gap they close and use free `##` sections.
+
+## State
+
+Documents describing where the project is: what it has, and what it does not. These are the only documents that are expected to be wrong tomorrow, and gathering them is what keeps that expectation off everything else.
+
+Directory: `state/`
+
+State documents have no fixed section order. They open with an introduction and use free `##` sections. They describe; they do not define. Anything that would still be true if the project stopped today belongs to another type.
 
 ## Critical Notes With Replies (Copy of Discussion)
 

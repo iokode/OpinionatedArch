@@ -25,7 +25,7 @@ swap:
   zram_gb: 8
   swapfile_gb: 0
 
-login_users:
+work_contexts:
   - ivan
   - work
 shared_secret: "a shared secret"
@@ -68,12 +68,12 @@ return_message:
 | --- | --- | --- |
 | `disk` | Path of an existing block device | yes |
 | `install_mode` | `wipe-all` or `keep-homes` | yes |
-| `preserved_home_users` | List of usernames | only with `keep-homes` |
+| `preserved_work_contexts` | List of names | only with `keep-homes` |
 | `ucode_package` | `intel-ucode`, `amd-ucode` or `none` | yes |
 | `gpu_driver` | `nvidia`, `nvidia-open`, `nouveau` or `none` | yes |
 | `swap.zram_gb` | Non-negative integer | no, defaults to `0` |
 | `swap.swapfile_gb` | Non-negative integer | no, defaults to `0` |
-| `login_users` | List of usernames, at least one | yes |
+| `work_contexts` | List of names, at least one | yes |
 | `shared_secret` | Non-empty string | yes |
 | `console_keymap` | Keymap name | yes |
 | `timezone` | A timezone the live system reports | yes |
@@ -160,6 +160,6 @@ The first problem found stops the run, and nothing is executed.
 
 ## Considerations
 
-- The file holds `shared_secret` in clear text, and `secret_store.passphrase` with it. A file used for a real installation is as sensitive as the secrets it contains: the first unlocks the disk and every login user, and the second opens every credential the dotfiles need.
+- The file holds `shared_secret` in clear text, and `secret_store.passphrase` with it. A file used for a real installation is as sensitive as the secrets it contains: the first unlocks the disk and every work context, and the second opens every credential the dotfiles need.
 - A file written for one machine is not portable to another without review: `disk` names a device, and `console_keymap` and `timezone` describe where the machine is used.
 - The template package is resolved during validation, so a file naming one by URL only works where that URL is reachable, and one naming a `local` path only works where that path is, on the machine the installation runs from.
