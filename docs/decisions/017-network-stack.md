@@ -1,4 +1,4 @@
-# Network Stack Policy
+# Network Stack
 
 ## Context
 

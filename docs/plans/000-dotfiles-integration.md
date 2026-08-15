@@ -14,9 +14,9 @@ Last is not a preference. Three things ahead of it are inputs to it:
 
 - **Users and groups.** The tool expands user targets over the members of the `dotfiles` group and their home directories. Before that phase there is no group and there are no homes.
 - **Packages.** A map installs the packages it declares, with pacman, into the target.
-- **Bootloader.** `../decisions/007-grub-boot-policy.md` has the tool copy a `grub/` directory from the dotfiles to `/boot`, and has GRUB include `custom.cfg` if it exists *after* that synchronization. `grub-install` and the static menu are written by the bootloader phase; what the dotfiles add goes on top of them.
+- **Bootloader.** `../decisions/009-bootloader.md` has the tool copy a `grub/` directory from the dotfiles to `/boot`, and has GRUB include `custom.cfg` if it exists *after* that synchronization. `grub-install` and the static menu are written by the bootloader phase; what the dotfiles add goes on top of them.
 
-Nothing ahead of it depends on it in return. The initramfs is the one candidate, and it is not: the `HOOKS` line belongs to `../decisions/008-mkinitcpio-hooks-policy.md` and the Plymouth theme to the return-message phase, neither of which reads the dotfiles.
+Nothing ahead of it depends on it in return. The initramfs is the one candidate, and it is not: the `HOOKS` line belongs to `../decisions/012-mkinitcpio-hooks.md` and the Plymouth theme to the return-message phase, neither of which reads the dotfiles.
 
 Being last means its failure comes after a bootloader is already installed. That changes nothing about what a failure means: by the all-or-nothing rule in `../../AGENTS.md`, the run stops and the machine is not one to boot.
 
@@ -34,7 +34,7 @@ The copy into `/mnt/dotfiles` happens after the users phase has created `/dotfil
 
 The group is not the whole of it. Setgid carries the group downwards and not the permission to write, and `cp -r` gives what it copies the modes the source had — `755` directories and `644` files, for a clone. A tree copied that way is one a work context can read and not change, under a mount point whose `2775` says otherwise.
 
-`../decisions/013-dotfiles-policy.md` decides what that has to end up as, and it takes three things from the installation: the default ACL on `/dotfiles`, the modes of what the copy brings, and `/dotfiles` in git's `safe.directory` on the installed system. Btrfs carries ACLs with no mount option, so nothing about the disk phase changes.
+`../decisions/020-dotfiles.md` decides what that has to end up as, and it takes three things from the installation: the default ACL on `/dotfiles`, the modes of what the copy brings, and `/dotfiles` in git's `safe.directory` on the installed system. Btrfs carries ACLs with no mount option, so nothing about the disk phase changes.
 
 ## Judging it while there is still someone to ask
 
@@ -95,7 +95,7 @@ Being entered means being installed in what is entered. Until the tools ship as 
 
 **In the installer.**
 
-- A new phase file, added to `install_phases`, `install_phase_names` and `run_phases`, conditional on a dotfiles package. It copies the package in, leaves `/dotfiles` as `../decisions/013-dotfiles-policy.md` requires — the default ACL, the modes, the `safe.directory` entry — and then enters the target and runs the tool.
+- A new phase file, added to `install_phases`, `install_phase_names` and `run_phases`, conditional on a dotfiles package. It copies the package in, leaves `/dotfiles` as `../decisions/020-dotfiles.md` requires — the default ACL, the modes, the `safe.directory` entry — and then enters the target and runs the tool.
 - The form's dotfiles screen gains the fetch it never had, the validation run, and the secrets archive with its passphrase.
 - `bring_every_source` stops being reachable only from the configuration-file path, which is the defect `../state/001-remaining.md` records.
 - `bring_here` stops cloning every origin shallow.
@@ -108,4 +108,4 @@ Being entered means being installed in what is entered. Until the tools ship as 
 
 **Around it.** `deploy-to-vm.sh` packs and copies `oparch-dotfiles-sync` beside the installer and the renderer, and links it into the guest's path, which is how it reaches a medium that is not the project's own. The end-to-end harness hands it to the guest the same way, installs `git` there, and carries the two fixtures the cases in `../development/006-end-to-end-testing.md` are written against.
 
-**In the documentation.** The tool's command document gains its new parameters, and a document of its own for the `.dfsec` archive beside the one for the map. The installer's input documents gain the secrets archive, record that a dotfiles clone keeps its history where a package clone does not, put the keymap first in the order they both give, and lose the sentence saying nothing consumes the dotfiles package. The configuration file format gains the archive and its passphrase — in clear text, beside `shared_secret`, which that document already warns makes the file as sensitive as what it contains. `../development/001-host-bridge.md` records that the bridge now carries one thing that is neither a terminal nor a command, and why. `../development/007-installation-checks.md` gains the secret store's modes and what `../decisions/013-dotfiles-policy.md` requires of `/dotfiles`. `../state/001-remaining.md` loses the issue about the package never being fetched.
+**In the documentation.** The tool's command document gains its new parameters, and a document of its own for the `.dfsec` archive beside the one for the map. The installer's input documents gain the secrets archive, record that a dotfiles clone keeps its history where a package clone does not, put the keymap first in the order they both give, and lose the sentence saying nothing consumes the dotfiles package. The configuration file format gains the archive and its passphrase — in clear text, beside `shared_secret`, which that document already warns makes the file as sensitive as what it contains. `../development/001-host-bridge.md` records that the bridge now carries one thing that is neither a terminal nor a command, and why. `../development/007-installation-checks.md` gains the secret store's modes and what `../decisions/020-dotfiles.md` requires of `/dotfiles`. `../state/001-remaining.md` loses the issue about the package never being fetched.

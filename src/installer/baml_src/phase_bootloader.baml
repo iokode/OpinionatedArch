@@ -1,6 +1,6 @@
 // The bootloader: GRUB on the EFI partition, and the menu the project designed.
 //
-// The policy is `docs/decisions/007-grub-boot-policy.md`. `grub-mkconfig` is
+// The policy is `docs/decisions/009-bootloader.md`. `grub-mkconfig` is
 // not used: the menu is an artifact this project owns, kept in `assets/grub/`,
 // and it is installed exactly as it is. What differs from one machine to the
 // next is written beside it, and the menu reads it.

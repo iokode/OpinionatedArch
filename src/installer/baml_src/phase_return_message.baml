@@ -65,7 +65,7 @@ function fetch_logo(shell: root.common.Shell, files: root.common.Files,
 /// Brings the logo here, and asks when it cannot. A mistyped location and a
 /// deliberate omission look identical once the installation is over, so the
 /// operator answers this while there is still someone to ask, as
-/// `docs/decisions/006-preboot-ownership-message.md` requires. Nothing is asked when
+/// `docs/decisions/010-preboot-ownership-message.md` requires. Nothing is asked when
 /// no logo was wanted in the first place.
 function resolve_logo(shell: root.common.Shell, files: root.common.Files, ui: Ui,
                       logo: Source?) -> LogoOutcome {

@@ -1,4 +1,4 @@
-# Encryption Strategy
+# Encryption
 
 ## Context
 

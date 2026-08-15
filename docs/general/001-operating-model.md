@@ -20,7 +20,7 @@ So it is kept once, at `/dotfiles`, outside every home directory, and it reaches
 
 Shared is not identical. What one context needs, another may have to do without — a client's git identity, credentials that belong to one activity and to no other. What one machine needs, another does not — the monitors it drives, the battery indicator a desktop has no battery for.
 
-See [Dotfiles Policy](../decisions/013-dotfiles-policy.md).
+See [Dotfiles](../decisions/020-dotfiles.md).
 
 ## Snapshots and Recovery
 
@@ -30,17 +30,17 @@ The machine carries a recovery mode that can be started instead of the installed
 
 A snapshot is restored, never started.
 
-See [Snapshot Strategy](../decisions/004-snapshot-strategy.md) and [Recovery Strategy](../decisions/014-recovery-strategy.md).
+See [Snapshots](../decisions/004-snapshots.md) and [Recovery](../decisions/013-recovery.md).
 
 ## Encryption
 
 Encryption is mandatory: it cannot be turned off at install time, and there is no mode without it. The machine starts by unlocking the disk.
 
-See [Encryption Strategy](../decisions/005-encryption-strategy.md).
+See [Encryption](../decisions/002-encryption.md).
 
 ## Pre-Boot Ownership Message
 
 Whoever finds a lost machine gets no further than the passphrase prompt: the disk is encrypted, and there is nothing else to reach. So that prompt is where the machine can carry an ownership-and-return message — who it belongs to, and how to reach them to give it back.
 
-See [Pre-Boot Ownership Message](../decisions/006-preboot-ownership-message.md).
+See [Pre-Boot Ownership Message](../decisions/010-preboot-ownership-message.md).
 

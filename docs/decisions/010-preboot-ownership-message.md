@@ -43,7 +43,7 @@ Language identity is shown from the language's own name, not from flags.
 
 Everything the unlock screen shows is an image: the message, the prompt asking for the passphrase, and the glyph that marks each typed character. The boot splash draws no text, so the installed system carries no font for it.
 
-The prompt is in English, and is not part of a template package. The system language is English, as decided in `010-localization-and-time-policy.md`; a template package translates what a finder reads, not what the owner reads.
+The prompt is in English, and is not part of a template package. The system language is English, as decided in `005-localization-and-time.md`; a template package translates what a finder reads, not what the owner reads.
 
 The prompt asks for the secret and names nothing else. It does not say that a disk is being unlocked, and it does not call the secret a passphrase.
 

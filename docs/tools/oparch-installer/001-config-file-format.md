@@ -6,7 +6,7 @@
 
 The return message is defined by a template package that declares its own fields, so the file must be able to carry values whose names the installer does not know in advance.
 
-The inputs themselves are decided in `002-inputs-and-bootstrap-baseline.md`, and the return message in `../../decisions/006-preboot-ownership-message.md`. This document defines how they are written down.
+The inputs themselves are decided in `002-inputs-and-bootstrap-baseline.md`, and the return message in `../../decisions/010-preboot-ownership-message.md`. This document defines how they are written down.
 
 ## Specification
 

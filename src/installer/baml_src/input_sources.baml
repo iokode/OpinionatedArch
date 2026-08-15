@@ -64,8 +64,9 @@ function bring_here(shell: root.common.Shell, files: root.common.Files,
     if (source.origin == "git") {
         //# a shallow clone is enough for a package that is read and dropped,
         //# because a history is not its content. It is not enough for the
-        //# dotfiles package: `decisions/001-disk-layout.md` restores /dotfiles
-        //# through Git, and a shallow clone has nothing to restore from.
+        //# dotfiles package: `docs/decisions/001-disk-layout.md` restores
+        //# /dotfiles through Git, and a shallow clone has nothing to
+        //# restore from.
         let argv = if (keep_history) {
             ["clone", source.location, destination]
         } else {

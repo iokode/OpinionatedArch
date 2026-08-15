@@ -34,9 +34,9 @@ Beside them it writes `opinionatedarch.script`, the script the splash runs: the 
 
 What the three look like — typography, colours, panels, spacing and the arrangement of the languages — comes from a theme, given to the tool as a directory and defined in `003-theme-format.md`. The tool composes; the theme decides how.
 
-The prompt is in English because the system's interface is English, as decided in `../../decisions/010-localization-and-time-policy.md`. A template package translates what a finder reads, not what the owner reads.
+The prompt is in English because the system's interface is English, as decided in `../../decisions/005-localization-and-time.md`. A template package translates what a finder reads, not what the owner reads.
 
-How many languages may be selected, and how they are arranged, is the theme's: it declares an arrangement for each number it accepts. What that arrangement should aim for is argued in `../../decisions/006-preboot-ownership-message.md` — a composition closer to the shape of a screen than to a column, because a tall composition on a wide screen is limited by its height and ends up small.
+How many languages may be selected, and how they are arranged, is the theme's: it declares an arrangement for each number it accepts. What that arrangement should aim for is argued in `../../decisions/010-preboot-ownership-message.md` — a composition closer to the shape of a screen than to a column, because a tall composition on a wide screen is limited by its height and ends up small.
 
 ## Why is needed
 
@@ -44,7 +44,7 @@ The message has to exist as an image before the initramfs is built, and it has t
 
 Rendering it during installation only would mean that changing a phone number requires reinstalling. A tool that owns the rendering can be run again on an installed system, and the installer is one of its callers rather than its only one.
 
-Building an image, rather than having the boot splash draw text, is decided in `../../decisions/006-preboot-ownership-message.md`. The short of it: the splash draws with one font and no fallback, so any writing system that font does not cover renders as blanks, and it cannot justify, wrap or emphasise.
+Building an image, rather than having the boot splash draw text, is decided in `../../decisions/010-preboot-ownership-message.md`. The short of it: the splash draws with one font and no fallback, so any writing system that font does not cover renders as blanks, and it cannot justify, wrap or emphasise.
 
 ## Requirements
 

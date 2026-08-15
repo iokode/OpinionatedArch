@@ -2,7 +2,7 @@
 // independent; asking for neither is a valid answer.
 
 /// `zram-generator` reads sizes in megabytes. The compression algorithm is
-/// decided in `docs/decisions/002-swap-strategy.md`.
+/// decided in `docs/decisions/003-swap.md`.
 function zram_config(gigabytes: int) -> string {
     `[zram0]` + "\n"
         + `zram-size = ${gigabytes * 1024}` + "\n"

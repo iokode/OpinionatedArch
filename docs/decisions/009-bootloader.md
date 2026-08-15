@@ -1,4 +1,4 @@
-# GRUB Boot Policy
+# Bootloader
 
 ## Context
 

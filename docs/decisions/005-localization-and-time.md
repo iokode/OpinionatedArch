@@ -1,4 +1,4 @@
-# Localization and Time Policy
+# Localization and Time
 
 ## Context
 

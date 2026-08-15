@@ -13,7 +13,7 @@ The installer asks for the complete list of work context names. Any other accoun
 Two explicit groups are used:
 
 - `work-contexts`: marks the accounts that are work contexts.
-- `dotfiles`: grants access to the shared dotfiles according to the policy in `013-dotfiles-policy.md`.
+- `dotfiles`: grants access to the shared dotfiles according to the policy in `020-dotfiles.md`.
 
 As specified in `001-disk-layout.md`, each work context's home is a dedicated subvolume. This applies both during initial installation and when a context is added later on an already installed system.
 

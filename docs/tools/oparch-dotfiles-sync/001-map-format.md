@@ -505,7 +505,7 @@ The state records links, copies, and rendered targets created by the tool. Rende
 
 ## Considerations
 
-- `../../decisions/007-grub-boot-policy.md` already requires copying `grub/` into `/boot`; `copy` makes that behavior explicit in the map instead of retaining a GRUB-specific special case.
+- `../../decisions/009-bootloader.md` already requires copying `grub/` into `/boot`; `copy` makes that behavior explicit in the map instead of retaining a GRUB-specific special case.
 - Rendered targets are generated artifacts. Application edits to them are not versioned and are overwritten during synchronization.
 - Because managed filesystem targets are applied before packages are installed, a package installation failure can leave applied configuration without the packages it configures.
 - A managed target that collides with a file owned by a not-yet-installed package conflicts with that package at install time. Pacman configuration, owned by the already-installed `pacman`, is the reliable pre-install case.

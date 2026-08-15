@@ -13,19 +13,26 @@ Every document in this directory, by type. What the types are and what shape eac
 
 - [Work Contexts and Accounts](decisions/000-work-contexts-and-accounts.md)
 - [Disk Layout](decisions/001-disk-layout.md)
-- [Swap Strategy](decisions/002-swap-strategy.md)
-- [Kernel Strategy](decisions/003-kernel-strategy.md)
-- [Snapshot Strategy](decisions/004-snapshot-strategy.md)
-- [Encryption Strategy](decisions/005-encryption-strategy.md)
-- [Pre-Boot Ownership Message](decisions/006-preboot-ownership-message.md)
-- [GRUB Boot Policy](decisions/007-grub-boot-policy.md)
-- [mkinitcpio Hooks Policy](decisions/008-mkinitcpio-hooks-policy.md)
-- [Network Stack Policy](decisions/009-network-stack-policy.md)
-- [Localization and Time Policy](decisions/010-localization-and-time-policy.md)
-- [System Identity Policy](decisions/011-system-identity-policy.md)
-- [Oparch Tools](decisions/012-oparch-tools.md)
-- [Dotfiles Policy](decisions/013-dotfiles-policy.md)
-- [Recovery Strategy](decisions/014-recovery-strategy.md) — work in progress, nothing decided yet
+- [Encryption](decisions/002-encryption.md)
+- [Swap](decisions/003-swap.md)
+- [Snapshots](decisions/004-snapshots.md)
+- [Localization and Time](decisions/005-localization-and-time.md)
+- [System Identity](decisions/006-system-identity.md)
+- [Kernel](decisions/007-kernel.md)
+- [Boot Image Format](decisions/008-boot-image-format.md) — work in progress, nothing decided yet
+- [Bootloader](decisions/009-bootloader.md)
+- [Pre-Boot Ownership Message](decisions/010-preboot-ownership-message.md)
+- [Return Message on an Installed System](decisions/011-return-message-on-an-installed-system.md) — work in progress, nothing decided yet
+- [mkinitcpio Hooks](decisions/012-mkinitcpio-hooks.md)
+- [Recovery](decisions/013-recovery.md) — work in progress, nothing decided yet
+- [Package Baseline](decisions/014-package-baseline.md) — work in progress, nothing decided yet
+- [AUR](decisions/015-aur.md) — work in progress, nothing decided yet
+- [Service Baseline](decisions/016-service-baseline.md) — work in progress, nothing decided yet
+- [Network Stack](decisions/017-network-stack.md)
+- [Audio Stack](decisions/018-audio-stack.md) — work in progress, nothing decided yet
+- [Security Baseline](decisions/019-security-baseline.md) — work in progress, nothing decided yet
+- [Dotfiles](decisions/020-dotfiles.md)
+- [Oparch Tools](decisions/021-oparch-tools.md)
 
 ## Tools
 

@@ -1,4 +1,4 @@
-# System Identity Policy
+# System Identity
 
 ## Context
 

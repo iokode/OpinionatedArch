@@ -1,4 +1,4 @@
-# Kernel Strategy
+# Kernel
 
 ## Context
 

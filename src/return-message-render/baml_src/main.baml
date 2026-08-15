@@ -34,7 +34,7 @@ function script_body_path(assets: string) -> string {
 
 /// The line asking for the secret that unlocks the machine. It names neither
 /// the disk nor the passphrase, for the reason recorded in
-/// `docs/decisions/006-preboot-ownership-message.md`: this screen is read by
+/// `docs/decisions/010-preboot-ownership-message.md`: this screen is read by
 /// whoever finds the machine, and it has nothing to tell them.
 function prompt_text() -> string {
     "Enter your password"

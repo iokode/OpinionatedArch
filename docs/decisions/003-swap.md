@@ -1,4 +1,4 @@
-# Swap Strategy
+# Swap
 
 ## Context
 

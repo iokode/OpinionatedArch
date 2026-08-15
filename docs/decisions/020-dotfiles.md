@@ -1,4 +1,4 @@
-# Dotfiles Policy
+# Dotfiles
 
 ## Context
 
