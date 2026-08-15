@@ -18,7 +18,7 @@ Every document, ticked when its review is called done. Only the operator ticks a
 
 - [x] Work Contexts and Accounts
 - [x] Disk Layout
-- [ ] Encryption
+- [x] Encryption
 - [ ] Swap
 - [ ] Snapshots
 - [ ] Localization and Time
@@ -188,4 +188,28 @@ It worked badly as an index too, being grouped by topic rather than alphabetical
 
 **"Baseline policy" is still in a tool document.** [oparch-work-context-create](docs/tools/oparch-work-context-create/000-command.md) opens with "creates a new work context with the required baseline policy: the account that carries it, its groups, its home subvolume, and the initial ownership of that home". No document defines the term, and in the two places it was used it named opposite populations — there, what a work context is given; here, the accounts that are not work contexts. It can go with nothing in its place, because what follows the colon is already the whole list.
 
-**Seven decision documents still describe what the installer asks.** [Disk Layout](docs/decisions/001-disk-layout.md), [Encryption](docs/decisions/002-encryption.md), [Swap](docs/decisions/003-swap.md), [Localization and Time](docs/decisions/005-localization-and-time.md), [System Identity](docs/decisions/006-system-identity.md), [Bootloader](docs/decisions/009-bootloader.md) and [Pre-Boot Ownership Message](docs/decisions/010-preboot-ownership-message.md). [Installer Inputs and Bootstrap Baseline](docs/tools/oparch-installer/002-inputs-and-bootstrap-baseline.md) already owns the inputs, and [Document Types](docs/README.md) now carries the rule that sends them there. Localization and Time already writes one of its two sentences that way: "System language is fixed to English and is not configurable in the installer" stays, and "The installer asks for: console keymap, timezone" becomes that the console keymap and the timezone are configurable. What varies from one of the operator's machines to another is a separate idea and stays where it lives, in [Dotfiles](docs/decisions/019-dotfiles.md).
+**Five decision documents still describe what the installer asks.** [Swap](docs/decisions/003-swap.md), [Localization and Time](docs/decisions/005-localization-and-time.md), [System Identity](docs/decisions/006-system-identity.md), [Bootloader](docs/decisions/009-bootloader.md) and [Pre-Boot Ownership Message](docs/decisions/010-preboot-ownership-message.md). [Installer Inputs and Bootstrap Baseline](docs/tools/oparch-installer/002-inputs-and-bootstrap-baseline.md) already owns the inputs, and [Document Types](docs/README.md) now carries the rule that sends them there. Localization and Time already writes one of its two sentences that way: "System language is fixed to English and is not configurable in the installer" stays, and "The installer asks for: console keymap, timezone" becomes that the console keymap and the timezone are configurable. What varies from one of the operator's machines to another is a separate idea and stays where it lives, in [Dotfiles](docs/decisions/019-dotfiles.md).
+
+## Disk Layout
+
+### Changed elsewhere because of it
+
+**[Installer Inputs and Bootstrap Baseline](docs/tools/oparch-installer/002-inputs-and-bootstrap-baseline.md) took the install modes.** Nothing of the mode survives in the installed system — a disk made with `wipe-all` and one made with `keep-homes` end up identical — so what each does to an existing disk belongs with the installation and not with the layout. That document says now what each mode does to the disk, which nothing said before; Disk Layout keeps only the layout both arrive at, and lost with them the `Why` and the consideration that existed for `keep-homes`.
+
+**The installer stopped calling homes users.** The prompt asked only under `keep-homes` offers "existing home subvolumes to preserve", and the argument for it being multiple-choice says the same. The [oparch-installer](docs/tools/oparch-installer/000-command.md) command document listed a screen called users among the nine it describes; that screen is called Work contexts, and has been since the rename.
+
+**`home` became a directory in the code too.** It was being created as a subvolume, and without the `@` prefix every other subvolume carries, which made the naming rule this document now states false in the installer. Nothing mounts it and nothing snapshots it, so it is a plain directory of the top-level subvolume. The parser of work context names went with it, from `UsersParse` to `WorkContextsParse`.
+
+### Still to do
+
+**The installer still builds the old layout.** The recovery system moved out of the encrypted container and onto an ext4 partition of its own, so the disk now has three partitions and the Btrfs filesystem no longer has a `@recovery` subvolume. Nothing of that is in the code: the disk phase still makes two partitions and creates `@recovery` among the subvolumes, its expected commands say so, and the end-to-end harness checks what it produces. This pass moved the decision and nothing else, deliberately.
+
+**Nothing says what happens when a preserved home and a named context collide.** In `keep-homes` the operator ticks which homes to keep and, on the Work contexts screen, names the contexts to create; the second is described as creating them "in addition to" the ones whose homes are preserved. If the same name arrives by both paths, no document says whether that is a validation error or simply that context coming back with the home it had. The mode is not implemented, so deciding it now costs nothing.
+
+**The 4 GiB of the recovery partition are a placeholder.** The layout fixes a size because it fixes every size, and this one was chosen before anything decided what the recovery system holds — an Arch installation and the tools it repairs with, none of which is written down yet. When [Recovery](docs/decisions/013-recovery.md) says what has to be in there, the number comes from that and [Disk Layout](docs/decisions/001-disk-layout.md) takes whatever it turns out to be.
+
+## Encryption
+
+### Still to do
+
+**Hibernation is undecided and no longer written down.** Encryption carried "Hibernation and resume are not configured" as a bare line, with no argument behind it anywhere, and it was the only mention of hibernation in the repository. Its subject is swap — hibernating writes memory out to swap and resumes from it, which here would mean a swapfile inside the encrypted container — so [Swap](docs/decisions/003-swap.md) decides it, with the reason it never had.

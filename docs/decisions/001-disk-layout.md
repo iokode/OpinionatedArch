@@ -2,13 +2,13 @@
 
 ## Context
 
-The system is installed onto the disk of a machine, and everything it needs afterwards has to fit there: a root that is encrypted, a recovery system that stays available when that root will not start, snapshots whose scope is the system or one work context, and the boot artifacts the firmware has to read before any of it is decrypted.
+The system is installed onto the disk of a machine, and everything it needs afterwards has to fit there: a root that is encrypted, a recovery system that stays available when that root will not start and when what holds it will not open, snapshots whose scope is the system or one work context, and the boot artifacts the firmware has to read before any of it is decrypted.
 
 ## Decision
 
 OpinionatedArch takes the whole of the target disk and lays it out the same way every time. There is no manual partitioning and no way to install onto a layout someone else made.
 
-The disk uses a GPT partition table with two partitions: the EFI system partition, and one encrypted container holding everything else.
+The disk uses a GPT partition table with three partitions: the EFI system partition, the recovery partition, and one encrypted container holding everything else.
 
 Mount configuration is persisted in fstab.
 
@@ -42,6 +42,12 @@ Example EFI system partition layout:
     └── amd-ucode.img
 ```
 
+### The recovery partition
+
+4 GiB, ext4, labeled `RECOVERY`, holding the recovery system: an Arch installation of its own, started in place of the installed system rather than beside it.
+
+It is not encrypted and the installed system does not mount it. What recovery is and what it has to be able to do is [Recovery](013-recovery.md).
+
 ### The encrypted partition
 
 The remaining disk space is one LUKS2 encrypted container labeled `OpinionatedArch`, containing one Btrfs filesystem.
@@ -49,7 +55,6 @@ The remaining disk space is one LUKS2 encrypted container labeled `OpinionatedAr
 A name beginning with `@` is a subvolume, and a name without it is an ordinary directory. The Btrfs filesystem holds these subvolumes:
 
 - `@` is the normal system root subvolume.
-- `@recovery` is a separate recovery root subvolume. It is not part of the normal system.
 - `home/@<work-context>` is one dedicated home subvolume per work context, inside the `home` directory.
 - `@snapshots` is the snapshot-storage subvolume. The snapshots inside it are subvolumes too, at these paths:
   - `@snapshots/system/{automatic,manual}` holds the automatic and manual snapshots of the `@` subvolume.
@@ -64,7 +69,6 @@ Example Btrfs subvolume layout:
 ```text
 Btrfs top-level id=5
 ├── @
-├── @recovery
 │
 ├── home
 │   ├── @personal
@@ -122,11 +126,12 @@ Snapshot paths under `/snapshots/system` and `/snapshots/home/<work-context>` ar
 ## Why
 
 - Full-disk deterministic partitioning is used because it is the easiest way to force the GPT layout and create the partitions required by the installer. Writing an installer that reuses existing partitions while maintaining invariants is not trivial.
-- EFI plus one encrypted Btrfs partition is used because the boot artifacts that must remain available to firmware stay on the EFI system partition, while operating-system state, user data, snapshots, dotfiles, logs, package cache, and swap remain inside one encrypted filesystem.
+- The three partitions each hold what has to survive something the others do not: the boot artifacts the firmware reads before anything is decrypted, the recovery system that has to start when the container does not open, and operating-system state, work-context data, snapshots, dotfiles, logs, package cache and swap, which stay inside one encrypted filesystem.
 - There is no relevant swap performance difference between swapfiles and swap partitions on modern SSDs, so using swapfiles is simpler than creating a swap partition.
 - The EFI layout keeps project-owned boot artifacts under `EFI/OpinionatedArch` and `OpinionatedArch` so they do not mix with third-party or vendor-owned EFI directories.
-- `@` is isolated because system rollback needs a root-state boundary that excludes recovery state, the homes of the work contexts, snapshots, logs, package cache, dotfiles, and swap.
-- `@recovery` is isolated because it is its own root and bootable system, and recovery must remain available independently from normal root rollback or normal root failure.
+- `@` is isolated because system rollback needs a root-state boundary that excludes the homes of the work contexts, snapshots, logs, package cache, dotfiles, and swap.
+- The recovery system is a partition of its own, outside the container, because it has to survive what it recovers from. As a subvolume it shared one Btrfs filesystem and one LUKS header with the system it exists to repair, so a damaged filesystem or a damaged header took both at once, and a forgotten passphrase left nothing to start. Outside, neither failure reaches it and it boots without the secret.
+- The recovery partition is ext4 because it holds one root that is never snapshotted and never rolled back, so subvolumes would buy nothing and a simpler filesystem is one less thing to go wrong on the disk that is meant to still work.
 - `home/@<work-context>` isolates the data of one work context and allows rolling it back without touching the others; if omitted, one rollback operation can revert data that belongs to another area of the operator's activity.
 - `@snapshots` is a dedicated container because all snapshot data must live under one mounted path while preserving separate system and home snapshot scopes.
 - `@log` keeps logs out of root-state rollback scope because logs are high-churn operational data; if logs stay in `@`, snapshot diffs and retention are dominated by log noise instead of meaningful system-state changes.
@@ -141,5 +146,6 @@ Snapshot paths under `/snapshots/system` and `/snapshots/home/<work-context>` ar
 - Snapshot policy must remain compatible with the selected mount layout.
 - Provisioning a work context must include creating its home subvolume and its snapshot paths, whether it is created during installation or later.
 - Only a work context's home is a subvolume of its own. The home of any other account lives inside `@`, so it is captured by system snapshots and a rollback of `@` takes it back with the rest.
+- The recovery partition is not encrypted, so nothing that has to stay secret can be kept on it.
 - Future Btrfs tuning remains possible only after a concrete performance or reliability issue is identified.
 
