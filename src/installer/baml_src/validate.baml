@@ -1,8 +1,8 @@
 // Input rules, ported from InstallerInput.cs. All pure, all tested here.
 
 /// A parse that either produced a value or an error message for the user.
-class UsersParse {
-    users: string[],
+class WorkContextsParse {
+    work_contexts: string[],
     error: string,
 }
 
@@ -48,33 +48,33 @@ function validate_username(username: string) -> bool {
 /// Parses the comma-separated work contexts. A work context is named by the
 /// account that carries it, so the name has to be a valid username. Rejects
 /// invalid and reserved names, drops duplicates, and requires at least one.
-function parse_work_contexts_csv(raw: string) -> UsersParse {
-    let users: string[] = [];
+function parse_work_contexts_csv(raw: string) -> WorkContextsParse {
+    let contexts: string[] = [];
     for (let token in raw.split(",")) {
         let name = token.trim();
         if (name == "") {
             continue;
         }
         if (!validate_username(name)) {
-            return UsersParse { users: [], error: `Invalid work context name: ${name}` };
+            return WorkContextsParse { work_contexts: [], error: `Invalid work context name: ${name}` };
         }
         if (name == "system") {
-            return UsersParse { users: [], error: "Work context name 'system' is reserved." };
+            return WorkContextsParse { work_contexts: [], error: "Work context name 'system' is reserved." };
         }
-        if (!users.includes(name)) {
-            users.push(name);
+        if (!contexts.includes(name)) {
+            contexts.push(name);
         }
     }
-    if (users.length() == 0) {
-        return UsersParse { users: [], error: "At least one valid work context name is required." };
+    if (contexts.length() == 0) {
+        return WorkContextsParse { work_contexts: [], error: "At least one valid work context name is required." };
     }
-    UsersParse { users: users, error: "" }
+    WorkContextsParse { work_contexts: contexts, error: "" }
 }
 
 /// Same rules, but an empty list is allowed.
-function parse_optional_users_csv(raw: string) -> UsersParse {
+function parse_optional_work_contexts_csv(raw: string) -> WorkContextsParse {
     if (raw.trim() == "") {
-        return UsersParse { users: [], error: "" };
+        return WorkContextsParse { work_contexts: [], error: "" };
     }
     parse_work_contexts_csv(raw)
 }
@@ -115,7 +115,7 @@ test "validate_username follows the useradd rules" {
 test "parse_work_contexts_csv trims, dedupes and keeps order" {
     let parsed = parse_work_contexts_csv(" ivan , work ,ivan, ");
     assert.equal(parsed.error, "");
-    assert.equal(parsed.users, ["ivan", "work"])
+    assert.equal(parsed.work_contexts, ["ivan", "work"])
 }
 
 test "parse_work_contexts_csv rejects bad input" {
@@ -137,10 +137,10 @@ test "parse_work_contexts_csv rejects bad input" {
     assert.equal(parse_work_contexts_csv("ivan,Bad").error, "Invalid work context name: Bad")
 }
 
-test "parse_optional_users_csv allows nothing at all" {
-    let parsed = parse_optional_users_csv("   ");
+test "parse_optional_work_contexts_csv allows nothing at all" {
+    let parsed = parse_optional_work_contexts_csv("   ");
     assert.equal(parsed.error, "");
-    assert.equal(parsed.users, [])
+    assert.equal(parsed.work_contexts, [])
 }
 
 test "parse_size_gb takes non-negative integers only" {

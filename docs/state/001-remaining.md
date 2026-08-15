@@ -17,7 +17,7 @@ It is a backlog, not a specification. Nothing listed here is decided.
 
 ## Pending Work
 
-- **Recovery system** — a read-only BTRFS subvolume with an Arch installation with tools to chroot the system.
+- **Recovery system** — a read-only Btrfs subvolume with an Arch installation with tools to chroot the system.
 - Generate archiso with the installer and the recovery scripts.
 - Pack tools in pacman packages and create the oparch repository.
 - Create the oparchiso image with installer.

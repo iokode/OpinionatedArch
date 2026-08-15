@@ -16,8 +16,8 @@ Every document, ticked when its review is called done. Only the operator ticks a
 
 **Decisions**
 
-- [ ] Work Contexts and Accounts
-- [ ] Disk Layout
+- [x] Work Contexts and Accounts
+- [x] Disk Layout
 - [ ] Encryption
 - [ ] Swap
 - [ ] Snapshots

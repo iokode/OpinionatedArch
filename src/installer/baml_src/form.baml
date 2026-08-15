@@ -221,7 +221,7 @@ function step_work_contexts(ui: Ui, tips: Tips, config: InstallConfig) -> bool {
                 if (parsed.error != "") {
                     ui.error(parsed.error);
                 } else {
-                    config.work_contexts = parsed.users;
+                    config.work_contexts = parsed.work_contexts;
                     field = 1;
                 }
             } else {

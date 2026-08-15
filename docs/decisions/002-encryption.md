@@ -8,7 +8,7 @@ Machines running this system hold sensitive data at rest, and the UEFI boot flow
 
 Encryption is mandatory for this installer. There is no installer option to disable it.
 
-The BTRFS system partition is always encrypted with `LUKS2`.
+The Btrfs system partition is always encrypted with `LUKS2`.
 
 The passphrase of that container is the password every work context has, as [Work Contexts and Accounts](000-work-contexts-and-accounts.md) decides.
 

@@ -21,7 +21,7 @@ The installer asks for:
 1. console keymap, applied to the console as soon as it is given, so that every answer below it is typed with it
 2. target disk
 3. install mode (`wipe-all` or `keep-homes`)
-4. if install mode is `keep-homes`: existing home users to preserve, selected from a multiple-choice list
+4. if install mode is `keep-homes`: existing home subvolumes to preserve, selected from a multiple-choice list
 5. ucode package (`intel-ucode`, `amd-ucode`, or `none`)
 6. GPU driver (`nvidia`, `nvidia-open`, `nouveau`, or `none`)
 7. zram swap size in GB
@@ -43,6 +43,12 @@ The installer asks for:
 23. if logo is enabled: where the logo file comes from, as [Installer Input Sources](003-input-sources.md) defines a file source (retry or explicit continue-without-logo when it cannot be obtained)
 
 Whether a package needs secrets at all is not asked: the installer asks the tool, which answers by building the plan the installation will carry out.
+
+### Install Modes
+
+`wipe-all` repartitions the target disk and destroys everything that was on it.
+
+`keep-homes` keeps the `home/@<work-context>` subvolumes selected from the ones already there, and rebuilds the rest of the layout around them. Each preserved home returns to the work context of the same name, and the contexts named in prompt 9 are created beside them. The layout both modes arrive at is the one [Disk Layout](../../decisions/001-disk-layout.md) fixes; nothing of the mode survives in the installed system.
 
 ### Temporary Paths for Installer Staging
 
@@ -100,7 +106,7 @@ These services must be enabled in the target system before first boot, not only 
 
 - Avoiding defensive pre-existence handling is required because the installer always starts from the same clean-live baseline; if impossible-state guards are added anyway, script size and branching grow without adding real reliability, which increases maintenance cost and failure surface.
 - Installing the baseline package set with `pacstrap` is required so installation scripts have one package source of truth and avoid running two package installation operations.
-- The preserved-home user selection allows multiple choices because `keep-homes` can preserve any subset of existing user homes.
+- The preserved-home selection allows multiple choices because `keep-homes` can preserve any subset of the home subvolumes already there.
 - Ucode package selection is required because CPU microcode must be installed before reboot when the target hardware needs it; if deferred until after first boot, the first run can start without the CPU fixes expected for correct hardware operation.
 - GPU driver selection is required because the target graphics driver must be installed before reboot when the hardware needs it; if deferred until after first boot, the first run can start with missing or incorrect graphics support.
 - A public dotfiles package is requested during installation so public dotfiles can be placed in `/dotfiles` and synchronized before first boot.

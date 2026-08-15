@@ -170,7 +170,7 @@ function read_users(top: map<string, baml.json.json>, config: InstallConfig) -> 
             if (parsed.error != "") {
                 return parsed.error;
             }
-            config.work_contexts = parsed.users;
+            config.work_contexts = parsed.work_contexts;
         } else {
             return "work_contexts must be a list of names.";
         }
@@ -181,11 +181,11 @@ function read_users(top: map<string, baml.json.json>, config: InstallConfig) -> 
     if (top.keys().includes("preserved_work_contexts")) {
         let raw = top.get("preserved_work_contexts");
         if let names: string[] = root.common.text_list(raw) {
-            let parsed = parse_optional_users_csv(names.join(","));
+            let parsed = parse_optional_work_contexts_csv(names.join(","));
             if (parsed.error != "") {
                 return parsed.error;
             }
-            config.preserved_work_contexts = parsed.users;
+            config.preserved_work_contexts = parsed.work_contexts;
         } else {
             return "preserved_work_contexts must be a list of names.";
         }

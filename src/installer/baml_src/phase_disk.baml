@@ -11,7 +11,7 @@ class Step {
 
 /// The subvolumes created directly under the filesystem root.
 function root_subvolumes() -> string[] {
-    ["@", "@recovery", "home", "@snapshots", "@log", "@pkg", "@dotfiles", "@swap"]
+    ["@", "@recovery", "@snapshots", "@log", "@pkg", "@dotfiles", "@swap"]
 }
 
 /// Directories created inside the mounted root before the nested subvolumes
@@ -107,10 +107,14 @@ function prepare_layout(shell: root.common.Shell, files: root.common.Files, ui: 
             `creating subvolume ${subvolume}`);
         if (created != "") { return created; }
     }
-    for (let user in config.work_contexts) {
+    //# `home` only groups the per-context home subvolumes: nothing mounts it and
+    //# nothing snapshots it, so a directory of the top-level subvolume is enough.
+    files.mkdir(root.common.target_path(target, "/home"));
+
+    for (let context in config.work_contexts) {
         let created = root.common.must(shell.capture("btrfs",
-            ["subvolume", "create", root.common.target_path(target, `/home/@${user}`)]),
-            `creating the home subvolume for ${user}`);
+            ["subvolume", "create", root.common.target_path(target, `/home/@${context}`)]),
+            `creating the home subvolume for ${context}`);
         if (created != "") { return created; }
     }
     let unmounted = root.common.must(shell.capture("umount", [target.root]), "umount");
@@ -136,15 +140,15 @@ function prepare_layout(shell: root.common.Shell, files: root.common.Files, ui: 
     files.mkdir(root.common.target_path(target, "/snapshots/system/automatic"));
     files.mkdir(root.common.target_path(target, "/snapshots/system/manual"));
 
-    for (let user in config.work_contexts) {
-        files.mkdir(root.common.target_path(target, `/home/${user}`));
+    for (let context in config.work_contexts) {
+        files.mkdir(root.common.target_path(target, `/home/${context}`));
         let attached = root.common.must(shell.capture("mount",
-            ["-o", `subvol=home/@${user}`, "/dev/mapper/cryptroot",
-             root.common.target_path(target, `/home/${user}`)]),
-            `mounting the home of ${user}`);
+            ["-o", `subvol=home/@${context}`, "/dev/mapper/cryptroot",
+             root.common.target_path(target, `/home/${context}`)]),
+            `mounting the home of ${context}`);
         if (attached != "") { return attached; }
-        files.mkdir(root.common.target_path(target, `/snapshots/home/${user}/automatic`));
-        files.mkdir(root.common.target_path(target, `/snapshots/home/${user}/manual`));
+        files.mkdir(root.common.target_path(target, `/snapshots/home/${context}/automatic`));
+        files.mkdir(root.common.target_path(target, `/snapshots/home/${context}/manual`));
     }
 
     let boot = root.common.must(
@@ -198,7 +202,6 @@ test "prepare_layout runs the whole sequence in order" {
         "mount /dev/mapper/cryptroot /mnt",
         "btrfs subvolume create /mnt/@",
         "btrfs subvolume create /mnt/@recovery",
-        "btrfs subvolume create /mnt/home",
         "btrfs subvolume create /mnt/@snapshots",
         "btrfs subvolume create /mnt/@log",
         "btrfs subvolume create /mnt/@pkg",
@@ -244,8 +247,13 @@ test "prepare_layout creates the directories the layout needs" {
 
     let _ = prepare_layout(shell, files, ui, layout_config(), root.common.chroot_target("/mnt"));
 
+    //# `/mnt/home` is created twice, and both are right: first the directory of
+    //# the top-level subvolume that groups the per-context homes, and later the
+    //# one inside `@` that those homes are mounted onto. The double records a
+    //# path once, so the two show up here as the single entry that comes first.
     assert.equal(files.directories, [
-        "/mnt/boot", "/mnt/home", "/mnt/var", "/mnt/var/log", "/mnt/var/cache",
+        "/mnt/home",
+        "/mnt/boot", "/mnt/var", "/mnt/var/log", "/mnt/var/cache",
         "/mnt/var/cache/pacman", "/mnt/var/cache/pacman/pkg", "/mnt/snapshots",
         "/mnt/dotfiles", "/mnt/swap",
         "/mnt/snapshots/system/automatic", "/mnt/snapshots/system/manual",
