@@ -19,7 +19,7 @@ Every document, ticked when its review is called done. Only the operator ticks a
 - [x] Work Contexts and Accounts
 - [x] Disk Layout
 - [x] Encryption
-- [ ] Swap
+- [x] Swap
 - [ ] Snapshots
 - [ ] Localization and Time
 - [ ] System Identity
@@ -112,7 +112,7 @@ Went through section by section. It now has five sections, mentions no tool and 
 
 **Snapshots contradicts itself after the rename.** It still says `home/@<login-user>` and `/snapshots/home/<login-user>/…` in five places, and `home/<work-context>` in one.
 
-**Recovery has to be written.** What it collects is spread across Disk Layout, Bootloader, Snapshots and Kernel, and two documents defer an obligation to it that had nowhere to go: Encryption leaves the LUKS header backup and its workflow to be written down later, and Work Contexts and Accounts requires root recovery procedures to be documented.
+**Recovery has to be written.** What it collects is spread across Disk Layout, Bootloader, Snapshots and Kernel, and two documents defer an obligation to it: Encryption leaves it how the unlock file and the master-key copy are used from there, and Work Contexts and Accounts requires root recovery procedures to be documented.
 
 **Document Types could say what an introduction is not.** The rule now asks for an introduction rather than a summary, which is the right word, but nothing stops the next writer from writing a summary and calling it one.
 
@@ -139,8 +139,6 @@ Where To Continue stopped being the listing of its own directory. It gained the 
 ### Still to do
 
 **Oparch Tools does not carry the role this document gives the tools.** Here and in the README they are the way of working that keeps the decisions true as the machine changes, and Where To Continue presents them as the commands that keep a machine in the shape the decisions describe. The decision that owns them opens with "small commands for recurring system operations" and then legislates the naming format and the split between command-line and interactive. Nothing in it says they are what holds a machine to its decisions. Same shape as the Dotfiles entry above: a general document defers a claim to a decision that does not contain it.
-
-**The session and login strategy is obsolete and still written down.** Remaining carries "Real session/login strategy — initial display manager and fallback until custom implementation exists" as a pending decision, and Work Contexts and Accounts closes its discussion notes by saying the model implies developing a custom session manager for username-only login. Neither is going to happen. They also sit on the wrong side of the boundary this document now draws, which puts the interface with the operator.
 
 ## Glossary
 
@@ -178,7 +176,7 @@ It worked badly as an index too, being grouped by topic rather than alphabetical
 
 **"Baseline policy" is still in a tool document.** [oparch-work-context-create](docs/tools/oparch-work-context-create/000-command.md) opens with "creates a new work context with the required baseline policy: the account that carries it, its groups, its home subvolume, and the initial ownership of that home". No document defines the term, and in the two places it was used it named opposite populations — there, what a work context is given; here, the accounts that are not work contexts. It can go with nothing in its place, because what follows the colon is already the whole list.
 
-**Five decision documents still describe what the installer asks.** [Swap](docs/decisions/003-swap.md), [Localization and Time](docs/decisions/005-localization-and-time.md), [System Identity](docs/decisions/006-system-identity.md), [Bootloader](docs/decisions/009-bootloader.md) and [Pre-Boot Ownership Message](docs/decisions/010-preboot-ownership-message.md). [Installer Inputs and Bootstrap Baseline](docs/tools/oparch-installer/002-inputs-and-bootstrap-baseline.md) already owns the inputs, and [Document Types](docs/README.md) now carries the rule that sends them there. Localization and Time already writes one of its two sentences that way: "System language is fixed to English and is not configurable in the installer" stays, and "The installer asks for: console keymap, timezone" becomes that the console keymap and the timezone are configurable. What varies from one of the operator's machines to another is a separate idea and stays where it lives, in [Dotfiles](docs/decisions/019-dotfiles.md).
+**Four decision documents still describe what the installer asks.** [Localization and Time](docs/decisions/005-localization-and-time.md), [System Identity](docs/decisions/006-system-identity.md), [Bootloader](docs/decisions/009-bootloader.md) and [Pre-Boot Ownership Message](docs/decisions/010-preboot-ownership-message.md). [Installer Inputs and Bootstrap Baseline](docs/tools/oparch-installer/002-inputs-and-bootstrap-baseline.md) already owns the inputs, and [Document Types](docs/README.md) now carries the rule that sends them there. Localization and Time already writes one of its two sentences that way: "System language is fixed to English and is not configurable in the installer" stays, and "The installer asks for: console keymap, timezone" becomes that the console keymap and the timezone are configurable. What varies from one of the operator's machines to another is a separate idea and stays where it lives, in [Dotfiles](docs/decisions/019-dotfiles.md).
 
 ## Disk Layout
 
@@ -198,8 +196,8 @@ It worked badly as an index too, being grouped by topic rather than alphabetical
 
 **The 4 GiB of the recovery partition are a placeholder.** The layout fixes a size because it fixes every size, and this one was chosen before anything decided what the recovery system holds — an Arch installation and the tools it repairs with, none of which is written down yet. When [Recovery](docs/decisions/013-recovery.md) says what has to be in there, the number comes from that and [Disk Layout](docs/decisions/001-disk-layout.md) takes whatever it turns out to be.
 
-## Encryption
+## Swap
 
 ### Still to do
 
-**Hibernation is undecided and no longer written down.** Encryption carried "Hibernation and resume are not configured" as a bare line, with no argument behind it anywhere, and it was the only mention of hibernation in the repository. Its subject is swap — hibernating writes memory out to swap and resumes from it, which here would mean a swapfile inside the encrypted container — so [Swap](docs/decisions/003-swap.md) decides it, with the reason it never had.
+**The installer sets no swap priority.** Swap decides that the compressed swap in RAM is used before the swapfile on disk, and nothing in the code makes that true. The mount table entry the swap phase appends is `/swap/swapfile none swap defaults 0 0`, with no `pri=`, and the zram configuration it writes carries a size and a compression algorithm and no priority either. Which of the two the kernel reaches for first is left to whatever the defaults turn out to be.

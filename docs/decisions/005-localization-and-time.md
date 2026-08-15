@@ -19,7 +19,7 @@ Clock policy is fixed: hardware clock (RTC) uses UTC.
 
 ## Why
 
-- Fixing system language to English is required because project tooling and maintenance are intentionally single-language; if installer language is configurable, translation and consistency burden grows without operational benefit for this project.
+- Fixing system language to English is required because project tooling and maintenance are intentionally single-language; if the system language is configurable, translation and consistency burden grows without operational benefit for this project.
 - Keeping Plymouth as the only multilingual exception is required because that message is intended for unknown third parties who may find the device; if that screen is monolingual, return instructions are less accessible.
 - Asking for keymap is required because keyboard layout depends on the physical keyboard used by each machine; if keymap is hardcoded, installations on different layouts (for example AZERTY vs QWERTY variants) will produce wrong key mapping and problematic unlock/input behavior.
 - Asking for timezone is required because correct local time display and logs depend on machine location/use context; if timezone is wrong, timestamps become misleading.
