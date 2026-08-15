@@ -8,7 +8,7 @@ Every document belongs to exactly one document type. Each type has its own direc
 
 A document says what something is, or what was decided and why. It does not say what is going to be done about it, and it does not say how far along it is: a plan is a document of its own, under `plans/`, and where the project stands is `state/`. Keeping those out of the rest is what lets a document be read as true rather than as true-for-now.
 
-A reference to another document is a relative path from the document making it, so it can be followed from where it is written.
+A reference to another document is a link, with the other document's title as its text and a relative path from the document making it, so it can be read for what it points at and followed from where it is written.
 
 ## General
 
@@ -23,6 +23,8 @@ General documents have no fixed section order. They open with an introduction an
 Documents defining one decision each about the distribution itself: what OpinionatedArch installs and how the installed system behaves.
 
 A decision about how a tool behaves belongs to that tool, and a decision about how the project is built belongs to `development/`. Neither is a decision document.
+
+Asking is behaviour, so a decision describes no prompt: it says what is fixed and what is configurable, and the document of the tool that asks says what is asked, in what order, and how it is validated.
 
 Directory: `decisions/`
 
@@ -85,16 +87,3 @@ Documents describing where the project is: what it has, and what it does not. Th
 Directory: `state/`
 
 State documents have no fixed section order. They open with an introduction and use free `##` sections. They describe; they do not define. Anything that would still be true if the project stopped today belongs to another type.
-
-## Critical Notes With Replies (Copy of Discussion)
-
-Any document may end with this optional section, whatever its type.
-
-It records the critiques an LLM raised against the document during discussion, each one followed by the reply it received. Keeping both together makes it possible to review later whether the direction taken was the right one, and where it was deliberately argued against.
-
-Entries are a numbered list. Each entry states the critique on the first line and the reply on the second:
-
-```text
-1. Assistant critique: <the objection raised>
-   Reply: <the answer given>
-```

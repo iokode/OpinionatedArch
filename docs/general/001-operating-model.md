@@ -20,7 +20,7 @@ So it is kept once, at `/dotfiles`, outside every home directory, and it reaches
 
 Shared is not identical. What one context needs, another may have to do without — a client's git identity, credentials that belong to one activity and to no other. What one machine needs, another does not — the monitors it drives, the battery indicator a desktop has no battery for.
 
-See [Dotfiles](../decisions/020-dotfiles.md).
+See [Dotfiles](../decisions/019-dotfiles.md).
 
 ## Snapshots and Recovery
 

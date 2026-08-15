@@ -35,7 +35,6 @@ Every document, ticked when its review is called done. Only the operator ticks a
 - [ ] Service Baseline — work in progress, nothing decided yet
 - [ ] Network Stack
 - [ ] Audio Stack — work in progress, nothing decided yet
-- [ ] Security Baseline — work in progress, nothing decided yet
 - [ ] Dotfiles
 - [ ] Oparch Tools
 
@@ -172,3 +171,21 @@ It worked badly as an index too, being grouped by topic rather than alphabetical
 **Recovery mode** — Operating Model says what it is in passing, and Recovery will own it once written. *A second Arch system on the machine's own disk, started in place of the installed one, from which a damaged system is repaired by hand or restored from one of its snapshots.*
 
 **"Shared configuration" will probably give way to "dotfiles".** The two are practically synonyms here, and the long form misleads: *shared* suggests sharing between people, and this system is built for one. Five documents carry it — Operating Model, whose second section is called Shared Configuration across Work Contexts, plus What is OpinionatedArch, Dotfiles, Work Contexts and Accounts, and Installation Checks.
+
+## Work Contexts and Accounts
+
+### Changed elsewhere because of it
+
+**[Document Types](docs/README.md) carries the rule about prompts.** Asking is behaviour, so a decision describes no prompt: it says what is fixed and what is configurable, and the document of the tool that asks says what is asked, in what order, and how it is validated.
+
+**[AUR](docs/decisions/015-aur.md) lost the same term.** Its stub quoted this document — every account that is not a work context "is created by baseline policy and is never prompted for" — and now says that this document leaves room for accounts that exist for something other than an area of the operator's activity, a build user among them.
+
+**[Encryption](docs/decisions/002-encryption.md) gave up the shared secret.** It decided it too and argued it in its `Why`. It now says that the passphrase of the container is the password every work context has, and points here for it. What it keeps is what is its own: that encryption is mandatory, that the container is `LUKS2`, that the EFI partition stays outside it, and that swap is protected by being inside it.
+
+### Still to do
+
+**The fallback when sudo breaks can be mentioned in the recovery documents.** Root has no password and is not for interactive login, so a broken sudo leaves no root session to fall back on: recovery is expected from a chroot in a live environment. This document only says that root recovery procedures must be documented, and [Snapshots](docs/decisions/004-snapshots.md) states its own severe path — boot `Recovery`, chroot, restore — for restoring a snapshot. It came out of the discussion notes when they were deleted, and it belongs wherever recovery is written down, not here.
+
+**"Baseline policy" is still in a tool document.** [oparch-work-context-create](docs/tools/oparch-work-context-create/000-command.md) opens with "creates a new work context with the required baseline policy: the account that carries it, its groups, its home subvolume, and the initial ownership of that home". No document defines the term, and in the two places it was used it named opposite populations — there, what a work context is given; here, the accounts that are not work contexts. It can go with nothing in its place, because what follows the colon is already the whole list.
+
+**Seven decision documents still describe what the installer asks.** [Disk Layout](docs/decisions/001-disk-layout.md), [Encryption](docs/decisions/002-encryption.md), [Swap](docs/decisions/003-swap.md), [Localization and Time](docs/decisions/005-localization-and-time.md), [System Identity](docs/decisions/006-system-identity.md), [Bootloader](docs/decisions/009-bootloader.md) and [Pre-Boot Ownership Message](docs/decisions/010-preboot-ownership-message.md). [Installer Inputs and Bootstrap Baseline](docs/tools/oparch-installer/002-inputs-and-bootstrap-baseline.md) already owns the inputs, and [Document Types](docs/README.md) now carries the rule that sends them there. Localization and Time already writes one of its two sentences that way: "System language is fixed to English and is not configurable in the installer" stays, and "The installer asks for: console keymap, timezone" becomes that the console keymap and the timezone are configurable. What varies from one of the operator's machines to another is a separate idea and stays where it lives, in [Dotfiles](docs/decisions/019-dotfiles.md).

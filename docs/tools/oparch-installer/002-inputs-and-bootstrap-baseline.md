@@ -31,16 +31,16 @@ The installer asks for:
 11. timezone
 12. hostname
 13. public dotfiles package (`yes/no`)
-14. if the public dotfiles package is enabled: where it comes from, as `003-input-sources.md` defines a package source
-15. if the dotfiles map declares secrets the plan reaches: where the encrypted secret store comes from, as `003-input-sources.md` defines a file source
+14. if the public dotfiles package is enabled: where it comes from, as [Installer Input Sources](003-input-sources.md) defines a package source
+15. if the dotfiles map declares secrets the plan reaches: where the encrypted secret store comes from, as [Installer Input Sources](003-input-sources.md) defines a file source
 16. if a secret store is given: the passphrase that opens it, asked once and asked again when it does not
 17. pre-boot return message inclusion (`yes/no`)
-18. if return message is enabled: where the template package comes from, the project's own among the origins, as `003-input-sources.md` defines a package source
-19. if return message is enabled: where the theme comes from, the project's own among the origins, as the same document defines it and `../oparch-return-message-render/004-themes.md` decides it
+18. if return message is enabled: where the template package comes from, the project's own among the origins, as [Installer Input Sources](003-input-sources.md) defines a package source
+19. if return message is enabled: where the theme comes from, the project's own among the origins, as the same document defines it and [Return Message Themes](../oparch-return-message-render/004-themes.md) decides it
 20. if return message is enabled: a value for each field the template package declares. The project's own package declares owner name, phone, email and return address
 21. if return message is enabled: return-message languages, selecting as many as the theme accepts
 22. if return message is enabled: logo inclusion (`yes/no`)
-23. if logo is enabled: where the logo file comes from, as `003-input-sources.md` defines a file source (retry or explicit continue-without-logo when it cannot be obtained)
+23. if logo is enabled: where the logo file comes from, as [Installer Input Sources](003-input-sources.md) defines a file source (retry or explicit continue-without-logo when it cannot be obtained)
 
 Whether a package needs secrets at all is not asked: the installer asks the tool, which answers by building the plan the installation will carry out.
 
@@ -51,13 +51,13 @@ Whether a package needs secrets at all is not asked: the installer asks the tool
 
 ### Public Dotfiles Package
 
-When a public dotfiles package is enabled, the installer puts its content into `/dotfiles` and then runs `oparch-dotfiles-sync`. Where that content comes from — a directory, an archive or a repository — is defined in `003-input-sources.md`.
+When a public dotfiles package is enabled, the installer puts its content into `/dotfiles` and then runs `oparch-dotfiles-sync`. Where that content comes from — a directory, an archive or a repository — is defined in [Installer Input Sources](003-input-sources.md).
 
 It is the last thing the installation does, and it is judged long before it: the package is brought to the staging path while the form is still being answered, and `oparch-dotfiles-sync` is asked what it makes of it, for the hostname and the work contexts this installation is creating. A package it will not apply is refused there, with the disk untouched.
 
-What `/dotfiles` is left as — its modes, the default ACL that keeps them true, and the `safe.directory` entry that lets git work in a tree it does not own — is decided in `../../decisions/020-dotfiles.md`.
+What `/dotfiles` is left as — its modes, the default ACL that keeps them true, and the `safe.directory` entry that lets git work in a tree it does not own — is decided in [Dotfiles](../../decisions/019-dotfiles.md).
 
-A map that declares secrets is given them as one encrypted store, defined in `../oparch-dotfiles-sync/002-secret-store-archive.md`. It is opened into the live staging path, which is memory, and copied into the target with the owner and modes the map format requires, before the tool runs.
+A map that declares secrets is given them as one encrypted store, defined in [Secret Store Archive](../oparch-dotfiles-sync/002-secret-store-archive.md). It is opened into the live staging path, which is memory, and copied into the target with the owner and modes the map format requires, before the tool runs.
 
 ### Bootstrap Package List
 

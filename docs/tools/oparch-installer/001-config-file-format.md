@@ -6,7 +6,7 @@
 
 The return message is defined by a template package that declares its own fields, so the file must be able to carry values whose names the installer does not know in advance.
 
-The inputs themselves are decided in `002-inputs-and-bootstrap-baseline.md`, and the return message in `../../decisions/010-preboot-ownership-message.md`. This document defines how they are written down.
+The inputs themselves are decided in [Installer Inputs and Bootstrap Baseline](002-inputs-and-bootstrap-baseline.md), and the return message in [Pre-Boot Ownership Message](../../decisions/010-preboot-ownership-message.md). This document defines how they are written down.
 
 ## Specification
 
@@ -82,9 +82,9 @@ return_message:
 | `secret_store` | The encrypted secret store, read only alongside `dotfiles` | no |
 | `secret_store.archive` | Source of the `.dfsec` file, as a file source | yes, within `secret_store` |
 | `secret_store.passphrase` | Non-empty string, what opens the archive | yes, within `secret_store` |
-| `return_message` | The return message values, as defined in `../oparch-return-message-render/002-values-format.md` | no |
+| `return_message` | The return message values, as defined in [Return Message Values Format](../oparch-return-message-render/002-values-format.md) | no |
 | `return_message.template` | Source of the template package | no, defaults to the project's package |
-| `return_message.theme` | Source of the theme, as defined in `../oparch-return-message-render/003-theme-format.md` | no, defaults to the project's theme |
+| `return_message.theme` | Source of the theme, as defined in [Return Message Theme Format](../oparch-return-message-render/003-theme-format.md) | no, defaults to the project's theme |
 
 A key outside this list is an error, reported as `Unknown key in config file: <key>`. Unknown keys are refused rather than ignored, so a misspelled key cannot silently drop a setting. Inside `return_message` the same rule applies, with the keys that document defines plus the two above, and inside `return_message.fields` it does not apply at all: the names there are the template's.
 
@@ -101,7 +101,7 @@ Three of the inputs are not values but content held elsewhere: the dotfiles pack
 
 The logo is one file rather than a set of them, so its origins are `url` and `local`, and its location is a URL or the path of a file.
 
-The origin is written down rather than deduced from the location, as decided in `003-input-sources.md`: a repository and an archive are both URLs, and a rule guessing between them fetches the wrong thing. Whether a `local` location is a directory or an archive is not read from the text but from the filesystem.
+The origin is written down rather than deduced from the location, as decided in [Installer Input Sources](003-input-sources.md): a repository and an archive are both URLs, and a rule guessing between them fetches the wrong thing. Whether a `local` location is a directory or an archive is not read from the text but from the filesystem.
 
 Every source this file names is brought into the installer's staging directory when the configuration is checked, before a single value has been validated against the live system and long before anything is written. That is the unattended counterpart of the pickers copying what the operator chooses: there is nobody choosing, so the moment the installer learns what the content is, is the moment it takes it. A `local` path may name content on the very disk the installation is about to erase, and a source that cannot be brought here stops the run before the disk has even been looked at.
 

@@ -2,7 +2,7 @@
 
 ## Context
 
-The pre-boot return message is rendered to an image, as decided in `../../decisions/010-preboot-ownership-message.md`. What that message says is defined by a template package, in `001-template-package-format.md`, and which values fill it by `002-values-format.md`. Neither says anything about what the result looks like: presentation is deliberately absent from both.
+The pre-boot return message is rendered to an image, as decided in [Pre-Boot Ownership Message](../../decisions/010-preboot-ownership-message.md). What that message says is defined by a template package, in [Return Message Template Package Format](001-template-package-format.md), and which values fill it by [Return Message Values Format](002-values-format.md). Neither says anything about what the result looks like: presentation is deliberately absent from both.
 
 A theme is what says it. It carries the typography, the colours, the panels, the spacing and the arrangement of the languages, and nothing else. `oparch-return-message-render` builds the images from a template package, a set of values and a theme.
 
@@ -14,7 +14,7 @@ The operator may supply their own theme, so the format is what a person writes b
 
 A theme decides everything visible except the words and the logo.
 
-It does not define the message text or the language names, which belong to the template package; which languages are shown or what the fields say, which belong to the values file; the logo image, which is given to the tool by whoever calls it; or the wording of the password prompt, which belongs to the tool and is English by `../../decisions/005-localization-and-time.md`.
+It does not define the message text or the language names, which belong to the template package; which languages are shown or what the fields say, which belong to the values file; the logo image, which is given to the tool by whoever calls it; or the wording of the password prompt, which belongs to the tool and is English by [Localization and Time](../../decisions/005-localization-and-time.md).
 
 ### The package
 
@@ -30,17 +30,17 @@ A theme is a directory:
 
 `manifest.yaml` declares the theme. `fonts/` holds font files the theme brings with it. Any other file is only meaningful if a key names it.
 
-A theme is given from any of the origins `../oparch-installer/003-input-sources.md` defines. An archive is extracted into a directory the installer chooses, and entries that would land anywhere else are refused before extraction. This is the delivery defined for template packages in `001-template-package-format.md`, unchanged.
+A theme is given from any of the origins [Installer Input Sources](../oparch-installer/003-input-sources.md) defines. An archive is extracted into a directory the installer chooses, and entries that would land anywhere else are refused before extraction. This is the delivery defined for template packages in [Return Message Template Package Format](001-template-package-format.md), unchanged.
 
 ### Version
 
-`version` declares the revision of this format, not the version of the tool that reads it. Its compatibility rules are the ones defined for the map version in `../oparch-dotfiles-sync/001-map-format.md`: a major increment is incompatible, a minor increment is strictly additive, an unimplemented revision is rejected during validation rather than interpreted, and major `0` carries no compatibility guarantee.
+`version` declares the revision of this format, not the version of the tool that reads it. Its compatibility rules are the ones defined for the map version in [Dotfiles Map Format](../oparch-dotfiles-sync/001-map-format.md): a major increment is incompatible, a minor increment is strictly additive, an unimplemented revision is rejected during validation rather than interpreted, and major `0` carries no compatibility guarantee.
 
 The format is at `0.1` and stays in major `0` until the distribution is released.
 
 ### Values, names and references
 
-- A **name** — of a colour, a font or a style — is lowercase letters, digits and `_`, starting with a letter. This is the rule field names follow in `001-template-package-format.md`.
+- A **name** — of a colour, a font or a style — is lowercase letters, digits and `_`, starting with a letter. This is the rule field names follow in [Return Message Template Package Format](001-template-package-format.md).
 - A **colour** is written `"#RRGGBB"` or `"#RRGGBBAA"`, quoted. Without quotes YAML reads `#` as the start of a comment.
 - A **number** is an integer greater than zero, except `size` and `fit`, which are decimals.
 - **Every key is required** unless it is marked optional here. A theme has no defaults: what it does not say, it does not have. The project ships a complete theme, which is what is used when no other is given.
@@ -163,7 +163,7 @@ The glyph drawn once for each character typed into the password prompt, written 
 | `size` | The side of the image, in canvas pixels |
 | `color_palette` | Name declared in `palette` |
 
-It is a drawn shape and not a character, which `../../decisions/010-preboot-ownership-message.md` requires.
+It is a drawn shape and not a character, which [Pre-Boot Ownership Message](../../decisions/010-preboot-ownership-message.md) requires.
 
 ### language_panel and password_prompt_panel
 
@@ -286,7 +286,7 @@ The text of a template package is data and cannot carry markup. The markup is wr
 
 ### Choosing a theme
 
-A theme reaches the tool as a directory, through the `--theme` of `000-command.md`, exactly as the template package arrives through `--template-package`. The values file names neither. Without the flag, the project's own theme is used. The theme is validated with the template package, before the installer touches the disk.
+A theme reaches the tool as a directory, through the `--theme` of [oparch-return-message-render](000-command.md), exactly as the template package arrives through `--template-package`. The values file names neither. Without the flag, the project's own theme is used. The theme is validated with the template package, before the installer touches the disk.
 
 ### Validation
 
@@ -316,7 +316,7 @@ A theme is validated completely before anything is drawn, and nothing is written
 ## Why
 
 - A theme is delivered as a package, and by the same means as a template, because it is written by the same person and obtained the same way; if it had a delivery of its own, there would be two ways of bringing presentation onto a machine and one of them would be the one nobody tested.
-- A theme is data with a closed schema, and never drawing instructions, because a theme may be fetched from a URL. A theme that could describe drawing operations would be a program, and fetching one would run it on the machine being installed — which is exactly what `../../decisions/010-preboot-ownership-message.md` refuses for template packages, and the reason applies unchanged to something with more control over the result.
+- A theme is data with a closed schema, and never drawing instructions, because a theme may be fetched from a URL. A theme that could describe drawing operations would be a program, and fetching one would run it on the machine being installed — which is exactly what [Pre-Boot Ownership Message](../../decisions/010-preboot-ownership-message.md) refuses for template packages, and the reason applies unchanged to something with more control over the result.
 - Colours and fonts are declared once and referenced by name, with literals refused rather than discouraged, because coherence is the only thing a theme exists to produce, and a colour written in seven places stops being one colour on the first edit. Refusing the literal is what leaves one way of writing it; allowing both would mean a reader has to check which is in use.
 - `extends` is explicit because an implicit parent hides where a value came from: a reader of a style would have to know which style is the root, and know it is a root, before knowing what the style says.
 - Sizes are relative to the body, and the body is a fraction of the block's width, because the width of a block changes with the arrangement. If sizes were point sizes, a theme would render well with two languages and unreadably with four, and nothing would say so.

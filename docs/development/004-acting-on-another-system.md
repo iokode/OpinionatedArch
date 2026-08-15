@@ -6,7 +6,7 @@ A tool sometimes has to change a system that is not the one it is running on: an
 
 ## What the two arrangements are
 
-**Aiming at it.** The tool takes a target — a root, and whether commands are entered into it — and composes that root with every path it touches. `003-where-a-command-runs.md` describes the shape.
+**Aiming at it.** The tool takes a target — a root, and whether commands are entered into it — and composes that root with every path it touches. [Where a Command Runs](003-where-a-command-runs.md) describes the shape.
 
 **Entering it.** The caller runs `arch-chroot <root> <tool>`. Inside, the tool's root is the root, and every absolute path it carries means what it says.
 

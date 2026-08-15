@@ -40,7 +40,7 @@ Code that exists because of one tool belongs to that tool, in a namespace of its
 
 The return-message template package and its values format are the case: they exist because `oparch-return-message-render` renders them, and they are specified under that tool in `docs/`. They live in `src/return-message-render/baml_src/ns_return_message/`, and the installer links them from there, because it asks for the fields a package declares and validates the same values in its own configuration file.
 
-A tool with no host declares no generator and has no `host/`. It ships as what `baml pack` makes of its entry point, and its `baml.toml` is the `[package]` name alone. Which tools have a host, and why, is decided in `001-host-bridge.md`.
+A tool with no host declares no generator and has no `host/`. It ships as what `baml pack` makes of its entry point, and its `baml.toml` is the `[package]` name alone. Which tools have a host, and why, is decided in [Host Bridge](001-host-bridge.md).
 
 ## Where the tests are, and why they are in two places
 

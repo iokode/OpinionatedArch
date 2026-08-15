@@ -32,7 +32,7 @@ not in the file. A closure that touches no interface is unaffected, so the
 
 ## Packaging a tool as an executable
 
-`baml pack <function>` produces a standalone binary. For `oparch-return-message-render` it came out at 18 MB linked against `libc`, `libm` and `libgcc` only: no shared library to find and nothing downloaded on first run. That is not the situation of a tool with a generated SDK, described in `001-host-bridge.md`, where the host loads a ~25 MB library.
+`baml pack <function>` produces a standalone binary. For `oparch-return-message-render` it came out at 18 MB linked against `libc`, `libm` and `libgcc` only: no shared library to find and nothing downloaded on first run. That is not the situation of a tool with a generated SDK, described in [Host Bridge](001-host-bridge.md), where the host loads a ~25 MB library.
 
 Three things about the generated entry point:
 
@@ -51,7 +51,7 @@ Three things about the generated entry point:
 
 ## The standard library
 
-- `baml.yaml.parse` requires **string mapping keys**: a mapping keyed by numbers fails with `YAML mappings must use string keys to fit baml.json.json`. A format that wants to key entries by a number has to quote them, which is why `arrangement` in `../tools/oparch-return-message-render/003-theme-format.md` is written `"1":`.
+- `baml.yaml.parse` requires **string mapping keys**: a mapping keyed by numbers fails with `YAML mappings must use string keys to fit baml.json.json`. A format that wants to key entries by a number has to quote them, which is why `arrangement` in [Return Message Theme Format](../tools/oparch-return-message-render/003-theme-format.md) is written `"1":`.
 - `baml.sys.exec`'s `ProcessOptions.env` **replaces the environment rather than adding to it**. `PATH` survives, `HOME` does not. Anything the child needs has to be passed.
 - `baml.fs` has no `symlink` and no `chmod`. `root.common.SystemFiles` runs `ln -s` and `chmod` for those, which is why it needs a shell at all.
 - `baml.sys.exec` takes the program and its arguments separately, so nothing built from a template package or a theme is ever parsed by a shell.
@@ -66,6 +66,6 @@ Three things about the generated entry point:
 
 ## Testing
 
-`baml test` inside a project also runs the tests of every namespace symlinked into it, which is wanted and is why the counts in `../state/000-what-is-built.md` overlap. Tests need no host, no bridge and no privileges; what stands in for the machine are the recording doubles in `root.common`.
+`baml test` inside a project also runs the tests of every namespace symlinked into it, which is wanted and is why the counts in [What Is Built](../state/000-what-is-built.md) overlap. Tests need no host, no bridge and no privileges; what stands in for the machine are the recording doubles in `root.common`.
 
 A test asserting a command line is asserting a contract with a program that is not there. `RecordingShell` replies by exact command line, so a test that stops matching after an argument changes is the test working, not the test being brittle.

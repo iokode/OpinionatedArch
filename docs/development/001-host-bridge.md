@@ -18,7 +18,7 @@ A host exists to own a terminal and to read a command's output while it is still
 
 Which tools need one is not settled by this document and is not expected to stay as it is. Today `oparch-installer` is the only one that has a host, and `oparch-return-message-render` the first built without one; a terminal interface is the kind of thing more tools will want, and each of them arrives at the same bridge by the same argument.
 
-What a tool without a host uses instead are the same `Shell` and `Files` ports every tool is written against, implemented over `baml.sys` and `baml.fs` and living beside the recording doubles in `002-repository-layout.md`. Nothing above the port can tell which implementation is underneath, so the tests do not change and neither does the code being tested.
+What a tool without a host uses instead are the same `Shell` and `Files` ports every tool is written against, implemented over `baml.sys` and `baml.fs` and living beside the recording doubles in [Repository Layout](002-repository-layout.md). Nothing above the port can tell which implementation is underneath, so the tests do not change and neither does the code being tested.
 
 ### Only commands cross the bridge, and one thing that is not one
 
@@ -99,7 +99,7 @@ Rust's constraints, by contrast, are confined to the disposable side: write clos
 - The runtime logs to stdout as it starts, which lands on top of a TUI. `BAML_LOG` controls it.
 - The bridge package is pinned to the exact toolchain build. The `rust` and `go` generators write that pin themselves; with Python it must be pinned by hand, and a mismatch surfaces as `Failed to deserialize BAML bytecode: Unexpected variant tag: 7`.
 
-A tool with a host and a packed tool therefore ship differently, and what `baml pack` produces instead is measured in `005-baml-working-notes.md`.
+A tool with a host and a packed tool therefore ship differently, and what `baml pack` produces instead is measured in [BAML Working Notes](005-baml-working-notes.md).
 
 ### Consequences of the choice
 

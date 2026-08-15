@@ -141,7 +141,7 @@ Snapshot paths under `/snapshots/system` and `/snapshots/home/<login-user>` are 
 ## Considerations
 
 - Do not add extra partitions or subvolumes
-- There is no swap partition. Persistent disk swap lives inside the Btrfs `@swap` subvolume as zero or more swapfiles, as defined in `003-swap.md`.
+- There is no swap partition. Persistent disk swap lives inside the Btrfs `@swap` subvolume as zero or more swapfiles, as defined in [Swap](003-swap.md).
 - Snapshot policy must remain compatible with the selected mount layout.
 - User provisioning must include home-subvolume creation and per-user snapshot-path creation for install-time and post-install users.
 - `keep-homes` preserves only the selected existing login-user home subvolumes.

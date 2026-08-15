@@ -2,12 +2,12 @@
 
 ## Description
 
-`oparch-installer` installs OpinionatedArch onto a target disk. It runs from the live environment, collects every installation input, and then performs the installation defined in `002-inputs-and-bootstrap-baseline.md`.
+`oparch-installer` installs OpinionatedArch onto a target disk. It runs from the live environment, collects every installation input, and then performs the installation defined in [Installer Inputs and Bootstrap Baseline](002-inputs-and-bootstrap-baseline.md).
 
 Inputs are collected in one of two ways, and both produce the same configuration:
 
 - Interactively, through a terminal interface that asks one screen at a time.
-- From a configuration file, which answers every question at once. The format is defined in `001-config-file-format.md`.
+- From a configuration file, which answers every question at once. The format is defined in [Installer Configuration File Format](001-config-file-format.md).
 
 The tool presumes it runs inside the live installation environment: it calls `lsblk`, `localectl`, `timedatectl` and `pacstrap` directly and does not check whether they exist.
 
@@ -17,19 +17,19 @@ The installation is not a single command: it partitions and encrypts a disk, cre
 
 ## Requirements
 
-What has to be on the live environment before this runs. It is not checked for: the installer presumes the environment it is documented to run in and calls what it needs without asking whether it is there, which is what `../../development/006-end-to-end-testing.md` argues for and against testing it anywhere else.
+What has to be on the live environment before this runs. It is not checked for: the installer presumes the environment it is documented to run in and calls what it needs without asking whether it is there, which is what [End-to-End Testing](../../development/006-end-to-end-testing.md) argues for and against testing it anywhere else.
 
 The Arch live medium already carries most of it: `gptfdisk` for `sgdisk`, `cryptsetup`, `btrfs-progs`, `dosfstools` for `mkfs.fat`, `arch-install-scripts` for `pacstrap`, `arch-chroot` and `genfstab`, `util-linux` for `blkid`, `lsblk`, `mount` and `wipefs`, `parted` for `partprobe`, `systemd` for `udevadm`, `localectl` and `timedatectl`, `kbd` for `loadkeys`, and `curl` and `tar`.
 
 Three things are not on it, and each has to be installed before a run:
 
-- **`git`**, and only when the dotfiles package is taken from a repository. It is cloned with its history, because `/dotfiles` stays the repository `../../decisions/001-disk-layout.md` restores from.
+- **`git`**, and only when the dotfiles package is taken from a repository. It is cloned with its history, because `/dotfiles` stays the repository [Disk Layout](../../decisions/001-disk-layout.md) restores from.
 - **`fontconfig`**, for `fc-scan`, when the chosen theme carries a font of its own: the family a font file declares is read from the file rather than trusted from the manifest.
-- **The BAML runtime library.** This tool has a host, so its binary loads a shared library of about 25 MB rather than carrying it. Where it comes from is `../../development/001-host-bridge.md`; on the project's own medium it is shipped and pointed at with `BAML_LIBRARY_PATH`, and `BAML_LIBRARY_DISABLE_DOWNLOAD` turns a missing one into a failure instead of a silent download.
+- **The BAML runtime library.** This tool has a host, so its binary loads a shared library of about 25 MB rather than carrying it. Where it comes from is [Host Bridge](../../development/001-host-bridge.md); on the project's own medium it is shipped and pointed at with `BAML_LIBRARY_PATH`, and `BAML_LIBRARY_DISABLE_DOWNLOAD` turns a missing one into a failure instead of a silent download.
 
 It also needs the two tools it calls by name, findable on `PATH`: `oparch-return-message-render` when a return message was asked for, and `oparch-dotfiles-sync` when a dotfiles package was, which it copies into the target before entering it. What each of those needs is in its own document, and the return message's needs are the ones most often missing from a live medium.
 
-What the *installed* system gets is a different list and is not this one: it is the bootstrap package set in `002-inputs-and-bootstrap-baseline.md`.
+What the *installed* system gets is a different list and is not this one: it is the bootstrap package set in [Installer Inputs and Bootstrap Baseline](002-inputs-and-bootstrap-baseline.md).
 
 ## Input parameters
 

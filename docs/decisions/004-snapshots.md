@@ -57,10 +57,3 @@ Snapshot strategy is restore-only. Snapshots are not boot targets in GRUB.
 ## Restore Procedure (Reference)
 
 Create/restore command interface for this single-`@snapshots` path model is intentionally deferred to dedicated snapshot scripts.
-
-## Critical Notes With Replies (Copy of Discussion)
-
-1. Assistant critique: snapshotting a single `@home` subvolume at login can cause rollback side effects across users.
-   Reply: switch to per-context home subvolumes so rollback scope stays isolated per work context.
-2. Assistant critique: per-user home subvolumes add lifecycle complexity when creating users after installation.
-   Reply: handle user creation through a dedicated provisioning command/script that always creates the user home subvolume.

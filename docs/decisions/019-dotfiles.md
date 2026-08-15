@@ -2,7 +2,7 @@
 
 ## Context
 
-`/dotfiles` is the shared source of configuration for every work context, on a subvolume of its own outside every home directory, as `001-disk-layout.md` lays it out. `000-work-contexts-and-accounts.md` marks who reaches it with the `dotfiles` group, and says that group grants access according to this policy.
+`/dotfiles` is the shared source of configuration for every work context, on a subvolume of its own outside every home directory, as [Disk Layout](001-disk-layout.md) lays it out. [Work Contexts and Accounts](000-work-contexts-and-accounts.md) marks who reaches it with the `dotfiles` group, and says that group grants access according to this policy.
 
 What that access is was never stated. A group that reads and a group that writes produce different machines: one where shared configuration is edited with `sudo` and ends up owned by `root`, and one where it is edited by the person whose machine it is.
 
@@ -31,7 +31,7 @@ Content an installation places under `/dotfiles` is left with directories at `27
 
 ## Considerations
 
-- `/dotfiles` is a Git repository only when the package it was installed from was one. A package taken as a directory or an archive leaves files, and the restore path `001-disk-layout.md` describes does not exist on that machine until someone makes it a repository.
-- The `dotfiles` group is a boundary between the accounts of one person and not between people, as `000-work-contexts-and-accounts.md` establishes. Shared write access to shared configuration is the point of it, not a concession.
-- Secrets are not kept here. Their store is outside `/dotfiles`, at the path `../tools/oparch-dotfiles-sync/001-map-format.md` specifies, with its own owner and modes, and it is not part of what this policy opens to the group.
+- `/dotfiles` is a Git repository only when the package it was installed from was one. A package taken as a directory or an archive leaves files, and the restore path [Disk Layout](001-disk-layout.md) describes does not exist on that machine until someone makes it a repository.
+- The `dotfiles` group is a boundary between the accounts of one person and not between people, as [Work Contexts and Accounts](000-work-contexts-and-accounts.md) establishes. Shared write access to shared configuration is the point of it, not a concession.
+- Secrets are not kept here. Their store is outside `/dotfiles`, at the path [Dotfiles Map Format](../tools/oparch-dotfiles-sync/001-map-format.md) specifies, with its own owner and modes, and it is not part of what this policy opens to the group.
 - What `oparch-dotfiles-sync` writes is the targets a map declares and its own state under `/var/lib/oparch/`. Its permission to read `/dotfiles` is the group's, and nothing here asks it to write there.

@@ -2,21 +2,21 @@
 
 ## Context
 
-The pre-boot return message is rendered to an image, as decided in `../../decisions/010-preboot-ownership-message.md`. What it says comes from a template package, and the values that fill it from a values file. Presentation is deliberately absent from both: a package carries wording, in every language it offers, and nothing about how that wording looks.
+The pre-boot return message is rendered to an image, as decided in [Pre-Boot Ownership Message](../../decisions/010-preboot-ownership-message.md). What it says comes from a template package, and the values that fill it from a values file. Presentation is deliberately absent from both: a package carries wording, in every language it offers, and nothing about how that wording looks.
 
 Until now nothing carried it. The look lived in the renderer — one font, one set of colours, one arrangement for each number of languages, all of them constants in its source. An operator who wanted the message to look like anything else had to change the tool.
 
-`007` left the question open and `../../state/001-remaining.md` recorded it: whether the rendered message may be decorated by something supplied the way a template is, and what such a thing may control.
+`007` left the question open and [Remaining](../../state/001-remaining.md) recorded it: whether the rendered message may be decorated by something supplied the way a template is, and what such a thing may control.
 
 ## Specification
 
-The message is drawn from a **theme**. Its format is `003-theme-format.md`.
+The message is drawn from a **theme**. Its format is [Return Message Theme Format](003-theme-format.md).
 
 ### What a theme is
 
-A theme is a package, obtained exactly as a template package is, from any of the origins `../oparch-installer/003-input-sources.md` defines: a directory or a `tar` archive on the machine, an archive by URL, or a repository. An archive has its entries listed and refused before extraction if any would land outside the destination. The operator may supply their own. The project ships one, chosen when no other is.
+A theme is a package, obtained exactly as a template package is, from any of the origins [Installer Input Sources](../oparch-installer/003-input-sources.md) defines: a directory or a `tar` archive on the machine, an archive by URL, or a repository. An archive has its entries listed and refused before extraction if any would land outside the destination. The operator may supply their own. The project ships one, chosen when no other is.
 
-A theme reaches the renderer as a directory it is given, through `--theme`, beside the `--template-package` that carries the package. Which theme that is, and where it came from, is asked by whoever calls the renderer — the installer, through the screen defined in `../oparch-installer/002-inputs-and-bootstrap-baseline.md`.
+A theme reaches the renderer as a directory it is given, through `--theme`, beside the `--template-package` that carries the package. Which theme that is, and where it came from, is asked by whoever calls the renderer — the installer, through the screen defined in [Installer Inputs and Bootstrap Baseline](../oparch-installer/002-inputs-and-bootstrap-baseline.md).
 
 ### What a theme controls
 
@@ -58,5 +58,5 @@ A theme is validated completely, with the template package and the values, befor
 ## Considerations
 
 - A theme may carry font files and a background image, so a theme fetched from a URL puts a binary in front of FreeType and ImageMagick. A template package carries only text and never did. This is the cost of a format that can bring its own icons and its own background, and it is accepted rather than left implicit.
-- A theme's screen values reach the boot splash as a generated prelude: the renderer writes them as numeric literals above the static script the project carries, and the two together are what the splash runs. It is specified in `000-command.md`. It works that way because a boot splash script cannot read them for itself — values declared for it arrive as text and its language cannot make a number of text — and it is the renderer that writes them because it is the only thing that has the theme read and validated. Only numbers cross: nothing a theme or a template package wrote as text is ever emitted into the script.
+- A theme's screen values reach the boot splash as a generated prelude: the renderer writes them as numeric literals above the static script the project carries, and the two together are what the splash runs. It is specified in [oparch-return-message-render](000-command.md). It works that way because a boot splash script cannot read them for itself — values declared for it arrive as text and its language cannot make a number of text — and it is the renderer that writes them because it is the only thing that has the theme read and validated. Only numbers cross: nothing a theme or a template package wrote as text is ever emitted into the script.
 - Return-message readability still has to be validated on the real display resolutions used by the target machines, as `007` already requires. A theme makes that easier to correct and does not make it unnecessary.

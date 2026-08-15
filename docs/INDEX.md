@@ -29,9 +29,8 @@ Every document in this directory, by type. What the types are and what shape eac
 - [Service Baseline](decisions/016-service-baseline.md) — work in progress, nothing decided yet
 - [Network Stack](decisions/017-network-stack.md)
 - [Audio Stack](decisions/018-audio-stack.md) — work in progress, nothing decided yet
-- [Security Baseline](decisions/019-security-baseline.md) — work in progress, nothing decided yet
-- [Dotfiles](decisions/020-dotfiles.md)
-- [Oparch Tools](decisions/021-oparch-tools.md)
+- [Dotfiles](decisions/019-dotfiles.md)
+- [Oparch Tools](decisions/020-oparch-tools.md)
 
 ## Tools
 
@@ -55,7 +54,7 @@ Every document in this directory, by type. What the types are and what shape eac
 - [oparch-password-rotate](tools/oparch-password-rotate/000-command.md)
 - [oparch-password-rotate-interactive](tools/oparch-password-rotate-interactive/000-command.md)
 
-The first three are written. The rest are specified and not implemented, which `state/001-remaining.md` carries as the first work.
+The first three are written. The rest are specified and not implemented, which [Remaining](state/001-remaining.md) carries as the first work.
 
 ## Development
 

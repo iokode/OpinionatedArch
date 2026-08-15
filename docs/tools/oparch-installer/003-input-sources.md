@@ -63,8 +63,8 @@ Decision 015 gives the host the terminal and the running of processes, and gives
 
 The configuration file that drives an unattended installation names the origin explicitly too, as a kind and a location. The pickers are the interactive way to answer that question, not a second way of asking it.
 
-A dotfiles package is cloned whole where the other two are cloned at one revision. The others are read here and dropped, and a history is not their content; the dotfiles package stays, as the repository `../../decisions/001-disk-layout.md` restores `/dotfiles` from, so its history is part of what is being fetched. A package taken as a directory or an archive leaves no repository, and that restore path does not exist on that machine.
+A dotfiles package is cloned whole where the other two are cloned at one revision. The others are read here and dropped, and a history is not their content; the dotfiles package stays, as the repository [Disk Layout](../../decisions/001-disk-layout.md) restores `/dotfiles` from, so its history is part of what is being fetched. A package taken as a directory or an archive leaves no repository, and that restore path does not exist on that machine.
 
-The encrypted secret store is a file input, obtained the same way the logo is. What it holds and what opens it are specified in `../oparch-dotfiles-sync/002-secret-store-archive.md`.
+The encrypted secret store is a file input, obtained the same way the logo is. What it holds and what opens it are specified in [Secret Store Archive](../oparch-dotfiles-sync/002-secret-store-archive.md).
 
 What would change this decision: a rebuild of the return message that runs unattended on an installed system — a timer, or a tool rebuilding after an edit — has no one to pass the flags. That is when the values file would have to name the template and the theme again, as local paths the installer put there, and the copy into the installed system would come with it.
