@@ -1,8 +1,6 @@
 # OpinionatedArch
 
-OpinionatedArch is an Arch-based system for one physical person who wants multiple work contexts without maintaining separate system configurations for each login account.
-
-For a longer introduction, read [Introducing OpinionatedArch](https://iokode.blog/posts/opinionated-arch/).
+OpinionatedArch is an Arch-based system for one physical person who wants multiple work contexts without maintaining a separate system configuration for each.
 
 ## Status
 
@@ -10,21 +8,23 @@ OpinionatedArch is in a very early stage, and not a finished general-purpose dis
 
 How far along it is stays out of this file, because it moves: [What Is Built](docs/state/000-what-is-built.md) says what the project has, and [Remaining](docs/state/001-remaining.md) what it has not.
 
-## Operating Model
+## Why It Exists
 
-Login accounts are work contexts for the same person, not different people. Shared configuration lives at `/dotfiles`, outside every home directory.
+Arch decides almost nothing, and it offers no method for what comes after. A machine built on it is whatever its owner chose on whichever day they chose it, maintained by hand and from memory, differently each time.
 
-OpinionatedArch is opinionated about the operating model, disk layout, encryption, snapshots, recovery, dotfiles, and maintenance invariants. It does not try to decide the desktop environment, window manager, shell workflow, or day-to-day user interface.
+It exists **to supply that method**: the choices Arch leaves to you are taken once and written down, and there is a way of working that keeps them true as the machine changes. What that buys is a machine you can still account for a year later.
 
-See [Operating Model](docs/general/001-operating-model.md) for the full description.
+It is also what makes work contexts affordable. Separating personal use from client work is what accounts are for, and on a hand-maintained machine every account is one more to configure and keep in step with the others. Under one method the configuration is already there, so a context costs an account and nothing else.
+
+See [What is OpinionatedArch](docs/general/000-what-is-opinionatedarch.md) for more.
 
 ## Installation
 
-The system is installed by `oparch-installer`, run from an Arch Linux live environment. It asks for everything it needs on screen, or takes the same answers from a file with `--config`, and produces a reboot-ready system in one run.
+There is no medium to boot yet, eventually, there will be an ISO.
 
-There is no medium to boot yet. The ISO that will carry the installer and its assets is built with `archiso` and is the last thing this project builds, so today the installer is built from this repository and put on a live environment by hand.
+The system is installed by running `oparch-installer`, from an Arch Linux live environment.
 
-See [Installation Overview](docs/general/002-installation-overview.md) for what it asks and what it does, and [oparch-installer](docs/tools/oparch-installer/000-command.md) for the command itself.
+See [Installation Overview](docs/general/002-installation-overview.md) for what it asks and what it does, and [oparch-installer](docs/tools/oparch-installer/000-command.md) for the installer tool itself.
 
 ## Repository layout
 

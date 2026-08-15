@@ -7,6 +7,7 @@ It is a backlog, not a specification. Nothing listed here is decided.
 ## Pending Decisions
 
 - **Package baseline** — what is always installed (`base` dev tools, firmware, core tools) and what remains optional.
+- **Audio stack** — which daemon is installed and enabled, and whether it belongs to the baseline at all. `../general/000-what-is-opinionatedarch.md` names the audio daemon among the choices this project takes for the operator, so a general document promises it while no decision covers it, and the package baseline above does not name it either.
 - **AUR policy** — whether to use `paru`, how to install it, and which build user to use.
 - **Default systemd services** — which units are always enabled at install time.
 - **Base security policy** — firewall, SSH (if applicable), sudo policy.
