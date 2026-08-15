@@ -6,14 +6,13 @@ This file is temporary. When the branch is done it goes.
 
 ## Index
 
-Every document, ticked as it is read through. A document with a heading below it has notes; one without is either untouched or turned up nothing.
+Every document, ticked when its review is called done. Only the operator ticks a box. A document with a heading below it has notes, which says nothing about whether it is finished.
 
 **General**
 
 - [x] What is OpinionatedArch
 - [x] Operating Model
 - [ ] Installation Overview
-- [ ] Glossary
 
 **Decisions**
 
@@ -87,7 +86,7 @@ The tool document type gained a `Requirements` section — what a tool needs to 
 
 All of it is one commit on `repository-reordering`, pushed. The four test suites pass, the Rust host builds, both packed tools build, every document in `docs/` is in the Index, and no cross-reference is broken.
 
-## Operating Model — reviewed
+## Operating Model
 
 Went through section by section. It now has five sections, mentions no tool and no format, and every `See` points at a decision. Its introduction stopped being a summary of its own sections and says instead where the document sits and what it leaves out. The Storage section was cut for describing the inside of the machine rather than how it is operated.
 
@@ -113,7 +112,7 @@ Went through section by section. It now has five sections, mentions no tool and 
 
 **Document Types could say what an introduction is not.** The rule now asks for an introduction rather than a summary, which is the right word, but nothing stops the next writer from writing a summary and calling it one.
 
-## README — reviewed
+## README
 
 Its opening sentence lost the dead vocabulary, and the link to the blog post left it: that link already lived in What is OpinionatedArch, and the chain now runs README, then that document, then the article. The section that summarised the operating model and repeated the list of what the project is opinionated about is gone, replaced by one that says why the project exists — no method for what comes after an installation, and work contexts made affordable by having one.
 
@@ -125,7 +124,7 @@ Its opening sentence lost the dead vocabulary, and the link to the blog post lef
 
 **The link to the introductory article is now in neither.** It was in both, word for word; it came out of the README because it belonged one hop further in, and then out of What is OpinionatedArch as well. If it is meant to survive, it goes back into the second.
 
-## What is OpinionatedArch — reviewed
+## What is OpinionatedArch
 
 What the README's review did to this document is recorded above; this is the pass on the document itself.
 
@@ -146,3 +145,25 @@ Where To Continue stopped being the listing of its own directory. It gained the 
 **The session and login strategy is obsolete and still written down.** Remaining carries "Real session/login strategy — initial display manager and fallback until custom implementation exists" as a pending decision, and Work Contexts and Accounts closes its discussion notes by saying the model implies developing a custom session manager for username-only login. Neither is going to happen. They also sit on the wrong side of the boundary this document now draws, which puts the interface with the operator.
 
 **The two new links go to a file listing.** `../decisions/` and `../tools/` resolve to directories with no page in them, so a reader who follows either lands on a list of file names rather than on something written. The two places that do have a written list are the Index and the repository's README.
+
+## Glossary
+
+Deleted, and the two links to it removed: the Index entry, and the closing line of Where To Continue in What is OpinionatedArch.
+
+The pass before that had given it a criterion — an entry is a noun this project introduces and gives its own meaning to — and cut nine entries that failed it. Applying the same criterion to what survived is what settled the question: thirteen of its sixteen entries were compressed copies of definitions their own documents already carry, which is what `AGENTS.md` forbids. Being copies is also why it drifted. Two of its entries were caught wrong in one sitting: restore-based recovery presented restoring as the only way to recover, and the secret store entry said the sensitive content is declared in the map when the map format says, in as many words, that a declaration never contains the value. A copy has no reason to be revisited when the original changes.
+
+It worked badly as an index too, being grouped by topic rather than alphabetical: finding a term meant guessing its topic, which is nearly the work of guessing which document owns it — and that one the Index answers by title.
+
+### Still to do
+
+**Three terms had no other home, and the definitions died with the file.** They are written out here so they can be put where they belong.
+
+**Port** — no document defines it; Host Bridge uses it in five places as if it were understood, and that is where the word does its work. *The boundary between a tool and something outside it: running a command, touching a file, opening an encrypted store, drawing a terminal. It is declared as an interface so that a test can put a stand-in where the machine would be. Every interface in the project is a port today; the word is kept because an interface does not have to be one.*
+
+**Harness** — End-to-End Testing describes the apparatus, but the argument for the word lived only in the glossary. *It is not the thing under test and it is not the assertions; it is what makes running them possible at all. The word is the one used for a wiring harness — the thing that connects and drives — and not for anything to do with the tools this project is written with.*
+
+**Recovery mode** — Operating Model says what it is in passing, and Recovery will own it once written. *A second Arch system on the machine's own disk, started in place of the installed one, from which a damaged system is repaired by hand or restored from one of its snapshots.*
+
+**"Shared configuration" will probably give way to "dotfiles".** The two are practically synonyms here, and the long form misleads: *shared* suggests sharing between people, and this system is built for one. Five documents carry it — Operating Model, whose second section is called Shared Configuration across Work Contexts, plus What is OpinionatedArch, Dotfiles, Work Contexts and Accounts, and Installation Checks.
+
+**This file's own index is stale.** It lists the decisions under the names they had before they were renumbered and renamed — Swap Strategy, Kernel Strategy, Snapshot Strategy, GRUB Boot Policy, Dotfiles Policy, and the rest — and does not list the ones that were added since.

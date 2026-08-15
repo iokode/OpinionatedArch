@@ -27,5 +27,3 @@ Everything above that — the desktop, the window manager, the shell, the editor
 - [Tools](../tools/) are the commands that keep a machine in the shape those decisions describe.
 - [Installation Overview](002-installation-overview.md) describes how a machine is installed.
 
-The [Glossary](003-glossary.md) defines the terms used across the documentation, for when one of them is in the way.
-

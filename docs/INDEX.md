@@ -7,7 +7,6 @@ Every document in this directory, by type. What the types are and what shape eac
 - [What is OpinionatedArch](general/000-what-is-opinionatedarch.md)
 - [Operating Model](general/001-operating-model.md)
 - [Installation Overview](general/002-installation-overview.md)
-- [Glossary](general/003-glossary.md)
 
 ## Decisions
 
