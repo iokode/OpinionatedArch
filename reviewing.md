@@ -112,8 +112,6 @@ Went through section by section. It now has five sections, mentions no tool and 
 
 **Snapshots contradicts itself after the rename.** It still says `home/@<login-user>` and `/snapshots/home/<login-user>/…` in five places, and `home/<work-context>` in one.
 
-**What is OpinionatedArch could take the whole-disk fact.** The Storage section was cut, but one thing in it was operationally relevant and is now in no general document: that the system takes the whole disk, so it does not share a machine with another system.
-
 **Recovery has to be written.** What it collects is spread across Disk Layout, Bootloader, Snapshots and Kernel, and two documents defer an obligation to it that had nowhere to go: Encryption leaves the LUKS header backup and its workflow to be written down later, and Work Contexts and Accounts requires root recovery procedures to be documented.
 
 **Document Types could say what an introduction is not.** The rule now asks for an introduction rather than a summary, which is the right word, but nothing stops the next writer from writing a summary and calling it one.
@@ -125,10 +123,6 @@ Its opening sentence lost the dead vocabulary, and the link to the blog post lef
 ### Changed elsewhere because of it
 
 **What is OpinionatedArch was rewritten.** Its problem section became five problems, one per paragraph, each conceding what can be done without this project and none of them naming the answer, which is Operating Model's to give. Its `What It Decides` lost the inventory — the last copy of it in the repository — and states the boundary instead: the system, not the interface. Both documents lost the sentence with "login account" in it, and the file lost a non-breaking space hidden inside a word.
-
-### Still to do
-
-**The link to the introductory article is now in neither.** It was in both, word for word; it came out of the README because it belonged one hop further in, and then out of What is OpinionatedArch as well. If it is meant to survive, it goes back into the second.
 
 ## What is OpinionatedArch
 
@@ -144,13 +138,9 @@ Where To Continue stopped being the listing of its own directory. It gained the 
 
 ### Still to do
 
-**The document does not answer the question in its title.** It says what OpinionatedArch is for — five problems — and where its edges are, and where to go next. It never says what the thing consists of: an Arch installation with a set of decisions already taken and the tools that hold them. The opening line tries it in one sentence, and that sentence is only about work contexts.
-
 **Oparch Tools does not carry the role this document gives the tools.** Here and in the README they are the way of working that keeps the decisions true as the machine changes, and Where To Continue presents them as the commands that keep a machine in the shape the decisions describe. The decision that owns them opens with "small commands for recurring system operations" and then legislates the naming format and the split between command-line and interactive. Nothing in it says they are what holds a machine to its decisions. Same shape as the Dotfiles entry above: a general document defers a claim to a decision that does not contain it.
 
 **The session and login strategy is obsolete and still written down.** Remaining carries "Real session/login strategy — initial display manager and fallback until custom implementation exists" as a pending decision, and Work Contexts and Accounts closes its discussion notes by saying the model implies developing a custom session manager for username-only login. Neither is going to happen. They also sit on the wrong side of the boundary this document now draws, which puts the interface with the operator.
-
-**The two new links go to a file listing.** `../decisions/` and `../tools/` resolve to directories with no page in them, so a reader who follows either lands on a list of file names rather than on something written. The two places that do have a written list are the Index and the repository's README.
 
 ## Glossary
 
@@ -170,7 +160,7 @@ It worked badly as an index too, being grouped by topic rather than alphabetical
 
 **Recovery mode** — Operating Model says what it is in passing, and Recovery will own it once written. *A second Arch system on the machine's own disk, started in place of the installed one, from which a damaged system is repaired by hand or restored from one of its snapshots.*
 
-**"Shared configuration" will probably give way to "dotfiles".** The two are practically synonyms here, and the long form misleads: *shared* suggests sharing between people, and this system is built for one. Five documents carry it — Operating Model, whose second section is called Shared Configuration across Work Contexts, plus What is OpinionatedArch, Dotfiles, Work Contexts and Accounts, and Installation Checks.
+**"Shared configuration" will probably give way to "dotfiles".** The two are practically synonyms here, and the long form misleads: *shared* suggests sharing between people, and this system is built for one. Two documents still carry it: [Dotfiles](docs/decisions/019-dotfiles.md), in its context and in two of its arguments, and [Installation Checks](docs/development/007-installation-checks.md), where a check says the operator would be able to read the shared configuration and change none of it.
 
 ## Work Contexts and Accounts
 

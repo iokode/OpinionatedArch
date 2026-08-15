@@ -27,7 +27,7 @@ The `root` account has no password set and is not intended for interactive login
 
 ## Why
 
-- `work-contexts` and `dotfiles` are separate groups because being an area of the operator's activity and reaching the shared configuration are different permissions. A keymapper service may need to read `/dotfiles` without being anyone's work context.
+- `work-contexts` and `dotfiles` are separate groups because being an area of the operator's activity and reaching the dotfiles are different permissions. A keymapper service may need to read `/dotfiles` without being anyone's work context.
 - The word *user* is kept for accounts in general, rather than abolished, precisely because that separation exists: a tool that expands over the `dotfiles` group is expanding over accounts, and calling them work contexts would claim membership the group does not require.
 - One secret for the disk and for every work context is used because one strong memorized secret is preferable to several that would likely end up written down somewhere; split into many, this model gains no separation — the accounts are one person's — and raises the practical risk of handling them.
 - Home and primary group are named after the context because a tool that is told which contexts a machine has must derive both from the name alone; if either could differ, describing a machine would take three fields where one is enough, and the three could disagree.
