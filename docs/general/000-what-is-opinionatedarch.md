@@ -23,7 +23,7 @@ Everything above that — the desktop, the window manager, the shell, the editor
 ## Where To Continue
 
 - [Operating Model](001-operating-model.md) describes how the system works.
+- [Installation Overview](002-installation-overview.md) describes how a machine is installed.
 - [Decisions](../decisions/) are the answers this document says are taken once, one per document with its reasoning.
 - [Tools](../tools/) are the commands that keep a machine in the shape those decisions describe.
-- [Installation Overview](002-installation-overview.md) describes how a machine is installed.
 
