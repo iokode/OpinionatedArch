@@ -18,19 +18,26 @@ Every document, ticked when its review is called done. Only the operator ticks a
 
 - [ ] Work Contexts and Accounts
 - [ ] Disk Layout
-- [ ] Swap Strategy
-- [ ] Kernel Strategy
-- [ ] Snapshot Strategy
-- [ ] Encryption Strategy
+- [ ] Encryption
+- [ ] Swap
+- [ ] Snapshots
+- [ ] Localization and Time
+- [ ] System Identity
+- [ ] Kernel
+- [ ] Boot Image Format — work in progress, nothing decided yet
+- [ ] Bootloader
 - [ ] Pre-Boot Ownership Message
-- [ ] GRUB Boot Policy
-- [ ] mkinitcpio Hooks Policy
-- [ ] Network Stack Policy
-- [ ] Localization and Time Policy
-- [ ] System Identity Policy
+- [ ] Return Message on an Installed System — work in progress, nothing decided yet
+- [ ] mkinitcpio Hooks
+- [ ] Recovery — work in progress, nothing decided yet
+- [ ] Package Baseline — work in progress, nothing decided yet
+- [ ] AUR — work in progress, nothing decided yet
+- [ ] Service Baseline — work in progress, nothing decided yet
+- [ ] Network Stack
+- [ ] Audio Stack — work in progress, nothing decided yet
+- [ ] Security Baseline — work in progress, nothing decided yet
+- [ ] Dotfiles
 - [ ] Oparch Tools
-- [ ] Dotfiles Policy
-- [ ] Recovery Strategy — stub, nothing decided yet
 
 **Tools**
 
@@ -94,21 +101,21 @@ Went through section by section. It now has five sections, mentions no tool and 
 
 **Login users became work contexts, everywhere.** The review of its first section found that the login/logical split was a property of any Linux system rather than a decision of this one, and that "work context" and "login user" were two names for one thing — the glossary needed two entries that defined each other. That took the prose of twenty-one documents, the group `login-users` which is now `work-contexts`, the configuration keys `login_users` and `preserved_home_users` which are now `work_contexts` and `preserved_work_contexts`, three tool names — `oparch-work-context-create`, `oparch-work-context-remove` and `oparch-snapshot-work-context-create` — and the installer's field, parser, form step and error messages. The form now asks for work contexts on a screen of that name; the installation phase still says users, because that step is the `useradd`. The word *user* was kept for accounts in general, because the `dotfiles` group deliberately admits accounts that are not work contexts. The decision that owned all of it was renamed from User Model and Account Types to Work Contexts and Accounts, because "account types" was exactly the enumeration that was dropped.
 
-**Recovery Strategy was created**, as an empty stub. The Snapshots and Recovery section needed something to point at that was about recovery rather than about a boot menu, and no decision owned it.
+**Recovery was created**, as an empty stub. The Snapshots and Recovery section needed something to point at that was about recovery rather than about a boot menu, and no decision owned it.
 
 **Document Types now asks for an introduction** where it asked for a summary, in the three types that said so. The word changed because a summary of a document's own sections is a restatement of them, which is what its introduction had become.
 
 ### Still to do
 
-**Dotfiles Policy has to grow into what it now owns.** Operating Model defers the shared-configuration principle to it, and the document does not contain it: its `Decision` covers permissions on `/dotfiles` and nothing else, and its `Context` frames the whole document as "what access the group gives". It needs to decide, in its own words, that the configuration is one source that every work context takes from, and that what differs between contexts or machines is declared rather than kept as separate copies. This is also the document that may legitimately link down to Dotfiles Map Format, being the layer that already touches implementation.
+**Dotfiles has to grow into what it now owns.** Operating Model defers the shared-configuration principle to it, and the document does not contain it: its `Decision` covers permissions on `/dotfiles` and nothing else, and its `Context` frames the whole document as "what access the group gives". It needs to decide, in its own words, that the configuration is one source that every work context takes from, and that what differs between contexts or machines is declared rather than kept as separate copies. This is also the document that may legitimately link down to Dotfiles Map Format, being the layer that already touches implementation.
 
-**The secret store is a domain fact owned by an infrastructure document.** Where the store lives, with what owner and what modes, is a property of the installed machine, and it is specified in Dotfiles Map Format. Dotfiles Policy expressly disclaims it, because the store sits outside `/dotfiles`. Underneath there is a worse one: the path is `/etc/oparch/dotfiles-sync/secrets`, so the name of a tool is inside the machine's layout.
+**The secret store is a domain fact owned by an infrastructure document.** Where the store lives, with what owner and what modes, is a property of the installed machine, and it is specified in Dotfiles Map Format. Dotfiles expressly disclaims it, because the store sits outside `/dotfiles`. Underneath there is a worse one: the path is `/etc/oparch/dotfiles-sync/secrets`, so the name of a tool is inside the machine's layout.
 
-**Snapshot Strategy contradicts itself after the rename.** It still says `home/@<login-user>` and `/snapshots/home/<login-user>/…` in five places, and `home/<work-context>` in one.
+**Snapshots contradicts itself after the rename.** It still says `home/@<login-user>` and `/snapshots/home/<login-user>/…` in five places, and `home/<work-context>` in one.
 
 **What is OpinionatedArch could take the whole-disk fact.** The Storage section was cut, but one thing in it was operationally relevant and is now in no general document: that the system takes the whole disk, so it does not share a machine with another system.
 
-**Recovery Strategy has to be written.** What it collects is spread across Disk Layout, GRUB Boot Policy, Snapshot Strategy and Kernel Strategy, and two documents defer an obligation to it that had nowhere to go: Encryption Strategy leaves the LUKS header backup and its workflow to be written down later, and Work Contexts and Accounts requires root recovery procedures to be documented.
+**Recovery has to be written.** What it collects is spread across Disk Layout, Bootloader, Snapshots and Kernel, and two documents defer an obligation to it that had nowhere to go: Encryption leaves the LUKS header backup and its workflow to be written down later, and Work Contexts and Accounts requires root recovery procedures to be documented.
 
 **Document Types could say what an introduction is not.** The rule now asks for an introduction rather than a summary, which is the right word, but nothing stops the next writer from writing a summary and calling it one.
 
@@ -140,7 +147,7 @@ Where To Continue stopped being the listing of its own directory. It gained the 
 
 **The document does not answer the question in its title.** It says what OpinionatedArch is for — five problems — and where its edges are, and where to go next. It never says what the thing consists of: an Arch installation with a set of decisions already taken and the tools that hold them. The opening line tries it in one sentence, and that sentence is only about work contexts.
 
-**Oparch Tools does not carry the role this document gives the tools.** Here and in the README they are the way of working that keeps the decisions true as the machine changes, and Where To Continue presents them as the commands that keep a machine in the shape the decisions describe. The decision that owns them opens with "small commands for recurring system operations" and then legislates the naming format and the split between command-line and interactive. Nothing in it says they are what holds a machine to its decisions. Same shape as the Dotfiles Policy entry above: a general document defers a claim to a decision that does not contain it.
+**Oparch Tools does not carry the role this document gives the tools.** Here and in the README they are the way of working that keeps the decisions true as the machine changes, and Where To Continue presents them as the commands that keep a machine in the shape the decisions describe. The decision that owns them opens with "small commands for recurring system operations" and then legislates the naming format and the split between command-line and interactive. Nothing in it says they are what holds a machine to its decisions. Same shape as the Dotfiles entry above: a general document defers a claim to a decision that does not contain it.
 
 **The session and login strategy is obsolete and still written down.** Remaining carries "Real session/login strategy — initial display manager and fallback until custom implementation exists" as a pending decision, and Work Contexts and Accounts closes its discussion notes by saying the model implies developing a custom session manager for username-only login. Neither is going to happen. They also sit on the wrong side of the boundary this document now draws, which puts the interface with the operator.
 
@@ -165,5 +172,3 @@ It worked badly as an index too, being grouped by topic rather than alphabetical
 **Recovery mode** — Operating Model says what it is in passing, and Recovery will own it once written. *A second Arch system on the machine's own disk, started in place of the installed one, from which a damaged system is repaired by hand or restored from one of its snapshots.*
 
 **"Shared configuration" will probably give way to "dotfiles".** The two are practically synonyms here, and the long form misleads: *shared* suggests sharing between people, and this system is built for one. Five documents carry it — Operating Model, whose second section is called Shared Configuration across Work Contexts, plus What is OpinionatedArch, Dotfiles, Work Contexts and Accounts, and Installation Checks.
-
-**This file's own index is stale.** It lists the decisions under the names they had before they were renumbered and renamed — Swap Strategy, Kernel Strategy, Snapshot Strategy, GRUB Boot Policy, Dotfiles Policy, and the rest — and does not list the ones that were added since.
