@@ -123,7 +123,7 @@ function run_phases(shell: root.common.Shell, files: root.common.Files, ui: Ui,
     let problem = run_phase(files, prepare_layout(shell, files, ui, config, target));
     if (problem != "") { return problem; }
 
-    let problem = run_phase(files, bootstrap_base_system(shell, files, ui, config, target));
+    let problem = run_phase(files, bootstrap_base_system(shell, files, ui, config, target, asset_dir));
     if (problem != "") { return problem; }
 
     let problem = run_phase(files, configure_localization(shell, files, ui, config, target));
@@ -242,6 +242,7 @@ test "a config file answers every question and the form is never shown" {
         exit_codes: {},
         replies: {
             "timedatectl list-timezones": "Europe/Madrid\nUTC\n",
+            "arch-chroot /mnt efibootmgr": firmware_listing(),
         },
     };
     let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
@@ -284,7 +285,7 @@ test "without a config file the form is asked" {
 }
 
 function full_run_files() -> root.common.RecordingFiles {
-    let files = root.common.recording_files();
+    let files = packaged_files();
     files.write("/mnt/etc/locale.gen", "#en_US.UTF-8 UTF-8\n");
     files.write("/mnt/etc/mkinitcpio.conf", stock_mkinitcpio_conf());
     files.write("/assets/grub/grub.cfg", "source ${prefix}/oparch.cfg\n");
@@ -300,7 +301,8 @@ function full_run_shell() -> root.common.RecordingShell {
         replies: {
             "timedatectl list-timezones": "Europe/Madrid\n",
             "genfstab -U /mnt": "UUID=5f3a / btrfs subvol=@ 0 0\n",
-            "blkid -s UUID -o value /dev/sda2": "5f3a-uuid\n",
+            "blkid -s UUID -o value /dev/sda3": "5f3a-uuid\n",
+            "arch-chroot /mnt efibootmgr": firmware_listing(),
         },
     }
 }

@@ -405,8 +405,8 @@ expect "${MARK}-INSPECTED" 60 || true
 # is where the kernel's own messages come out.
 echo
 echo "harness: giving the installed kernel a serial console"
-run_in_guest "sed -i 's/^set linux_extra=\"\\(.*\\)\"/set linux_extra=\"\\1 console=tty0 console=ttyS0,115200\"/' /mnt/boot/grub/oparch.cfg"
-run_in_guest "cat /mnt/boot/grub/oparch.cfg"
+run_in_guest "sed -i 's/^set linux_extra=\"\\(.*\\)\"/set linux_extra=\"\\1 console=tty0 console=ttyS0,115200\"/' /mnt/boot/OpinionatedArch/grub/oparch.cfg"
+run_in_guest "cat /mnt/boot/OpinionatedArch/grub/oparch.cfg"
 
 echo
 echo "harness: shutting the live environment down"

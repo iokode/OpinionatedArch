@@ -10,6 +10,43 @@ function mkinitcpio_conf_path() -> string {
     "/etc/mkinitcpio.conf"
 }
 
+/// The preset of the kernel package: where the kernel image and the initramfs
+/// are written. It is created from a template when it is absent, so writing it
+/// here is what decides the destination, and no later kernel update undoes it.
+function kernel_preset_path() -> string {
+    "/etc/mkinitcpio.d/linux.preset"
+}
+
+/// Where the hook of the kernel package left the kernel image during
+/// `pacstrap`, with the preset as it came.
+function stock_kernel_image() -> string {
+    "/boot/vmlinuz-linux"
+}
+
+/// And the initramfs built beside it, which is rebuilt in the project's
+/// directory and left behind here.
+function stock_initramfs_image() -> string {
+    "/boot/initramfs-linux.img"
+}
+
+/// The preset this project writes: both images under the directory
+/// `docs/decisions/001-disk-layout.md` gives it, and one image, because
+/// `docs/decisions/006-kernel.md` installs one kernel.
+function kernel_preset() -> string {
+    "# The preset of the 'linux' package, written by the installation.\n"
+        + "#\n"
+        + "# The kernel image and the initramfs live in the project's own\n"
+        + "# directory on the EFI system partition, as\n"
+        + "# docs/decisions/007-boot-image-format.md decides. Every kernel update\n"
+        + "# writes them there again, with nothing of this project involved.\n"
+        + "\n"
+        + `ALL_kver="${esp_project_dir()}/vmlinuz-linux"` + "\n"
+        + "\n"
+        + "PRESETS=('default')\n"
+        + "\n"
+        + `default_image="${esp_project_dir()}/initramfs-linux.img"` + "\n"
+}
+
 /// The two lists the policy defines. They differ by one hook: `plymouth`,
 /// which is only there when there is a return message for it to show.
 function initramfs_hooks(config: InstallConfig) -> string[] {
@@ -74,7 +111,32 @@ function configure_initramfs(shell: root.common.Shell, files: root.common.Files,
     }
     files.write(path, rewritten);
 
-    root.common.must(root.common.run_in(shell, target, "mkinitcpio", ["-P"]), "mkinitcpio -P")
+    files.mkdir(root.common.target_path(target, esp_project_dir()));
+    files.write(root.common.target_path(target, kernel_preset_path()), kernel_preset());
+
+    //# the kernel image moves before anything is built, because the preset
+    //# names it as what `mkinitcpio` reads the version from, and it reads it
+    //# where the preset says it is. Every later update copies it there itself:
+    //# a path no package owns is a destination the hook writes to.
+    let moved = root.common.must(shell.capture("mv",
+        [root.common.target_path(target, stock_kernel_image()),
+         root.common.target_path(target, `${esp_project_dir()}/vmlinuz-linux`)]),
+        "moving the kernel image into the project's directory");
+    if (moved != "") {
+        return moved;
+    }
+
+    let built = root.common.must(root.common.run_in(shell, target, "mkinitcpio", ["-P"]),
+                                 "mkinitcpio -P");
+    if (built != "") {
+        return built;
+    }
+
+    //# the initramfs was rebuilt where the preset now points; this is the one
+    //# the stock preset had written beside the kernel that has just moved.
+    root.common.must(shell.capture("rm",
+        ["-f", root.common.target_path(target, stock_initramfs_image())]),
+        "removing the initramfs left at the root of the EFI system partition")
 }
 
 // -------------------------------------------------------------------- tests
@@ -148,7 +210,15 @@ test "the phase sets the hooks and then builds every image" {
 
     assert.is_true((files.written.get("/mnt/etc/mkinitcpio.conf") ?? "").includes(
         "HOOKS=(base udev autodetect microcode kms keyboard keymap block plymouth encrypt filesystems)"));
-    assert.equal(shell.commands, ["arch-chroot /mnt mkinitcpio -P"]);
+    //# the images are built where the preset now points, and the pair the
+    //# stock preset had written at the root of the partition goes
+    assert.equal((files.written.get("/mnt/etc/mkinitcpio.d/linux.preset") ?? "")
+                     .includes("/boot/OpinionatedArch/vmlinuz-linux"), true);
+    assert.equal(shell.commands, [
+        "mv /mnt/boot/vmlinuz-linux /mnt/boot/OpinionatedArch/vmlinuz-linux",
+        "arch-chroot /mnt mkinitcpio -P",
+        "rm -f /mnt/boot/initramfs-linux.img",
+    ]);
     assert.equal(ui.steps, ["Building the initramfs..."])
 }
 

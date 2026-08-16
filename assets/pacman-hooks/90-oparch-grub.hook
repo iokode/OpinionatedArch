@@ -1,0 +1,15 @@
+# The `grub` package puts nothing on the EFI system partition: what starts the
+# machine is written by `grub-install`, and nothing runs it again on its own.
+# This hook does, so a fix that reaches the package reaches the artifact every
+# start goes through, as docs/decisions/007-boot-image-format.md decides.
+
+[Trigger]
+Type = Package
+Operation = Install
+Operation = Upgrade
+Target = grub
+
+[Action]
+Description = Installing GRUB again for the version just updated...
+When = PostTransaction
+Exec = /usr/bin/grub-install --target=x86_64-efi --efi-directory=/boot --boot-directory=/boot/OpinionatedArch --bootloader-id=OpinionatedArch

@@ -436,6 +436,12 @@ function packaged_files() -> root.common.RecordingFiles {
     files.write("/assets/return-message/es.txt", "Hola {{owner_name}}[[, {{phone}}]]");
     files.write("/assets/return-message/ca.txt", "Hola {{owner_name}}");
     files.write("/assets/return-message-theme/manifest.yaml", root.return_message.sample_theme());
+    files.write("/assets/pacman-hooks/90-oparch-netboot.hook", "[Trigger]\nTarget = ipxe\n");
+    files.write("/assets/pacman-hooks/90-oparch-grub.hook", "[Trigger]\nTarget = grub\n");
+    files.write("/assets/pacman-hooks/90-oparch-microcode-amd.hook",
+                "[Trigger]\nTarget = boot/amd-ucode.img\n");
+    files.write("/assets/pacman-hooks/90-oparch-microcode-intel.hook",
+                "[Trigger]\nTarget = boot/intel-ucode.img\n");
     files
 }
 

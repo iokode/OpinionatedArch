@@ -1,0 +1,15 @@
+# The netboot binary on the EFI system partition is a copy of what the `ipxe`
+# package carries. Without this hook an update of that package would change
+# what the copy was made from and not the copy, as
+# docs/decisions/007-boot-image-format.md records.
+
+[Trigger]
+Type = Package
+Operation = Install
+Operation = Upgrade
+Target = ipxe
+
+[Action]
+Description = Refreshing the netboot binary on the EFI system partition...
+When = PostTransaction
+Exec = /usr/bin/cp /usr/share/ipxe/x86_64/ipxe-arch.efi /boot/EFI/OpinionatedArch/netbootx64.efi
