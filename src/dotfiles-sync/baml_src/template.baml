@@ -25,8 +25,8 @@ function scan_template(text: string) -> Segment[] {
     while (scanning) {
         let open = rest.index_of("{{");
         if let start: int = open {
-            let before = rest.substring(0, start);
-            let after = rest.substring(start + 2, rest.length());
+            let before = rest.slice(0, start);
+            let after = rest.slice(start + 2, rest.length());
             let close = after.index_of("}}");
             let newline = after.index_of("\n");
             let terminated = if let end: int = close {
@@ -40,7 +40,7 @@ function scan_template(text: string) -> Segment[] {
             };
             if let end: int = close {
                 if (terminated) {
-                    let body = after.substring(0, end);
+                    let body = after.slice(0, end);
                     if (before != "") {
                         let _ = segments.push(TextSegment { text: before });
                     }
@@ -48,12 +48,12 @@ function scan_template(text: string) -> Segment[] {
                         //# escaped: drop one backslash and keep the braces literal
                         let _ = segments
                             .push(
-                                TextSegment { text: "{{" + body.substring(1, body.length()) + "}}" },
+                                TextSegment { text: "{{" + body.slice(1, body.length()) + "}}" },
                             );
                     } else {
                         let _ = segments.push(RefSegment { name: body });
                     }
-                    rest = after.substring(end + 2, after.length());
+                    rest = after.slice(end + 2, after.length());
                 } else {
                     let _ = segments.push(TextSegment { text: before + "{{" });
                     rest = after;

@@ -164,7 +164,7 @@ class Catalog {
 function read_secret_value(files: root.common.Files, path: string) -> Resolution {
     if let text: string = files.read(path) {
         if (text.ends_with("\n")) {
-            Resolved { text: text.substring(0, text.length() - 1) }
+            Resolved { text: text.slice(0, text.length() - 1) }
         } else {
             Resolved { text: text }
         }

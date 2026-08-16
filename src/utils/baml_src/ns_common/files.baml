@@ -38,7 +38,7 @@ function target_path(target: Target, path: string) -> string throws baml.errors.
         return path;
     }
     let trimmed = target.root.ends_with("/");
-    let root = if (trimmed) { target.root.substring(0, target.root.length() - 1) } else { target.root };
+    let root = if (trimmed) { target.root.slice(0, target.root.length() - 1) } else { target.root };
     `${root}${path}`
 }
 
@@ -84,8 +84,31 @@ interface Files {
     function read_dir(self, path: string) -> DirEntry[]? throws never
     function mkdir(self, path: string) -> void throws never
     function symlink(self, path: string, points_to: string) -> void throws never
-    /// Mode as an octal string, as `chmod` takes it: "0755".
-    function chmod(self, path: string, mode: string) -> void throws never
+    /// Mode as the octal number a mode is: `0o755`. It is the number rather
+    /// than the four characters that spell it because that is what a mode is,
+    /// and because nothing below has to parse it back.
+    function chmod(self, path: string, mode: int) -> void throws never
+}
+
+/// A mode written the way modes are read: four octal digits, so the leading
+/// one, which carries setuid, setgid and sticky, is always there to be read.
+///
+/// It exists because an `int` prints itself in base ten, and `0440` shown as
+/// `288` is a mode nobody recognises. Only what shows a mode to a person needs
+/// this; everything else carries the number.
+function octal_mode(mode: int) -> string {
+    let special = (mode / 0o1000) % 8;
+    let user = (mode / 0o100) % 8;
+    let group = (mode / 0o10) % 8;
+    let other = mode % 8;
+    `${special}${user}${group}${other}`
+}
+
+test "octal_mode spells a mode the way a mode is written" {
+    assert.equal(octal_mode(0o440), "0440");
+    assert.equal(octal_mode(0o755), "0755");
+    assert.equal(octal_mode(0o600), "0600");
+    assert.equal(octal_mode(0o2775), "2775")
 }
 
 /// Records what would be written instead of writing it, so a phase can be
@@ -96,7 +119,7 @@ class RecordingFiles {
     written: map<string, string>,
     directories: string[],
     symlinks: map<string, string>,
-    modes: map<string, string>,
+    modes: map<string, int>,
     present: string[],
 
     implements Files {
@@ -141,7 +164,7 @@ class RecordingFiles {
                 if (!entry.starts_with(prefix)) {
                     continue;
                 }
-                let rest = entry.substring(prefix.length(), entry.length());
+                let rest = entry.slice(prefix.length(), entry.length());
                 let name = (rest.split("/").at(0)) ?? "";
                 if (name == "" || named.includes(name)) {
                     continue;
@@ -167,7 +190,7 @@ class RecordingFiles {
         function symlink(self, path: string, points_to: string) -> void {
             let _ = self.symlinks.set(path, points_to);
         }
-        function chmod(self, path: string, mode: string) -> void {
+        function chmod(self, path: string, mode: int) -> void {
             let _ = self.modes.set(path, mode);
         }
     }
@@ -196,12 +219,12 @@ test "RecordingFiles remembers what a phase produced" {
     files.write("/etc/hostname", "oparch\n");
     files.mkdir("/var/log");
     files.symlink("/etc/localtime", "/usr/share/zoneinfo/Europe/Madrid");
-    files.chmod("/root/script.sh", "0755");
+    files.chmod("/root/script.sh", 0o755);
 
     assert.equal(files.written.get("/etc/hostname"), "oparch\n");
     assert.equal(files.directories, ["/var/log"]);
     assert.equal(files.symlinks.get("/etc/localtime"), "/usr/share/zoneinfo/Europe/Madrid");
-    assert.equal(files.modes.get("/root/script.sh"), "0755");
+    assert.equal(files.modes.get("/root/script.sh"), 0o755);
     assert.is_true(files.exists("/etc/hostname"));
     assert.is_true(!files.exists("/etc/fstab"))
 }

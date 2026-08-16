@@ -248,7 +248,7 @@ function validate_field_name(name: string) -> bool {
     if (name.length() == 0) {
         return false;
     }
-    if (!(name.char_at(0)).is_ascii_lowercase()) {
+    if (!(name.at(0) ?? "").is_ascii_lowercase()) {
         return false;
     }
     for (let character in name.chars()) {
@@ -288,11 +288,11 @@ function split_body(body: string) -> BodySplit {
 
     while (true) {
         if let open: int = rest.index_of("[[") {
-            let before = rest.substring(0, open);
-            let after = rest.substring(open + 2, rest.length());
+            let before = rest.slice(0, open);
+            let after = rest.slice(open + 2, rest.length());
 
             if let close: int = after.index_of("]]") {
-                let inside = after.substring(0, close);
+                let inside = after.slice(0, close);
                 if (inside.includes("[[")) {
                     return BodySplit { pieces: [], error: "An optional region is nested inside another." };
                 }
@@ -300,7 +300,7 @@ function split_body(body: string) -> BodySplit {
                     pieces.push(BodyPiece { text: before, optional: false });
                 }
                 pieces.push(BodyPiece { text: inside, optional: true });
-                rest = after.substring(close + 2, after.length());
+                rest = after.slice(close + 2, after.length());
             } else {
                 return BodySplit { pieces: [], error: "An optional region is opened and never closed." };
             }
@@ -324,13 +324,13 @@ function referenced_fields(text: string) -> string[] {
 
     while (true) {
         if let open: int = rest.index_of("{{") {
-            let after = rest.substring(open + 2, rest.length());
+            let after = rest.slice(open + 2, rest.length());
             if let close: int = after.index_of("}}") {
-                let name = after.substring(0, close).trim();
+                let name = after.slice(0, close).trim();
                 if (!names.includes(name)) {
                     names.push(name);
                 }
-                rest = after.substring(close + 2, after.length());
+                rest = after.slice(close + 2, after.length());
             } else {
                 return names;
             }

@@ -26,22 +26,22 @@ function parse_pacman_line(raw: string) -> PacmanEvent {
     let line = raw.trim();
     //# ":: Retrieving packages..." and friends
     if (line.starts_with("::")) {
-        return PhaseMarker { name: line.substring(2, line.length()).trim() };
+        return PhaseMarker { name: line.slice(2, line.length()).trim() };
     }
     //# "downloading linux-6.9.1.arch1-1-x86_64.pkg.tar.zst"
     if (line.starts_with("downloading ")) {
-        return Downloading { file: line.substring(12, line.length()).trim() };
+        return Downloading { file: line.slice(12, line.length()).trim() };
     }
     //# "( 12/345) installing linux"
     if (line.starts_with("(")) {
         if let close: int = line.index_of(")") {
-            let parts = line.substring(1, close).split("/");
+            let parts = line.slice(1, close).split("/");
             if (parts.length() == 2) {
                 let current = root.common.parse_int((parts.at(0) ?? "").trim());
                 let total = root.common.parse_int((parts.at(1) ?? "").trim());
                 if let c: int = current {
                     if let t: int = total {
-                        let rest = line.substring(close + 1, line.length()).trim();
+                        let rest = line.slice(close + 1, line.length()).trim();
                         let words = root.common.split_fields(rest);
                         return Progress {
                             current: c,

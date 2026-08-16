@@ -46,12 +46,12 @@ function substitute_markup(theme: root.return_message.Theme,
 
     while (true) {
         if let open: int = rest.index_of("{{") {
-            out = out + escape_markup(rest.substring(0, open));
-            let after = rest.substring(open + 2, rest.length());
+            out = out + escape_markup(rest.slice(0, open));
+            let after = rest.slice(open + 2, rest.length());
             if let close: int = after.index_of("}}") {
-                let field = after.substring(0, close).trim();
+                let field = after.slice(0, close).trim();
                 out = out + value_markup(theme, package, field, values.get(field) ?? "", inner);
-                rest = after.substring(close + 2, after.length());
+                rest = after.slice(close + 2, after.length());
             } else {
                 return out + escape_markup(after);
             }

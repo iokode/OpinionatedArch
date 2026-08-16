@@ -51,34 +51,6 @@ class SystemShell {
     }
 }
 
-/// Runs the command that stands in for a filesystem operation `baml.fs` does
-/// not have yet, and fails the way `baml.fs` fails: by throwing `Io` with what
-/// went wrong in its message.
-///
-/// It exists so that an operation implemented with a command reads like one
-/// implemented with `baml.fs` — same shape, same error, same `catch`. The day
-/// `baml.fs` covers the operation, the call is replaced and its `catch` is not
-/// touched. Returning `int` is part of that: it is what `baml.fs.write` and
-/// `baml.fs.mkdir` return, so the handler ends the same way theirs does.
-///
-/// What the command wrote on standard error is the message, joined into one
-/// line because that is what an error message is. The exit code is the message
-/// only when the command went quietly, which leaves it as the only thing known.
-function fs_command(program: string, args: string[]) -> int throws baml.errors.Io {
-    let result = system_shell().capture(program, args);
-    if (result.ok()) {
-        return 0;
-    }
-    let said = nonempty_lines(result.stderr);
-    throw baml.errors.Io {
-        message: if (said.length() == 0) {
-            `${program} failed with exit code ${result.exit_code}`
-        } else {
-            said.join("; ")
-        },
-    };
-}
-
 /// Touches files with `baml.fs`, remembering the first failure rather than
 /// returning one per call, which is the contract `Files` defines.
 class SystemFiles {
@@ -150,24 +122,27 @@ class SystemFiles {
             };
         }
 
-        /// `baml.fs` has neither this nor `chmod` yet, so both go through the
-        /// commands that do exactly what they say, by way of `fs_command`. Each
-        /// is still one operation, and a failure still lands in `failure()` —
-        /// and neither reads any differently from the five above.
+        /// `baml.fs.symlink` is given what the link points to first and where
+        /// the link goes second, which is the order `ln` takes them in and the
+        /// reverse of the one this port reads in. The two are swapped here,
+        /// where the difference is one line, rather than at every call.
         function symlink(self, path: string, points_to: string) -> void {
-            let _ = fs_command("ln", ["-s", points_to, path]) catch (e) {
+            let _ = baml.fs.symlink(points_to, path) catch (e) {
                 _ => {
                     self.fail(`cannot link ${path} to ${points_to}: ${e.message}`);
-                    0
+                    null
                 }
             };
         }
 
-        function chmod(self, path: string, mode: string) -> void {
-            let _ = fs_command("chmod", [mode, path]) catch (e) {
+        /// A mode that is not a mode at all is `InvalidArgument` rather than
+        /// `Io`, and both land in `failure()` the same way: what the caller was
+        /// trying to do, then what went wrong with it.
+        function chmod(self, path: string, mode: int) -> void {
+            let _ = baml.fs.chmod(path, mode) catch (e) {
                 _ => {
-                    self.fail(`cannot set mode ${mode} on ${path}: ${e.message}`);
-                    0
+                    self.fail(`cannot set mode ${octal_mode(mode)} on ${path}: ${e.message}`);
+                    null
                 }
             };
         }
@@ -239,23 +214,38 @@ test "SystemFiles reads back what it wrote" {
     let _ = baml.fs.remove(path) catch (e) { _ => null }
 }
 
-test "an operation that runs a command reads like one that does not" {
+test "a mode that cannot be set is reported the way a write that fails is" {
     let files = system_files();
     let opening = "cannot set mode 0644 on /oparch/not/there: ";
 
-    files.chmod("/oparch/not/there", "0644");
+    files.chmod("/oparch/not/there", 0o644);
     let said = files.failure() ?? "";
 
     //# the same shape `write` and `mkdir` produce: what was being done, then
-    //# what went wrong. What `chmod` says is localized, so what is asserted is
-    //# that its words are carried at all rather than which words they are
+    //# what went wrong. The words for a path that is not there are the
+    //# runtime's own, so what is asserted is that they are carried at all
     assert.is_true(said.starts_with(opening));
     assert.is_true(said.length() > opening.length())
 }
 
-test "a command that fails without a word is still reported" {
-    let failed = fs_command("sh", ["-c", "exit 3"]) catch (e) { _ => e.message };
-    assert.equal(failed, "sh failed with exit code 3")
+test "SystemFiles makes the link where it was asked for, pointing where it was told" {
+    let files = system_files();
+    let directory = `${baml.env.get("TMPDIR") ?? "/tmp"}/oparch-system-files-link`;
+    let link = `${directory}/localtime`;
+    let _ = baml.fs.remove(link) catch (e) { _ => null };
+    files.mkdir(directory);
+
+    //# what it points to is not there on purpose: the two arguments are given
+    //# to `baml.fs.symlink` in the opposite order to the one this port reads
+    //# in, so a swap is what can be wrong here, and a link to nothing is a link
+    files.symlink(link, "/oparch/not/there");
+
+    assert.equal(files.failure(), null);
+    let empty: DirEntry[] = [];
+    let listed = files.read_dir(directory) ?? empty;
+    assert.is_true(listed.find((entry) -> { entry.name == "localtime" })?.is_symlink ?? false);
+    let _ = baml.fs.remove(link) catch (e) { _ => null };
+    let _ = baml.fs.remove_dir(directory) catch (e) { _ => null }
 }
 
 test "SystemFiles reports an absent file as absent, not as a failure" {

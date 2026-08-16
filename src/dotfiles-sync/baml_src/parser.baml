@@ -241,12 +241,12 @@ function parse_section_header(
     let name = name_token?.text ?? "";
     let dot = name.index_of(".");
     let kind = if let index: int = dot {
-        name.substring(0, index)
+        name.slice(0, index)
     } else {
         name
     };
     let category = if let index: int = dot {
-        name.substring(index + 1, name.length())
+        name.slice(index + 1, name.length())
     } else {
         ""
     };
