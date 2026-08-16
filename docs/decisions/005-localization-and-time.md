@@ -2,13 +2,15 @@
 
 ## Context
 
-Project tooling and maintenance are single-language, while keyboard layout and machine location differ per installation.
+The project's tooling and its maintenance are single-language. 
+
+Keyboard layouts differ, and so does the local time where a machine is used. The hardware clock keeps a time without saying which one it is.
 
 ## Decision
 
-System language is fixed to English and is not configurable.
+System language is fixed to English and is not configurable. The locale is `en_US.UTF-8`.
 
-The only multilingual exception is the pre-boot Plymouth ownership/return screen.
+The one text of the machine that is not in English is the pre-boot return message, shown in the languages the operator selects, as decided in [Pre-Boot Ownership Message](010-preboot-ownership-message.md).
 
 Two things are configurable:
 
@@ -19,14 +21,9 @@ Clock policy is fixed: hardware clock (RTC) uses UTC.
 
 ## Why
 
-- Fixing system language to English is required because project tooling and maintenance are intentionally single-language; if the system language is configurable, translation and consistency burden grows without operational benefit for this project.
-- Keeping Plymouth as the only multilingual exception is required because that message is intended for unknown third parties who may find the device; if that screen is monolingual, return instructions are less accessible.
+- The system language is not configurable because making it configurable means keeping a translation of everything the tooling says, in step with everything that changes it, and this project does not take that cost on.
+- The return message is the one exception because it is read by whoever finds a lost machine, who did not choose this system and need not read English; in one language, instructions for returning the machine reach fewer of the people they are written for.
 - The keymap is configurable because the layout depends on the physical keyboard in front of the machine; fixed here, a machine with another layout mistypes everything, the passphrase at unlock included.
 - The timezone is configurable because local time and the timestamps in the logs depend on where the machine is; fixed here, they mislead everywhere else.
-- Fixing RTC to UTC is required because it is the standard Linux clock policy and avoids ambiguous local-time hardware clock behavior; if RTC is kept in local time, cross-environment clock drift/conflicts are more likely.
+- The hardware clock keeps UTC because that is the standard Linux clock policy.
 
-## Considerations
-
-- Keymap selection must be applied both in installed system and in early unlock path where relevant.
-- Locale policy here does not change the separate Plymouth multilingual decision.
-- If future project requirements demand multilingual system tooling, this decision must be revised explicitly.

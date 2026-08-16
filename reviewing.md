@@ -21,7 +21,7 @@ Every document, ticked when its review is called done. Only the operator ticks a
 - [x] Encryption
 - [x] Swap
 - [x] Snapshots
-- [ ] Localization and Time
+- [x] Localization and Time
 - [ ] System Identity
 - [ ] Kernel
 - [ ] Boot Image Format — work in progress, nothing decided yet
@@ -174,7 +174,7 @@ It worked badly as an index too, being grouped by topic rather than alphabetical
 
 **"Baseline policy" is still in a tool document.** [oparch-work-context-create](docs/tools/oparch-work-context-create/000-command.md) opens with "creates a new work context with the required baseline policy: the account that carries it, its groups, its home subvolume, and the initial ownership of that home". No document defines the term, and in the two places it was used it named opposite populations — there, what a work context is given; here, the accounts that are not work contexts. It can go with nothing in its place, because what follows the colon is already the whole list.
 
-**Four decision documents still describe what the installer asks.** [Localization and Time](docs/decisions/005-localization-and-time.md), [System Identity](docs/decisions/006-system-identity.md), [Bootloader](docs/decisions/009-bootloader.md) and [Pre-Boot Ownership Message](docs/decisions/010-preboot-ownership-message.md). [Installer Inputs and Bootstrap Baseline](docs/tools/oparch-installer/002-inputs-and-bootstrap-baseline.md) already owns the inputs, and [Document Types](docs/README.md) now carries the rule that sends them there. Localization and Time already writes one of its two sentences that way: "System language is fixed to English and is not configurable in the installer" stays, and "The installer asks for: console keymap, timezone" becomes that the console keymap and the timezone are configurable. What varies from one of the operator's machines to another is a separate idea and stays where it lives, in [Dotfiles](docs/decisions/019-dotfiles.md).
+**One decision document still describes what the installer asks.** [Pre-Boot Ownership Message](docs/decisions/010-preboot-ownership-message.md) says of the logo that it is "asked for only when the return message is enabled". [Installer Inputs and Bootstrap Baseline](docs/tools/oparch-installer/002-inputs-and-bootstrap-baseline.md) already owns the inputs, and [Document Types](docs/README.md) now carries the rule that sends them there.
 
 ## Disk Layout
 
@@ -213,3 +213,9 @@ It worked badly as an index too, being grouped by topic rather than alphabetical
 **[Kernel](docs/decisions/007-kernel.md) sends a bad kernel out of the machine.** Its argument for keeping one kernel accepts that failures have no local answer and closes with recovery delegated to an external live environment. Both halves moved: recovery is a partition of the machine now, and restoring a system snapshot brings back the kernel that root was running, which is the local way back that argument says does not exist.
 
 **Two snapshot tools describe a job that has grown.** [oparch-snapshot-system-create](docs/tools/oparch-snapshot-system-create/000-command.md) describes creating the snapshot and nothing else, where creating one now also means hashing the boot artifacts, storing the set when it is new, and recording the pair. [oparch-snapshot-restore](docs/tools/oparch-snapshot-restore/000-command.md) says a system restore must run offline from live media plus chroot, which predates the recovery partition, and that a home restore can run on the installed system "with controlled session state", where Snapshots now requires that context to be logged out; neither the table nor putting the artifacts back is mentioned at all.
+
+## Localization and Time
+
+### Still to do
+
+**[mkinitcpio Hooks](docs/decisions/012-mkinitcpio-hooks.md) attributes a path to a document that does not hold it.** It says the keymap at unlock is the machine's own "as [Localization and Time] decides it: written to `/etc/vconsole.conf`, and applied through `keymap`". Localization and Time names no file, deliberately: on a system with systemd there is one canonical place for the language, the keymap and the timezone, so writing them down would be documenting how Arch works rather than deciding anything. Where the hook reads the keymap from is the hook's own business and can stay in that document; what has to go is the attribution. [System Identity](docs/decisions/006-system-identity.md) carries the same kind of content in its own words — two of its three decision lines are about `/etc/hostname` and `/etc/hosts` — and meets the same criterion in its own turn.
