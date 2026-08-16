@@ -2,46 +2,33 @@
 
 ## Context
 
-The disk-unlock screen shown at boot can display an ownership-and-return message before the operating system starts. It is read by whoever finds a lost machine, on a screen with no operating system behind it.
-
-The message wording, and the data it needs, vary by owner and by region. A message that names the local police force needs a field that another message has no use for.
+The disk-unlock screen shown at boot can display an ownership-and-return message before the operating system starts. It is read by whoever finds a lost machine.
 
 ## Decision
 
-The return message is optional. A machine either carries one on its unlock screen or carries none, and one that carries none has nothing of it configured.
+The return message is optional. When enabled, it is shown at the disk unlock prompt.
 
-### Template packages
+### The message
 
-The message is defined by a template package rather than fixed in this project. A package contains:
+The wording of the message, the languages it offers and the data it needs are not fixed by this project: they come from a template package, which the operator may supply and which the project ships one of. Its format is [Return Message Template Package Format](../tools/oparch-return-message-render/001-template-package-format.md).
 
-- A manifest declaring the fields the message needs, each with a name, the label shown to the operator, and whether it is required.
-- One message body per language, with the language's own name and the message text, referencing fields by placeholder.
+A package is data. Nothing in it is executed, and its text is escaped wherever it is embedded, so a package obtained from a URL cannot introduce anything that runs during boot.
 
-The manifest is mandatory, and it governs what is collected: exactly the fields it declares, in the order it declares them, and nothing else.
-
-The operator may supply their own package, from a local directory or a URL. When none is supplied, the project's default package is used. The default package provides the message in several languages.
-
-The message is shown in the languages the operator selects from those the package provides. How many may be selected is what the theme accepts, as decided in [Return Message Themes](../tools/oparch-return-message-render/004-themes.md).
-
-### The message is data
-
-A template package is data. Its text is never executed, and it is escaped wherever it is embedded, so a package obtained from a URL cannot introduce anything that runs during boot.
+The message is shown in the languages the operator selects.
 
 ### Rendering
 
-The message is rendered to an image at install time and that image is what the unlock screen displays. Text is not drawn by the boot splash.
+The message is rendered to images, and that images are what the unlock screen displays.
 
-The rendered image is scaled proportionally and centred at boot, so it does not depend on the display it was rendered for. It is scaled to a fraction of whichever screen dimension limits it, so there is always a margin and the message never touches the screen edges. The horizontal margin governs line length and so is the one that matters for readability.
+The rendered images reach the edges of the screen. Their content does not: the renderer composes them with a margin around it.
 
-The image is rendered larger than any display it is expected to meet, so the scaling is always downwards. Enlarging is what turns text into a blur; reducing never does.
+What the message looks like, and how the languages are arranged, are the theme's, as decided in [Return Message Themes](../tools/oparch-return-message-render/004-themes.md).
 
-The composition follows from the number of selected languages, preferring a wide arrangement over a tall one, because a composition shaped like the screen leaves the text larger after scaling. Which arrangement each number gets, and what fraction of the screen the result is scaled to, are the theme's, as decided in [Return Message Themes](../tools/oparch-return-message-render/004-themes.md).
-
-Language identity is shown from the language's own name, not from flags.
+Everything the unlock screen needs is on the machine before the initramfs is built. Nothing is fetched at boot.
 
 ### The unlock screen
 
-Everything the unlock screen shows is an image: the message, the prompt asking for the passphrase, and the glyph that marks each typed character. The boot splash draws no text, so the installed system carries no font for it.
+The message, the prompt asking for the passphrase and the glyph that marks each typed character are all images. The boot splash draws no text, so the installed system carries no font for it.
 
 The prompt is in English, and is not part of a template package. The system language is English, as decided in [Localization and Time](005-localization-and-time.md); a template package translates what a finder reads, not what the owner reads.
 
@@ -49,45 +36,25 @@ The prompt asks for the secret and names nothing else. It does not say that a di
 
 The typed passphrase is masked with a repeated image rather than a character, so what marks a keystroke is drawn rather than looked up in a font.
 
-### Logo
-
-The screen may include a logo, asked for only when the return message is enabled. Its source is a URL, downloaded during installation and composed into the rendered image.
-
-A logo that cannot be downloaded does not pass in silence. The installation stops on it, and goes on only with another URL or with a deliberate choice to have no logo at all.
-
-### Validation
-
-The template package is fetched, parsed and checked before anything is written to disk: that the manifest is well formed, that the selected languages exist in the package, and that every required field has a value.
-
-Boot-time rendering is fully offline. Everything the unlock screen needs is local before the initramfs is built.
+If the boot splash fails, unlock still falls back to a text-mode prompt.
 
 ## Why
 
-- Showing ownership-and-return text at pre-boot unlock is useful because a finder can read contact instructions immediately without needing OS access; if omitted, device return depends on external assumptions and recovery chance drops.
-- Making the message optional is required because not every installation should publish contact data at pre-boot; if it is mandatory, the only way to have a machine without one is to change the project.
-- Fields are declared by the template rather than fixed by this project because the data a message needs follows its wording, which varies by owner and region; when the fields were fixed, region-specific content had to be smuggled into a field that did not mean that, such as naming a police force inside the return address.
-- A manifest is mandatory rather than inferred from the placeholders because inferring gives no labels, no order and no way to mark a field optional, and because one predictable way of declaring fields is preferred over several that behave differently.
-- Operator-supplied packages are required because the project cannot anticipate every wording; if only project templates exist, the only way to change the message is to change the project.
-- How many languages may be selected is the theme's rather than a number fixed here, because the readable limit is a property of the arrangement and the sizes a theme chooses, and only the theme knows them; a number fixed here refuses a theme built for more and accepts one that cannot lay out the number it allows. The reason a limit exists at all does not change: the screen must preserve readable contact text at early-boot resolutions, and if too many languages are shown, each message becomes too small to scan quickly.
-- Native language names are required because they identify the readable block without relying on political or regional symbols; if flags are used, the cue can be ambiguous or inappropriate.
+- The message is on the unlock screen because that is as far as whoever finds the machine gets: everything behind it is encrypted, so a screen that says nothing leaves them with a device and no way to return it.
+- The message is optional because not every machine should publish contact data where anyone who picks it up reads it, and having a machine without one must not mean changing the project.
+- The message comes from a package rather than from this project because its wording, and the data that wording needs, vary by owner and by region: a message that names the local police force needs a field another message has no use for. A project that fixed them would be the only place either could change.
 - Template content is treated as data and escaped because the message ends up inside the boot splash's own theme; if it were interpolated as code, a package fetched from a URL would run arbitrary code during boot, before the disk is unlocked.
-- Rendering to an image at install time is required because the boot splash draws text with a single font and no fallback or shaping, which silently fails for scripts that font does not cover; rendering on the live system uses a complete text engine, so any writing system works. It also allows formatting the splash cannot express.
+- The message is rendered to an image because the boot splash draws text with a single font and no fallback or shaping, which silently fails for scripts that font does not cover; the live system has a complete text engine, so any writing system works, and formatting the splash cannot express becomes possible.
 - The prompt and the mask are images too, and not only the message, because a screen that still draws one line of text still needs a font installed for it, and that font still fails for what it does not cover. The mask is the case in point: it was written with asterisks because the bundled font drew dots as empty boxes.
 - The prompt is in English because it is part of the system's interface, which is English, and not part of the message, which exists to be read by someone who did not choose this system.
 - The prompt names neither the disk nor the passphrase because this screen is the one screen of the system that anyone who picks the machine up will see, and the owner is the only person it has anything to tell. Whoever else is reading is being told, for nothing, that the machine is encrypted and that what is being typed is the key to it; the owner already knows what to type.
-- Proportional scaling with margins is required because the screen at boot is not necessarily the one the message was rendered for; if a fixed aspect ratio is assumed, the message is stretched or cropped on a docked display or a differently shaped panel.
-- The scaling leaves a margin rather than filling the screen because a margin has to come from somewhere and the boot screen has no layout engine to negotiate one; if the composition is allowed to fill the screen, the outermost line of text ends against the panel edge, which is where a display's own overscan or a bezel eats it.
-- The composition is chosen by language count because the number of languages decides the shape of the message; a tall composition on a wide screen is limited by height and shrinks the text, while a composition shaped like the screen keeps it large. Enlarging the font instead does not help, because a taller image is scaled down by the same proportion.
-- Downloading the logo only at install time is required because early boot has no network guarantees; if boot depends on remote retrieval, unlock can fail or degrade unpredictably.
-- Logo download failure must trigger an explicit choice because URL typos are common and silent fallback hides configuration mistakes; if failure is silent, intended branding is lost without the operator knowing.
-- Validating the package before the disk is touched is required because a message that cannot be built is a configuration error, and a configuration error found halfway through leaves a partially installed disk.
+- A background image is meant to reach every edge; text laid over it is not. So the margin goes around the content, and the renderer leaves it when it composes the image.
 
 ## Considerations
 
-- Contact data is intentionally public on the pre-boot screen by design decision.
+- Contact data is intentionally public on the pre-boot screen.
 - The rendered message is an image, so it carries no selectable text. This is accepted: at this point there is no operating system and no assistive tooling, and what a finder sees is pixels either way.
-- Changing the message on an installed system means rendering it again, which is why rendering is a tool of its own rather than installer-internal behaviour. That tool is [oparch-return-message-render](../tools/oparch-return-message-render/000-command.md).
-- If the boot splash fails, unlock must still fall back to a functional text-mode prompt.
-- Runtime unlock must never fetch remote assets; everything must be local before the initramfs is built.
+- Changing the message on an installed system means rendering it again with [oparch-return-message-render](../tools/oparch-return-message-render/000-command.md).
 - Return-message readability must be validated on the real display resolutions used by the target machines.
-- What the rendered message looks like is a theme's, decided in [Return Message Themes](../tools/oparch-return-message-render/004-themes.md). Nothing here fixes a colour, a font or an arrangement; this document fixes what the screen is for and what may not be on it.
+- What the rendered message looks like is a theme's, decided in [Return Message Themes](../tools/oparch-return-message-render/004-themes.md).
+

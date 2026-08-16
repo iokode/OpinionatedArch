@@ -2,7 +2,7 @@
 
 ## Context
 
-OpinionatedArch decides how a machine is laid out and how it is operated, and a machine changes: contexts are added, secrets rotate, snapshots are taken and restored. Those decisions hold only if something carries them out afterwards.
+OpinionatedArch decides how a machine is laid out and how it is operated, and a machine changes. Those decisions hold only if something carries them out afterwards. The tools do that.
 
 ## Decision
 
@@ -29,3 +29,4 @@ The language these tools are written in is decided in [BAML as Implementation La
 - Do not duplicate the concrete tool inventory in this document.
 - Do not put filesystem changes, account changes, snapshot operations, or other system mutations in interactive tools.
 - Keep exceptions explicit in the affected tool document.
+

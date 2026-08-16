@@ -25,7 +25,7 @@ Every document, ticked when its review is called done. Only the operator ticks a
 - [x] Kernel
 - [x] Boot Image Format
 - [x] Bootloader
-- [ ] Pre-Boot Ownership Message
+- [x] Pre-Boot Ownership Message
 - [ ] Return Message on an Installed System — work in progress, nothing decided yet
 - [ ] mkinitcpio Hooks
 - [ ] Recovery — work in progress, nothing decided yet
@@ -128,4 +128,10 @@ Every document, ticked when its review is called done. Only the operator ticks a
 ## Localization and Time
 
 **[mkinitcpio Hooks](docs/decisions/011-mkinitcpio-hooks.md) attributes a path to a document that does not hold it.** It says the keymap at unlock is the machine's own "as [Localization and Time] decides it: written to `/etc/vconsole.conf`, and applied through `keymap`". Localization and Time names no file, deliberately: on a system with systemd there is one canonical place for the language, the keymap and the timezone, so writing them down would be documenting how Arch works rather than deciding anything. Where the hook reads the keymap from is the hook's own business and can stay in that document; what has to go is the attribution.
+
+## Pre-Boot Ownership Message
+
+**The margin moved from the boot to the composition, and the theme format still puts it at boot.** The decision now says the rendered image reaches the edges of the screen and its content does not, with the renderer leaving that margin when it composes the image. [Return Message Theme Format](docs/tools/oparch-return-message-render/003-theme-format.md) still carries `screen.fit`, "fraction of the limiting screen dimension the composition is scaled to", which is that same margin made by the splash instead. It goes, the separation it produced belongs in `canvas` beside the other spacings, and its validation, the `Why` explaining why `fit` is below one, and what the renderer writes into the splash script all follow.
+
+**[Return Message Themes](docs/tools/oparch-return-message-render/004-themes.md) cites a decision by its old number.** Three times it says `` `007` `` — for the fixed limit of four it replaced, for what is refused of template packages, and for the validation rule it inherits. That document is [Pre-Boot Ownership Message](docs/decisions/009-preboot-ownership-message.md), and [Document Types](docs/README.md) asks for a link with its title.
 
