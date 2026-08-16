@@ -27,7 +27,7 @@ The following hooks are intentionally not used in this phase: `systemd`, `sd-enc
 Plymouth must be installed in the target system before generating initramfs only when the pre-boot return message is enabled.
 
 
-Keyboard layout for unlock is provided by installer input, written to `/etc/vconsole.conf`, and applied through `keymap`.
+The keymap used at unlock is the machine's own, as [Localization and Time](005-localization-and-time.md) decides it: written to `/etc/vconsole.conf`, and applied through `keymap`.
 
 ## Why
 

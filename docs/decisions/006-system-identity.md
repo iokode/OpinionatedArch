@@ -6,18 +6,16 @@ Machine identity is installation-specific input.
 
 ## Decision
 
-The installer asks for the machine hostname.
+The hostname is configurable.
 
-The hostname format is validated before it is written.
+It lives in `/etc/hostname`, which is where the installed system reads it from.
 
-The installer writes the selected value to `/etc/hostname`.
-
-The installer does not modify `/etc/hosts` in this phase and keeps the default file content provided by the base system.
+`/etc/hosts` is left as the base system provides it, with no mapping of its own.
 
 ## Why
 
-- Asking for hostname is required because machine identity is installation-specific input; if hostname is not requested, identity must be fixed or inferred and can be wrong for the target machine.
-- Writing `/etc/hostname` is required because this is the canonical hostname source for the installed system; if skipped, hostname persistence is undefined.
+- The hostname is configurable because it names one machine among the operator's, and a name fixed by this project would be the same on all of them.
+- `/etc/hostname` is where it goes because that is the canonical source for the installed system; anywhere else, the name would not survive a reboot.
 - Not modifying `/etc/hosts` is required because current baseline behavior works without custom host mappings and no concrete issue requires overrides; if `/etc/hosts` is customized without need, policy adds arbitrary maintenance surface.
 
 ## Considerations

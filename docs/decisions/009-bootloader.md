@@ -14,7 +14,7 @@ The boot menu is hidden and the default entry is started without waiting.
 
 `grub-mkconfig` is not used.
 
-The installer uses one static `grub.cfg` stored under `assets/`, installed as `/boot/grub/grub.cfg`.
+The menu is one static `grub.cfg`, kept among the project's assets and installed as `/boot/grub/grub.cfg`.
 
 If the shared dotfiles contain a `grub/` directory, the dotfiles synchronization tool copies that directory to `/boot`.
 

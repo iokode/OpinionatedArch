@@ -8,16 +8,16 @@ The message wording, and the data it needs, vary by owner and by region. A messa
 
 ## Decision
 
-The installer asks whether this return message should be included. If it is disabled, the installer asks nothing further about it and does not configure the unlock screen for it.
+The return message is optional. A machine either carries one on its unlock screen or carries none, and one that carries none has nothing of it configured.
 
 ### Template packages
 
-The message is defined by a template package, not by the installer. A package contains:
+The message is defined by a template package rather than fixed in this project. A package contains:
 
 - A manifest declaring the fields the message needs, each with a name, the label shown to the operator, and whether it is required.
 - One message body per language, with the language's own name and the message text, referencing fields by placeholder.
 
-The manifest is mandatory. The installer asks for exactly the fields the manifest declares, in the order it declares them, and for nothing else.
+The manifest is mandatory, and it governs what is collected: exactly the fields it declares, in the order it declares them, and nothing else.
 
 The operator may supply their own package, from a local directory or a URL. When none is supplied, the project's default package is used. The default package provides the message in several languages.
 
@@ -53,7 +53,7 @@ The typed passphrase is masked with a repeated image rather than a character, so
 
 The screen may include a logo, asked for only when the return message is enabled. Its source is a URL, downloaded during installation and composed into the rendered image.
 
-If the download fails, the installer must not continue silently. It asks whether to retry with a new URL or to continue deliberately without a logo.
+A logo that cannot be downloaded does not pass in silence. The installation stops on it, and goes on only with another URL or with a deliberate choice to have no logo at all.
 
 ### Validation
 
@@ -64,8 +64,8 @@ Boot-time rendering is fully offline. Everything the unlock screen needs is loca
 ## Why
 
 - Showing ownership-and-return text at pre-boot unlock is useful because a finder can read contact instructions immediately without needing OS access; if omitted, device return depends on external assumptions and recovery chance drops.
-- Making the message optional is required because not every installation should publish contact data at pre-boot; if it is mandatory, privacy or deployment-specific preferences cannot be represented without editing installer code.
-- Fields are declared by the template rather than fixed by the installer because the data a message needs follows its wording, which varies by owner and region; when the fields were fixed, region-specific content had to be smuggled into a field that did not mean that, such as naming a police force inside the return address.
+- Making the message optional is required because not every installation should publish contact data at pre-boot; if it is mandatory, the only way to have a machine without one is to change the project.
+- Fields are declared by the template rather than fixed by this project because the data a message needs follows its wording, which varies by owner and region; when the fields were fixed, region-specific content had to be smuggled into a field that did not mean that, such as naming a police force inside the return address.
 - A manifest is mandatory rather than inferred from the placeholders because inferring gives no labels, no order and no way to mark a field optional, and because one predictable way of declaring fields is preferred over several that behave differently.
 - Operator-supplied packages are required because the project cannot anticipate every wording; if only project templates exist, the only way to change the message is to change the project.
 - How many languages may be selected is the theme's rather than a number fixed here, because the readable limit is a property of the arrangement and the sizes a theme chooses, and only the theme knows them; a number fixed here refuses a theme built for more and accepts one that cannot lay out the number it allows. The reason a limit exists at all does not change: the screen must preserve readable contact text at early-boot resolutions, and if too many languages are shown, each message becomes too small to scan quickly.

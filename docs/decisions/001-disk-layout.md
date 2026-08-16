@@ -125,7 +125,7 @@ Snapshot paths under `/snapshots/system` and `/snapshots/home/<work-context>` ar
 
 ## Why
 
-- Full-disk deterministic partitioning is used because it is the easiest way to force the GPT layout and create the partitions required by the installer. Writing an installer that reuses existing partitions while maintaining invariants is not trivial.
+- Full-disk deterministic partitioning is used because the alternative is a hard program to write and to keep correct: an installer that fits this layout into the partitioning someone else left, while keeping every invariant the layout promises.
 - The three partitions each hold what has to survive something the others do not: the boot artifacts the firmware reads before anything is decrypted, the recovery system that has to start when the container does not open, and operating-system state, work-context data, snapshots, dotfiles, logs, package cache and swap, which stay inside one encrypted filesystem.
 - There is no relevant swap performance difference between swapfiles and swap partitions on modern SSDs, so using swapfiles is simpler than creating a swap partition.
 - The EFI layout keeps project-owned boot artifacts under `EFI/OpinionatedArch` and `OpinionatedArch` so they do not mix with third-party or vendor-owned EFI directories.
