@@ -328,6 +328,11 @@ function check_config(shell: root.common.Shell, files: root.common.Files, secret
     if (!one_of(config.install_mode, ["wipe-all", "keep-homes"])) {
         return "install_mode must be wipe-all or keep-homes.";
     }
+    //# the format admits it, the installer does not implement it, and this is
+    //# the last place a file-driven run can be stopped before the disk is touched
+    if (config.install_mode == "keep-homes") {
+        return "keep-homes is not implemented yet.";
+    }
     if (!one_of(config.ucode_package, ["intel-ucode", "amd-ucode", "none"])) {
         return "ucode_package must be intel-ucode, amd-ucode, or none.";
     }
@@ -570,6 +575,14 @@ test "check_config rejects a disk that is not a block device" {
 
     assert.equal(check_config(shell, packaged_files(), recording_secrets(), parsed.config, "/assets"),
                  "disk must be an existing block device: /dev/sda")
+}
+
+test "check_config rejects keep-homes before anything is touched" {
+    let parsed = parse_config_file(full_config_text());
+    parsed.config.install_mode = "keep-homes";
+
+    assert.equal(check_config(checking_shell(), packaged_files(), recording_secrets(), parsed.config, "/assets"),
+                 "keep-homes is not implemented yet.")
 }
 
 test "check_config rejects a timezone that is not in the canonical list" {

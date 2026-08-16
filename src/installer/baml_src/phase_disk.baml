@@ -11,7 +11,7 @@ class Step {
 
 /// The subvolumes created directly under the filesystem root.
 function root_subvolumes() -> string[] {
-    ["@", "@recovery", "@snapshots", "@log", "@pkg", "@dotfiles", "@swap"]
+    ["@", "@snapshots", "@log", "@pkg", "@dotfiles", "@swap"]
 }
 
 /// Directories created inside the mounted root before the nested subvolumes
@@ -44,13 +44,10 @@ function nested_mounts() -> SubvolumeMount[] {
 function prepare_layout(shell: root.common.Shell, files: root.common.Files, ui: Ui,
                         config: InstallConfig, target: root.common.Target) -> string
         throws baml.errors.InvalidArgument {
-    if (config.install_mode == "keep-homes") {
-        return "keep-homes install mode is not supported yet.";
-    }
-
     let disk = config.disk;
     let efi_partition = partition_path(disk, 1);
-    let root_partition = partition_path(disk, 2);
+    let recovery_partition = partition_path(disk, 2);
+    let root_partition = partition_path(disk, 3);
 
     //# from here on the disk is being destroyed. Every command is checked:
     //# carrying on after one of these fails would encrypt and format a disk
@@ -60,7 +57,9 @@ function prepare_layout(shell: root.common.Shell, files: root.common.Files, ui: 
         Step { program: "wipefs", args: ["-af", disk] },
         Step { program: "sgdisk", args: ["--zap-all", disk] },
         Step { program: "sgdisk", args: ["-n", "1:0:+1G", "-t", "1:ef00", "-c", "1:EFI", disk] },
-        Step { program: "sgdisk", args: ["-n", "2:0:0", "-t", "2:8300", "-c", "2:CRYPTROOT", disk] },
+        Step { program: "sgdisk", args: ["-n", "2:0:+4G", "-t", "2:8300", "-c", "2:RECOVERY", disk] },
+        Step { program: "sgdisk",
+               args: ["-n", "3:0:0", "-t", "3:8300", "-c", "3:OpinionatedArch", disk] },
         Step { program: "partprobe", args: [disk] },
         Step { program: "udevadm", args: ["settle"] },
     ];
@@ -74,6 +73,14 @@ function prepare_layout(shell: root.common.Shell, files: root.common.Files, ui: 
     let formatted = shell.capture("mkfs.fat", ["-F32", efi_partition]);
     if (formatted.exit_code != 0) {
         return `mkfs.fat failed with exit code ${formatted.exit_code}.`;
+    }
+
+    //# the recovery partition is made and left alone: it is outside the
+    //# container, the installed system does not mount it, and what goes inside
+    //# it is the recovery system, which is not built here.
+    let recovery = shell.capture("mkfs.ext4", ["-F", "-L", "RECOVERY", recovery_partition]);
+    if (recovery.exit_code != 0) {
+        return `mkfs.ext4 failed with exit code ${recovery.exit_code}.`;
     }
 
     //# the passphrase goes in on standard input, never as an argument
@@ -180,7 +187,7 @@ test "prepare_layout runs the whole sequence in order" {
         streamed: [],
         fed: [],
         exit_codes: {},
-        replies: { "blkid -s UUID -o value /dev/sda2": "5f3a-uuid\n" },
+        replies: { "blkid -s UUID -o value /dev/sda3": "5f3a-uuid\n" },
     };
     let files = root.common.recording_files();
     let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
@@ -192,16 +199,17 @@ test "prepare_layout runs the whole sequence in order" {
         "wipefs -af /dev/sda",
         "sgdisk --zap-all /dev/sda",
         "sgdisk -n 1:0:+1G -t 1:ef00 -c 1:EFI /dev/sda",
-        "sgdisk -n 2:0:0 -t 2:8300 -c 2:CRYPTROOT /dev/sda",
+        "sgdisk -n 2:0:+4G -t 2:8300 -c 2:RECOVERY /dev/sda",
+        "sgdisk -n 3:0:0 -t 3:8300 -c 3:OpinionatedArch /dev/sda",
         "partprobe /dev/sda",
         "udevadm settle",
         "mkfs.fat -F32 /dev/sda1",
-        "cryptsetup luksFormat --type luks2 --batch-mode --key-file - /dev/sda2",
-        "cryptsetup open --key-file - /dev/sda2 cryptroot",
+        "mkfs.ext4 -F -L RECOVERY /dev/sda2",
+        "cryptsetup luksFormat --type luks2 --batch-mode --key-file - /dev/sda3",
+        "cryptsetup open --key-file - /dev/sda3 cryptroot",
         "mkfs.btrfs -f /dev/mapper/cryptroot",
         "mount /dev/mapper/cryptroot /mnt",
         "btrfs subvolume create /mnt/@",
-        "btrfs subvolume create /mnt/@recovery",
         "btrfs subvolume create /mnt/@snapshots",
         "btrfs subvolume create /mnt/@log",
         "btrfs subvolume create /mnt/@pkg",
@@ -217,7 +225,7 @@ test "prepare_layout runs the whole sequence in order" {
         "mount -o subvol=@swap /dev/mapper/cryptroot /mnt/swap",
         "mount -o subvol=home/@ivan /dev/mapper/cryptroot /mnt/home/ivan",
         "mount /dev/sda1 /mnt/boot",
-        "blkid -s UUID -o value /dev/sda2",
+        "blkid -s UUID -o value /dev/sda3",
     ])
 }
 
@@ -233,8 +241,8 @@ test "prepare_layout keeps the passphrase off every command line" {
 
     assert.is_true(!shell.commands.join(" ").includes(config.shared_secret));
     assert.equal(shell.fed, [
-        "cryptsetup luksFormat --type luks2 --batch-mode --key-file - /dev/sda2",
-        "cryptsetup open --key-file - /dev/sda2 cryptroot",
+        "cryptsetup luksFormat --type luks2 --batch-mode --key-file - /dev/sda3",
+        "cryptsetup open --key-file - /dev/sda3 cryptroot",
     ])
 }
 
@@ -265,7 +273,7 @@ test "prepare_layout creates the directories the layout needs" {
 test "prepare_layout records the root partition UUID for later phases" {
     let shell = root.common.RecordingShell {
         commands: [], streamed: [], fed: [], exit_codes: {},
-        replies: { "blkid -s UUID -o value /dev/nvme0n1p2": "9c1e-2f77\n" },
+        replies: { "blkid -s UUID -o value /dev/nvme0n1p3": "9c1e-2f77\n" },
     };
     let config = layout_config();
     config.disk = "/dev/nvme0n1";
@@ -293,18 +301,17 @@ test "prepare_layout gives every work context a home subvolume and a mount" {
     assert.is_true(shell.commands.includes("mount -o subvol=home/@work /dev/mapper/cryptroot /mnt/home/work"))
 }
 
-test "prepare_layout refuses keep-homes without touching the disk" {
-    let shell = root.common.RecordingShell {
-        commands: [], streamed: [], fed: [], exit_codes: {}, replies: {},
-    };
-    let config = layout_config();
-    config.install_mode = "keep-homes";
+test "prepare_layout leaves the recovery partition formatted and unmounted" {
+    let shell = plain_shell();
     let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
-    assert.equal(prepare_layout(shell, root.common.recording_files(), ui, config,
-                                root.common.chroot_target("/mnt")),
-                 "keep-homes install mode is not supported yet.");
-    assert.equal(shell.commands, [])
+    let _ = prepare_layout(shell, root.common.recording_files(), ui, layout_config(),
+                           root.common.chroot_target("/mnt"));
+
+    assert.is_true(shell.commands.includes("mkfs.ext4 -F -L RECOVERY /dev/sda2"));
+    //# nothing mounts it, and it is no longer a subvolume of the container
+    assert.is_true(!shell.commands.join(" ").includes("/dev/sda2 /mnt"));
+    assert.is_true(!shell.commands.join(" ").includes("@recovery"))
 }
 
 test "prepare_layout stops at the first destructive command that fails" {
@@ -323,7 +330,7 @@ test "prepare_layout stops at the first destructive command that fails" {
 
 test "prepare_layout stops when the partition table cannot be written" {
     let shell = plain_shell();
-    let _ = shell.exit_codes.set("sgdisk -n 2:0:0 -t 2:8300 -c 2:CRYPTROOT /dev/sda", 4);
+    let _ = shell.exit_codes.set("sgdisk -n 3:0:0 -t 3:8300 -c 3:OpinionatedArch /dev/sda", 4);
     let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     assert.equal(
@@ -336,7 +343,7 @@ test "prepare_layout stops when the partition table cannot be written" {
 test "prepare_layout stops when the container cannot be created" {
     let shell = plain_shell();
     let _ = shell.exit_codes.set(
-        "cryptsetup luksFormat --type luks2 --batch-mode --key-file - /dev/sda2", 1);
+        "cryptsetup luksFormat --type luks2 --batch-mode --key-file - /dev/sda3", 1);
     let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
 
     assert.equal(

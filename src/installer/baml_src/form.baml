@@ -133,15 +133,28 @@ function step_data_preservation(ui: Ui, tips: Tips, config: InstallConfig) -> bo
     ui.step("Data preservation");
     ui.tip(tip_for(tips, "data_preservation"));
     let options = ["wipe-all", "keep-homes"];
-    if let picked: int = ui
-        .choose(
-            "Data preservation",
-            "wipe-all erases the disk. keep-homes preserves existing home subvolumes.",
-            options,
-            index_of_option(options, config.install_mode),
-        ) {
-        config.install_mode = options.at(picked) ?? "";
-        return true;
+    while (true) {
+        if let picked: int = ui
+            .choose(
+                "Data preservation",
+                "wipe-all erases the disk. keep-homes preserves existing home subvolumes.",
+                options,
+                index_of_option(options, config.install_mode),
+            ) {
+            let mode = options.at(picked) ?? "";
+            //# the mode is offered because the layout admits it and refused here
+            //# because nothing implements it yet. Saying so at the question is
+            //# what keeps the run from ending at the summary, with every other
+            //# answer already given.
+            if (mode == "keep-homes") {
+                ui.error("keep-homes is not implemented yet.");
+            } else {
+                config.install_mode = mode;
+                return true;
+            }
+        } else {
+            return false;
+        }
     }
     false
 }
@@ -1238,6 +1251,35 @@ test "swap sizes must be integers, and users must confirm the secret" {
     if let collected: InstallConfig = config {
         assert.equal(collected.swap.zram_gb, 8);
         assert.equal(collected.shared_secret, "one")
+    }
+}
+
+test "keep-homes is refused at the question and asked again" {
+    let ui = scripted(
+        [
+            "es", "/dev/sda (476,9G, Samsung SSD 860)",
+            "keep-homes",
+            "wipe-all",
+            "none",
+            "none",
+            "0",
+            "0",
+            "ivan",
+            "s",
+            "s",
+                        "UTC",
+            "oparch",
+            "no",
+            "no",
+            "start",
+        ],
+    );
+
+    let config = collect_config(fake_live_shell(), packaged_files(), recording_secrets(), ui, "/assets");
+
+    assert.equal(ui.errors, ["keep-homes is not implemented yet."]);
+    if let collected: InstallConfig = config {
+        assert.equal(collected.install_mode, "wipe-all")
     }
 }
 

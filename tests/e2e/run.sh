@@ -351,6 +351,22 @@ fi
 echo
 echo "harness: the installation reported success"
 
+# ----------------------------------------------------------------- the disk
+#
+# The layout docs/decisions/001-disk-layout.md fixes: three partitions, with
+# the recovery system on one of its own rather than on a subvolume inside the
+# container it exists to repair. Nothing mounts that partition, so what the
+# harness can see of it is its filesystem and its label.
+
+echo
+echo "harness: the layout the installation left on the disk"
+run_in_guest "test \"\$(lsblk -no NAME /dev/vda | grep -c 'vda[0-9]')\" = '3'"
+run_in_guest "test \"\$(blkid -s TYPE -o value /dev/vda2)\" = 'ext4'"
+run_in_guest "test \"\$(blkid -s LABEL -o value /dev/vda2)\" = 'RECOVERY'"
+run_in_guest "test \"\$(blkid -s TYPE -o value /dev/vda3)\" = 'crypto_LUKS'"
+run_in_guest "! btrfs subvolume list /mnt | grep -q '@recovery'"
+run_in_guest "! findmnt -S /dev/vda2"
+
 # ------------------------------------------------------------- the dotfiles
 #
 # The case in docs/development/006-end-to-end-testing.md: a package is applied.
