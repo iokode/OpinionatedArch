@@ -2,7 +2,7 @@
 
 ## Context
 
-The pre-boot return message is rendered to an image, as decided in [Pre-Boot Ownership Message](../../decisions/010-preboot-ownership-message.md). What that message says is defined by a template package, in [Return Message Template Package Format](001-template-package-format.md), and which values fill it by [Return Message Values Format](002-values-format.md). Neither says anything about what the result looks like: presentation is deliberately absent from both.
+The pre-boot return message is rendered to an image, as decided in [Pre-Boot Ownership Message](../../decisions/009-preboot-ownership-message.md). What that message says is defined by a template package, in [Return Message Template Package Format](001-template-package-format.md), and which values fill it by [Return Message Values Format](002-values-format.md). Neither says anything about what the result looks like: presentation is deliberately absent from both.
 
 A theme is what says it. It carries the typography, the colours, the panels, the spacing and the arrangement of the languages, and nothing else. `oparch-return-message-render` builds the images from a template package, a set of values and a theme.
 
@@ -163,7 +163,7 @@ The glyph drawn once for each character typed into the password prompt, written 
 | `size` | The side of the image, in canvas pixels |
 | `color_palette` | Name declared in `palette` |
 
-It is a drawn shape and not a character, which [Pre-Boot Ownership Message](../../decisions/010-preboot-ownership-message.md) requires.
+It is a drawn shape and not a character, which [Pre-Boot Ownership Message](../../decisions/009-preboot-ownership-message.md) requires.
 
 ### language_panel and password_prompt_panel
 
@@ -316,7 +316,7 @@ A theme is validated completely before anything is drawn, and nothing is written
 ## Why
 
 - A theme is delivered as a package, and by the same means as a template, because it is written by the same person and obtained the same way; if it had a delivery of its own, there would be two ways of bringing presentation onto a machine and one of them would be the one nobody tested.
-- A theme is data with a closed schema, and never drawing instructions, because a theme may be fetched from a URL. A theme that could describe drawing operations would be a program, and fetching one would run it on the machine being installed — which is exactly what [Pre-Boot Ownership Message](../../decisions/010-preboot-ownership-message.md) refuses for template packages, and the reason applies unchanged to something with more control over the result.
+- A theme is data with a closed schema, and never drawing instructions, because a theme may be fetched from a URL. A theme that could describe drawing operations would be a program, and fetching one would run it on the machine being installed — which is exactly what [Pre-Boot Ownership Message](../../decisions/009-preboot-ownership-message.md) refuses for template packages, and the reason applies unchanged to something with more control over the result.
 - Colours and fonts are declared once and referenced by name, with literals refused rather than discouraged, because coherence is the only thing a theme exists to produce, and a colour written in seven places stops being one colour on the first edit. Refusing the literal is what leaves one way of writing it; allowing both would mean a reader has to check which is in use.
 - `extends` is explicit because an implicit parent hides where a value came from: a reader of a style would have to know which style is the root, and know it is a root, before knowing what the style says.
 - Sizes are relative to the body, and the body is a fraction of the block's width, because the width of a block changes with the arrangement. If sizes were point sizes, a theme would render well with two languages and unreadably with four, and nothing would say so.

@@ -10,7 +10,7 @@ Keyboard layouts differ, and so does the local time where a machine is used. The
 
 System language is fixed to English and is not configurable. The locale is `en_US.UTF-8`.
 
-The one text of the machine that is not in English is the pre-boot return message, shown in the languages the operator selects, as decided in [Pre-Boot Ownership Message](010-preboot-ownership-message.md).
+The one text of the machine that is not in English is the pre-boot return message, shown in the languages the operator selects, as decided in [Pre-Boot Ownership Message](009-preboot-ownership-message.md).
 
 Two things are configurable:
 

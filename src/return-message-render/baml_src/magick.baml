@@ -144,7 +144,7 @@ function logo_args(theme: root.return_message.Theme, source: string, output: str
 }
 
 /// The glyph that marks one typed character. It is drawn rather than written,
-/// which `docs/decisions/010-preboot-ownership-message.md` requires.
+/// which `docs/decisions/009-preboot-ownership-message.md` requires.
 function mask_args(theme: root.return_message.Theme, output: string) -> string[] {
     let mask = theme.password_mask;
     let side = mask.size;

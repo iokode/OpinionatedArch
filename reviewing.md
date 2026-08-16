@@ -22,7 +22,6 @@ Every document, ticked when its review is called done. Only the operator ticks a
 - [x] Swap
 - [x] Snapshots
 - [x] Localization and Time
-- [ ] System Identity
 - [ ] Kernel
 - [ ] Boot Image Format — work in progress, nothing decided yet
 - [ ] Bootloader
@@ -156,7 +155,7 @@ It worked badly as an index too, being grouped by topic rather than alphabetical
 
 **Recovery mode** — Operating Model says what it is in passing, and Recovery will own it once written. *A second Arch system on the machine's own disk, started in place of the installed one, from which a damaged system is repaired by hand or restored from one of its snapshots.*
 
-**"Shared configuration" will probably give way to "dotfiles".** The two are practically synonyms here, and the long form misleads: *shared* suggests sharing between people, and this system is built for one. Two documents still carry it: [Dotfiles](docs/decisions/019-dotfiles.md), in its context and in two of its arguments, and [Installation Checks](docs/development/007-installation-checks.md), where a check says the operator would be able to read the shared configuration and change none of it.
+**"Shared configuration" will probably give way to "dotfiles".** The two are practically synonyms here, and the long form misleads: *shared* suggests sharing between people, and this system is built for one. Two documents still carry it: [Dotfiles](docs/decisions/018-dotfiles.md), in its context and in two of its arguments, and [Installation Checks](docs/development/007-installation-checks.md), where a check says the operator would be able to read the shared configuration and change none of it.
 
 ## Work Contexts and Accounts
 
@@ -164,7 +163,7 @@ It worked badly as an index too, being grouped by topic rather than alphabetical
 
 **[Document Types](docs/README.md) carries the rule about prompts.** Asking is behaviour, so a decision describes no prompt: it says what is fixed and what is configurable, and the document of the tool that asks says what is asked, in what order, and how it is validated.
 
-**[AUR](docs/decisions/015-aur.md) lost the same term.** Its stub quoted this document — every account that is not a work context "is created by baseline policy and is never prompted for" — and now says that this document leaves room for accounts that exist for something other than an area of the operator's activity, a build user among them.
+**[AUR](docs/decisions/014-aur.md) lost the same term.** Its stub quoted this document — every account that is not a work context "is created by baseline policy and is never prompted for" — and now says that this document leaves room for accounts that exist for something other than an area of the operator's activity, a build user among them.
 
 **[Encryption](docs/decisions/002-encryption.md) gave up the shared secret.** It decided it too and argued it in its `Why`. It now says that the passphrase of the container is the password every work context has, and points here for it. What it keeps is what is its own: that encryption is mandatory, that the container is `LUKS2`, that the EFI partition stays outside it, and that swap is protected by being inside it.
 
@@ -174,7 +173,7 @@ It worked badly as an index too, being grouped by topic rather than alphabetical
 
 **"Baseline policy" is still in a tool document.** [oparch-work-context-create](docs/tools/oparch-work-context-create/000-command.md) opens with "creates a new work context with the required baseline policy: the account that carries it, its groups, its home subvolume, and the initial ownership of that home". No document defines the term, and in the two places it was used it named opposite populations — there, what a work context is given; here, the accounts that are not work contexts. It can go with nothing in its place, because what follows the colon is already the whole list.
 
-**One decision document still describes what the installer asks.** [Pre-Boot Ownership Message](docs/decisions/010-preboot-ownership-message.md) says of the logo that it is "asked for only when the return message is enabled". [Installer Inputs and Bootstrap Baseline](docs/tools/oparch-installer/002-inputs-and-bootstrap-baseline.md) already owns the inputs, and [Document Types](docs/README.md) now carries the rule that sends them there.
+**One decision document still describes what the installer asks.** [Pre-Boot Ownership Message](docs/decisions/009-preboot-ownership-message.md) says of the logo that it is "asked for only when the return message is enabled". [Installer Inputs and Bootstrap Baseline](docs/tools/oparch-installer/002-inputs-and-bootstrap-baseline.md) already owns the inputs, and [Document Types](docs/README.md) now carries the rule that sends them there.
 
 ## Disk Layout
 
@@ -192,7 +191,7 @@ It worked badly as an index too, being grouped by topic rather than alphabetical
 
 **Nothing says what happens when a preserved home and a named context collide.** In `keep-homes` the operator ticks which homes to keep and, on the Work contexts screen, names the contexts to create; the second is described as creating them "in addition to" the ones whose homes are preserved. If the same name arrives by both paths, no document says whether that is a validation error or simply that context coming back with the home it had. The mode is not implemented, so deciding it now costs nothing.
 
-**The 4 GiB of the recovery partition are a placeholder.** The layout fixes a size because it fixes every size, and this one was chosen before anything decided what the recovery system holds — an Arch installation and the tools it repairs with, none of which is written down yet. When [Recovery](docs/decisions/013-recovery.md) says what has to be in there, the number comes from that and [Disk Layout](docs/decisions/001-disk-layout.md) takes whatever it turns out to be.
+**The 4 GiB of the recovery partition are a placeholder.** The layout fixes a size because it fixes every size, and this one was chosen before anything decided what the recovery system holds — an Arch installation and the tools it repairs with, none of which is written down yet. When [Recovery](docs/decisions/012-recovery.md) says what has to be in there, the number comes from that and [Disk Layout](docs/decisions/001-disk-layout.md) takes whatever it turns out to be.
 
 ## Swap
 
@@ -208,9 +207,9 @@ It worked badly as an index too, being grouped by topic rather than alphabetical
 
 ### Still to do
 
-**[Bootloader](docs/decisions/009-bootloader.md) accepts what Snapshots has stopped accepting.** Its `Why` states, as something to be accepted deliberately, that a snapshot of `@` does not include the kernel and the initramfs; and two of its considerations say that rolling `@` back does not roll them back, and that a bad kernel update is answered through the recovery workflow and a package downgrade. Those are now false: the artifacts are copied with every system snapshot and put back on restore. What survives is its `Context`, which is true of Btrfs snapshots and needs to stop implying the conclusion the rest drew from it.
+**[Bootloader](docs/decisions/008-bootloader.md) accepts what Snapshots has stopped accepting.** Its `Why` states, as something to be accepted deliberately, that a snapshot of `@` does not include the kernel and the initramfs; and two of its considerations say that rolling `@` back does not roll them back, and that a bad kernel update is answered through the recovery workflow and a package downgrade. Those are now false: the artifacts are copied with every system snapshot and put back on restore. What survives is its `Context`, which is true of Btrfs snapshots and needs to stop implying the conclusion the rest drew from it.
 
-**[Kernel](docs/decisions/007-kernel.md) sends a bad kernel out of the machine.** Its argument for keeping one kernel accepts that failures have no local answer and closes with recovery delegated to an external live environment. Both halves moved: recovery is a partition of the machine now, and restoring a system snapshot brings back the kernel that root was running, which is the local way back that argument says does not exist.
+**[Kernel](docs/decisions/006-kernel.md) sends a bad kernel out of the machine.** Its argument for keeping one kernel accepts that failures have no local answer and closes with recovery delegated to an external live environment. Both halves moved: recovery is a partition of the machine now, and restoring a system snapshot brings back the kernel that root was running, which is the local way back that argument says does not exist.
 
 **Two snapshot tools describe a job that has grown.** [oparch-snapshot-system-create](docs/tools/oparch-snapshot-system-create/000-command.md) describes creating the snapshot and nothing else, where creating one now also means hashing the boot artifacts, storing the set when it is new, and recording the pair. [oparch-snapshot-restore](docs/tools/oparch-snapshot-restore/000-command.md) says a system restore must run offline from live media plus chroot, which predates the recovery partition, and that a home restore can run on the installed system "with controlled session state", where Snapshots now requires that context to be logged out; neither the table nor putting the artifacts back is mentioned at all.
 
@@ -218,4 +217,12 @@ It worked badly as an index too, being grouped by topic rather than alphabetical
 
 ### Still to do
 
-**[mkinitcpio Hooks](docs/decisions/012-mkinitcpio-hooks.md) attributes a path to a document that does not hold it.** It says the keymap at unlock is the machine's own "as [Localization and Time] decides it: written to `/etc/vconsole.conf`, and applied through `keymap`". Localization and Time names no file, deliberately: on a system with systemd there is one canonical place for the language, the keymap and the timezone, so writing them down would be documenting how Arch works rather than deciding anything. Where the hook reads the keymap from is the hook's own business and can stay in that document; what has to go is the attribution. [System Identity](docs/decisions/006-system-identity.md) carries the same kind of content in its own words — two of its three decision lines are about `/etc/hostname` and `/etc/hosts` — and meets the same criterion in its own turn.
+**[mkinitcpio Hooks](docs/decisions/011-mkinitcpio-hooks.md) attributes a path to a document that does not hold it.** It says the keymap at unlock is the machine's own "as [Localization and Time] decides it: written to `/etc/vconsole.conf`, and applied through `keymap`". Localization and Time names no file, deliberately: on a system with systemd there is one canonical place for the language, the keymap and the timezone, so writing them down would be documenting how Arch works rather than deciding anything. Where the hook reads the keymap from is the hook's own business and can stay in that document; what has to go is the attribution.
+
+## System Identity
+
+Deleted, and the decisions renumbered from `007` down so the series has no hole: fourteen files moved, and with them every reference to those files in the documentation, in `assets/grub/grub.cfg` and in the comments of the code. Nothing linked to the document itself except the Index.
+
+It decided nothing. That the hostname is configurable is what any installation does, and [Installer Inputs and Bootstrap Baseline](docs/tools/oparch-installer/002-inputs-and-bootstrap-baseline.md) already lists it among what is asked; `/etc/hostname` is the only place a system with systemd reads a name from; and leaving `/etc/hosts` as Arch leaves it is not a choice this project makes. Its one use with a meaning of its own — that host selectors are evaluated against the hostname — is stated where it belongs, in [Dotfiles Map Format](docs/tools/oparch-dotfiles-sync/001-map-format.md).
+
+The same answer settled the two things the review looked at while deciding whether the document had anything left in it. `/etc/os-release` stays as Arch writes it, because a machine of this project is Arch: what the project adds is an installer, a set of decisions and a way of keeping the dotfiles, and none of that makes the system underneath another distribution. Changing `ID` would also mean owning a copy of a file that belongs to the `filesystem` package, and leaving whatever branches on it to fall back on `ID_LIKE`. `/etc/machine-id` is not set by this project either: it identifies one installation, and only that installation can make it.

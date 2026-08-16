@@ -18,7 +18,7 @@ One problem here is not of that kind. A lost machine cannot say whose it is on i
 
 OpinionatedArch decides the system and not the interface. Everything from the disk up to a booted, recoverable machine with its configuration in place has one answer, taken once and written down as a decision.
 
-Everything above that — the desktop, the window manager, the shell, the editor — is the operator's, and the [dotfiles](../decisions/019-dotfiles.md) are what carry their answer to every context.
+Everything above that — the desktop, the window manager, the shell, the editor — is the operator's, and the [dotfiles](../decisions/018-dotfiles.md) are what carry their answer to every context.
 
 ## Where To Continue
 

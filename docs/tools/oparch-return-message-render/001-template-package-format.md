@@ -2,7 +2,7 @@
 
 ## Context
 
-The pre-boot return message is defined by a template package rather than by the installer, as decided in [Pre-Boot Ownership Message](../../decisions/010-preboot-ownership-message.md). A package carries the wording, in every language it offers, and declares the data that wording needs.
+The pre-boot return message is defined by a template package rather than by the installer, as decided in [Pre-Boot Ownership Message](../../decisions/009-preboot-ownership-message.md). A package carries the wording, in every language it offers, and declares the data that wording needs.
 
 `oparch-return-message-render` builds the message from a package. The installer reads the same package to know which values to ask for. The operator may supply their own package, so the format is what a person writes by hand, and the project's own package is expected to grow to many languages.
 

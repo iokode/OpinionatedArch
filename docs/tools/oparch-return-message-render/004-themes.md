@@ -2,7 +2,7 @@
 
 ## Context
 
-The pre-boot return message is rendered to an image, as decided in [Pre-Boot Ownership Message](../../decisions/010-preboot-ownership-message.md). What it says comes from a template package, and the values that fill it from a values file. Presentation is deliberately absent from both: a package carries wording, in every language it offers, and nothing about how that wording looks.
+The pre-boot return message is rendered to an image, as decided in [Pre-Boot Ownership Message](../../decisions/009-preboot-ownership-message.md). What it says comes from a template package, and the values that fill it from a values file. Presentation is deliberately absent from both: a package carries wording, in every language it offers, and nothing about how that wording looks.
 
 Until now nothing carried it. The look lived in the renderer — one font, one set of colours, one arrangement for each number of languages, all of them constants in its source. An operator who wanted the message to look like anything else had to change the tool.
 

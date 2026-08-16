@@ -53,7 +53,7 @@ None of this applies to the ISO this project will ship, which carries its own pa
 
 ### What this harness cannot see
 
-Its guest runs with `-nographic`, so there is no display for a splash. Plymouth falls back to the text prompt [Pre-Boot Ownership Message](../decisions/010-preboot-ownership-message.md) requires, which is worth knowing works, but the harness therefore never draws the composed message and never runs the script the renderer writes.
+Its guest runs with `-nographic`, so there is no display for a splash. Plymouth falls back to the text prompt [Pre-Boot Ownership Message](../decisions/009-preboot-ownership-message.md) requires, which is worth knowing works, but the harness therefore never draws the composed message and never runs the script the renderer writes.
 
 That is a limit of this harness. The splash itself was seen on 2026-08-11, on VMware and by hand: the machine booted to the return message screen, and Escape moved between it and the text prompt. A run with a display attached is what would bring that under the harness.
 
@@ -63,7 +63,7 @@ These are the cases the dotfiles step has to be covered by. They are written her
 
 Two fixtures are needed for all of them: a dotfiles package whose map declares a link, a copy and a render, and an encrypted store holding what that render references. Both live beside the configuration file the harness already hands the guest.
 
-**A package is applied.** The configuration names a dotfiles package. After the installation, `/dotfiles` holds what the package held; its directories are `2775` and its files `664`; the default ACL [Dotfiles](../decisions/019-dotfiles.md) requires is on it; `/dotfiles` is in git's system `safe.directory`; and each of the three operations the map declared has produced its target, owned by the user the map named.
+**A package is applied.** The configuration names a dotfiles package. After the installation, `/dotfiles` holds what the package held; its directories are `2775` and its files `664`; the default ACL [Dotfiles](../decisions/018-dotfiles.md) requires is on it; `/dotfiles` is in git's system `safe.directory`; and each of the three operations the map declared has produced its target, owned by the user the map named.
 
 **A repository stays a repository.** The same run with the package taken from a `git` origin. Afterwards `/dotfiles` is a repository with its history and its remote, not a checkout of one revision.
 

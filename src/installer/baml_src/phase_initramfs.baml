@@ -2,7 +2,7 @@
 // from them.
 //
 // Which hooks, and in what order, is decided in
-// `docs/decisions/012-mkinitcpio-hooks.md`. The order is part of that
+// `docs/decisions/011-mkinitcpio-hooks.md`. The order is part of that
 // policy: nothing here reorders it, and `plymouth` comes before `encrypt`
 // because the screen has to be up before the passphrase is asked for.
 
