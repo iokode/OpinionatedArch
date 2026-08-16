@@ -4,11 +4,13 @@
 
 `oparch-snapshot-restore` restores a concrete snapshot for either system scope or user-home scope using the single `@snapshots` layout.
 
-User-scope restore can run on the installed system with controlled session state. System-scope restore must run offline from an external environment, such as live media plus chroot.
+Every restore runs from the recovery system, as [Snapshots](../../decisions/004-snapshots.md) decides: neither `@` nor the home of a work context is restored while the installed system is running.
+
+Restoring a system snapshot also puts back the set of boot artifacts recorded with it.
 
 ## Why is needed
 
-Recovery must be deterministic during incidents, and restore safety differs by scope. A single restore tool with explicit online and offline rules reduces operator mistakes and avoids fragile system-root rollback while the system is running.
+Recovery must be deterministic during incidents. One tool for both scopes, running where nothing holds what it is replacing, reduces operator mistakes and avoids rolling a root back underneath the processes using it.
 
 ## Input parameters
 

@@ -2,7 +2,7 @@
 
 ## Description
 
-`oparch-work-context-create` creates a new work context with the required baseline policy: the account that carries it, its groups, its home subvolume, and the initial ownership of that home.
+`oparch-work-context-create` creates a new work context: the account that carries it, its groups, its home subvolume, and the initial ownership of that home.
 
 ## Why is needed
 

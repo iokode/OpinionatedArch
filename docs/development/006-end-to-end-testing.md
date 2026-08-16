@@ -4,6 +4,8 @@ End-to-end tests boot the real Arch live environment under QEMU and run the inst
 
 This document describes the harness. It does not describe the installer, which is documented in [oparch-installer](../tools/oparch-installer/000-command.md).
 
+The **harness** is neither the thing under test nor the assertions: it is what makes running them possible at all. The word is the one used for a wiring harness, the thing that connects and drives, and not for anything to do with the tools this project is written with.
+
 The harness is `tests/e2e/run.sh`. It is the only test that lives outside the source of a tool, for the reason [Repository Layout](002-repository-layout.md) gives: it belongs to no project and tests all of them at once, where a unit test is a `test` block compiled with the code it exercises.
 
 ## Why the installer is not tested on the development machine

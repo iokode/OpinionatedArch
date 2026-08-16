@@ -42,7 +42,7 @@ The format is at `0.1` and stays in major `0` until the distribution is released
 
 - A **name** — of a colour, a font or a style — is lowercase letters, digits and `_`, starting with a letter. This is the rule field names follow in [Return Message Template Package Format](001-template-package-format.md).
 - A **colour** is written `"#RRGGBB"` or `"#RRGGBBAA"`, quoted. Without quotes YAML reads `#` as the start of a comment.
-- A **number** is an integer greater than zero, except `size` and `fit`, which are decimals.
+- A **number** is an integer greater than zero, except `size`, which is a decimal.
 - **Every key is required** unless it is marked optional here. A theme has no defaults: what it does not say, it does not have. The project ships a complete theme, which is what is used when no other is given.
 - A key outside the list its section defines is an error.
 - Every colour is a name declared in `palette`, and every font a name declared in `fonts`. A colour or a font written as a literal anywhere else is an error.
@@ -189,17 +189,20 @@ The prompt's panel is as wide as the text it holds plus its padding, and is plac
 ### canvas
 
 ```yaml
-canvas: { width: 3840, row_gap: 96, column_gap: 96, body_size_ratio: 0.0215 }
+canvas: { width: 3840, margin: 288, row_gap: 96, column_gap: 96, body_size_ratio: 0.0215 }
 ```
 
 | Key | Value |
 | --- | --- |
 | `width` | The width the message and the prompt are composed at |
+| `margin` | Space left between the content and the edges of the composed image |
 | `row_gap` | Space between the rows of the arrangement |
 | `column_gap` | Space between the cells of a row |
 | `body_size_ratio` | The body's point size as a fraction of the inner width of the block it falls in |
 
 `width` is chosen above any display the message is expected to meet, so that the boot splash always scales the composition down. Enlarging is what turns text into a blur; reducing never does.
+
+`margin` is what keeps the text off the edges of the screen, because the images themselves are drawn to those edges. It is in canvas pixels like everything else here, so it shrinks with the rest.
 
 The inner width of a cell is its width less twice the sum of `language_panel.border.width` and `language_panel.padding`. For the prompt, it is `canvas.width` less twice the sum of the equivalent values of `password_prompt_panel`.
 
@@ -261,7 +264,6 @@ A narrow column makes the text of that block smaller, because the body size foll
 screen:
   background_palette: panel
   background_image: "background.png"
-  fit: 0.85
   message_gap: 120
   mask_gap: 48
 ```
@@ -272,7 +274,6 @@ What the boot splash needs and the three images cannot carry.
 | --- | --- | --- |
 | `background_palette` | Name declared in `palette`, painted behind everything, and without an alpha component | yes |
 | `background_image` | Path of an image inside the package, scaled to cover the screen and centred over the colour | no |
-| `fit` | Fraction of the limiting screen dimension the composition is scaled to, greater than `0` and at most `1` | yes |
 | `message_gap` | Space between the message and the password prompt | yes |
 | `mask_gap` | Space between the password prompt and the typed characters | yes |
 
@@ -307,7 +308,7 @@ A theme is rejected, with the first problem found, when:
 - A key of `kinds` is not one of the five kinds a template package declares.
 - An entry of `kinds` declares `icon_glyph` without `icon_style`, or the other way round.
 - `weight`, `slant`, `align`, `shape` or `position` is outside its list of values.
-- A number that must be an integer greater than zero is not, or `fit` is not greater than `0` and at most `1`.
+- A number that must be an integer greater than zero is not.
 - `arrangement` declares no entry, an entry whose cells do not come to the number it is keyed by, or a weight that is not an integer greater than zero.
 - The archive holds an entry that would be written outside the directory it is extracted into.
 
@@ -331,7 +332,7 @@ A theme is validated completely before anything is drawn, and nothing is written
 - Every key is required, and a theme has no defaults, because a theme with holes leaves the tool choosing. What the screen looks like would then be partly the theme's and partly the tool's, and reading the theme would not tell anyone which parts.
 - A logo given to a tool whose theme draws none is an error because a value that is supplied and then dropped looks like it was used, which is the reason the values format refuses a field the package does not declare.
 - There are no coordinates because the heights follow the content: a theme is written before anyone knows how long a message is, in how many languages, with which optional regions surviving.
-- `fit` is a fraction of the limiting dimension rather than the whole screen because the margin has to come from somewhere and the boot splash has no layout engine to negotiate one. A composition scaled to the full screen ends its outermost line against the panel edge, which is where a display's own overscan or a bezel eats it.
+- The margin is left when the image is composed, rather than by scaling the composition down at boot, because a background image is meant to reach every edge of the screen and the text over it is not. What the splash is handed already carries its own margin, and the splash has no layout engine to negotiate one.
 - The tool that draws the images is also the one that writes `screen` into the boot splash, because it is the only thing that has the theme already fetched, resolved and validated. Anything else would have to obtain the same theme a second time to answer the same question, and the day the two disagree — a URL that moved, a validation only one of them runs — the screen would be painted for a theme that is not the one the images were drawn from.
 - What is written into the script is numbers only, and never a name, a filename or a path the theme chose, because the script is executed. A theme fetched from a URL that could put text of its own into it would be a program again, which is the one thing this format exists to prevent.
 
