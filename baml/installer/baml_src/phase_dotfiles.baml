@@ -50,8 +50,7 @@ function git_system_config() -> string {
 /// the default ACL is for everything created afterwards, which nobody will be
 /// there to fix.
 function open_dotfiles_to_its_group(shell: root.common.Shell,
-                                    target: root.common.Target) -> string
-        throws baml.errors.InvalidArgument {
+                                    target: root.common.Target) -> string {
     let directories = root.common.must(
         root.common.run_in(shell, target, "find",
                            [dotfiles_directory(), "-type", "d", "-exec", "chmod", "2775", "{}", "+"]),

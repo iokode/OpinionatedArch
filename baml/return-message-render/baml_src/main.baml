@@ -299,7 +299,7 @@ function hex_digit(character: string) -> int {
 /// digits are always there to read.
 function color_component(color: string, index: int) -> float {
     let at = 1 + 2 * index;
-    (16 * hex_digit(color.substring(at, at + 1)) + hex_digit(color.substring(at + 1, at + 2)))
+    (16 * hex_digit(color.slice(at, at + 1)) + hex_digit(color.slice(at + 1, at + 2)))
         * 1.0 / 255.0
 }
 

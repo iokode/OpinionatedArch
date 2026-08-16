@@ -11,7 +11,7 @@ function validate_hostname(hostname: string) -> bool {
     if (hostname.length() <= 0 || hostname.length() > 63) {
         return false;
     }
-    if (!(hostname.char_at(0)).is_ascii_alphanumeric()) {
+    if (!(hostname.at(0) ?? "").is_ascii_alphanumeric()) {
         return false;
     }
     for (let character in hostname.chars()) {
@@ -28,7 +28,7 @@ function validate_username(username: string) -> bool {
     if (username.length() <= 0 || username.length() > 32) {
         return false;
     }
-    let first = username.char_at(0);
+    let first = username.at(0) ?? "";
     if (!first.is_ascii_lowercase() && first != "_") {
         return false;
     }

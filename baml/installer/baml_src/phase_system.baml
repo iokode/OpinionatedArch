@@ -96,7 +96,7 @@ function configure_users(shell: root.common.Shell, files: root.common.Files, ui:
     //# operator has already unlocked the disk and logged in
     let sudoers = root.common.target_path(target, "/etc/sudoers.d/10-wheel");
     files.write(sudoers, "%wheel ALL=(ALL:ALL) NOPASSWD: ALL" + "\n");
-    files.chmod(sudoers, "0440");
+    files.chmod(sudoers, 0o440);
     ""
 }
 
@@ -226,7 +226,7 @@ test "users locks root and restricts the sudoers file" {
     assert.is_true(shell.commands.includes("arch-chroot /mnt passwd -l root"));
     assert.equal(files.written.get("/mnt/etc/sudoers.d/10-wheel"),
                  "%wheel ALL=(ALL:ALL) NOPASSWD: ALL\n");
-    assert.equal(files.modes.get("/mnt/etc/sudoers.d/10-wheel"), "0440")
+    assert.equal(files.modes.get("/mnt/etc/sudoers.d/10-wheel"), 0o440)
 }
 
 test "users stops when an account cannot be created" {

@@ -842,7 +842,7 @@ function validate_color(value: string) -> bool {
     if (!value.starts_with("#")) {
         return false;
     }
-    let digits = value.substring(1, value.length());
+    let digits = value.slice(1, value.length());
     if (digits.length() != 6 && digits.length() != 8) {
         return false;
     }

@@ -229,12 +229,13 @@ function main() -> void {
         print_errors(diag);
         baml.sys.exit(2);
     }
-    //# 1-3: parse the map, validate its version, expand the include graph
-    let document = load_map_document(files, map_path, source_root, diag);
-    if (document == null) {
+    //# 1-3: parse the map, validate its version, expand the include graph. A
+    //# map that did not load is the end of the run, and saying so here is what
+    //# leaves a document rather than maybe-a-document to everything below
+    let document = load_map_document(files, map_path, source_root, diag) ?? {
         print_errors(diag);
-        baml.sys.exit(1);
-    }
+        baml.sys.exit(1)
+    };
     //# 4: resolve the hostname and the login users, here or as given
     let machine = detect_machine(shell, files, options.hostname, options.users, diag);
     //# 5-11: selectors, placeholders, paths, values, secrets, conflicts, packages

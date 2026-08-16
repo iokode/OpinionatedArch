@@ -10,8 +10,8 @@ class SwapConfig {
     swapfile_gb: int,
 }
 
-//# the dotfiles package is content held elsewhere, like the template package
-//# and the theme, so it is named the same way: an origin and a location
+// the dotfiles package is content held elsewhere, like the template package
+// and the theme, so it is named the same way: an origin and a location
 
 /// What the installer collected for the pre-boot return message: the values
 /// themselves, and where the package and the theme that render them come from.

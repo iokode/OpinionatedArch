@@ -351,8 +351,8 @@ class AnnouncingFiles {
             self.ui.action(`Symlink '${path}' to '${points_to}'`);
             self.inner.symlink(path, points_to);
         }
-        function chmod(self, path: string, mode: string) -> void {
-            self.ui.action(`Chmod '${mode}' on '${path}'`);
+        function chmod(self, path: string, mode: int) -> void {
+            self.ui.action(`Chmod '${root.common.octal_mode(mode)}' on '${path}'`);
             self.inner.chmod(path, mode);
         }
     }
