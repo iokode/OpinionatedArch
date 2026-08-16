@@ -11,6 +11,8 @@ Snapshot policy is split by scope:
 - **System scope** (`@`): snapshot at boot start, on each package installation/update transaction, and on explicit manual request.
 - **Work context scope** (`home/@<work-context>` subvolume): snapshot when that context is logged into, and on explicit manual request.
 
+The scopes are independent of one another, and there are as many as the machine has work contexts, plus the system: three contexts make four. A snapshot holds the state of exactly one scope, and what is done to one — taking it, restoring it, deleting it — reaches nothing of the rest.
+
 All snapshots are stored in a single `@snapshots` subvolume mounted at `/snapshots` with structured paths:
 
 - `/snapshots/system/automatic`
@@ -64,7 +66,6 @@ A snapshot that cannot be taken does not stop what it was taken for. The machine
 
 ## Considerations
 
-- The two scopes are independent: a snapshot holds the system's state or the state of one work context's home, never both, so restoring one never carries the other with it.
 - What a snapshot is called is not decided here. The name has to carry the justification a manual snapshot requires, and beyond that its form belongs to the tools that create and list them.
 - Snapshot storage must remain separated by domain inside `/snapshots`: `system` for system snapshots and `home/<work-context>` for each work context's.
 - `/boot` is outside Btrfs, so its content is copied rather than snapshotted, and what pairs a copy with a snapshot is the table rather than the filesystem.
