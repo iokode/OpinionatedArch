@@ -6,6 +6,8 @@ OpinionatedArch decides how a machine is laid out and how it is operated, and a 
 
 ## Decision
 
+An operation that a decision of this project governs is done with a tool of this project. Adding a work context, taking a snapshot or restoring one, rotating the password: each is a command that leaves the machine as the decisions describe it, so that keeping it that way is not a procedure the operator has to remember.
+
 This document defines the common policy for those tools; it does not enumerate the tool inventory.
 
 Tool-specific documents live in `docs/tools/`. Each tool has its own directory there, named after the command, holding a command document and one further document per format, syntax or protocol the tool defines.
@@ -20,6 +22,7 @@ The language these tools are written in is decided in [BAML as Implementation La
 
 ## Why
 
+- The operations a decision governs are given tools because a decision that is only written down is kept by hand, and by hand it is kept until the day it is not: a home subvolume forgotten for a new context, a snapshot never taken, an account left in the wrong group. What the tool does is what the decision says, and running it is the whole of the procedure.
 - The `oparch-{entity}-{action}` naming format is required so commands remain discoverable and script-friendly; if naming varies by tool, operators must memorize exceptions.
 - Separating command-line behavior from interactive selection is required so every operation remains scriptable and testable; if interactive tools perform actions directly, behavior becomes duplicated and harder to verify.
 - The implementation language is not decided here because it applies to every built-in tool, not only to the operational ones.
