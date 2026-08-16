@@ -20,6 +20,8 @@ It contains project-owned boot artifacts plus any unrelated third-party EFI arti
 
 - `EFI/OpinionatedArch/recovery.efi`
 - `EFI/OpinionatedArch/grubx64.efi`
+- `EFI/OpinionatedArch/netbootx64.efi`
+- `OpinionatedArch/grub/`, where GRUB reads its own files from
 - `OpinionatedArch/initramfs-linux.img`
 - `OpinionatedArch/vmlinuz-linux`
 - `OpinionatedArch/<ucode-image>.img`, when a CPU microcode image is selected
@@ -35,8 +37,16 @@ Example EFI system partition layout:
 │   │   └── [...]
 │   └── OpinionatedArch/
 │       ├── recovery.efi
-│       └── grubx64.efi
+│       ├── grubx64.efi
+│       └── netbootx64.efi
 └── OpinionatedArch/
+    ├── grub/
+    │   ├── fonts/
+    │   ├── locale/
+    │   ├── x86_64-efi/
+    │   ├── grubenv
+    │   ├── grub.cfg
+    │   └── oparch.cfg
     ├── initramfs-linux.img
     ├── vmlinuz-linux
     └── amd-ucode.img

@@ -17,7 +17,7 @@ Every document in this directory, by type. What the types are and what shape eac
 - [Snapshots](decisions/004-snapshots.md)
 - [Localization and Time](decisions/005-localization-and-time.md)
 - [Kernel](decisions/006-kernel.md)
-- [Boot Image Format](decisions/007-boot-image-format.md) — work in progress, nothing decided yet
+- [Boot Image Format](decisions/007-boot-image-format.md)
 - [Bootloader](decisions/008-bootloader.md)
 - [Pre-Boot Ownership Message](decisions/009-preboot-ownership-message.md)
 - [Return Message on an Installed System](decisions/010-return-message-on-an-installed-system.md) — work in progress, nothing decided yet
