@@ -20,7 +20,7 @@ Every document, ticked when its review is called done. Only the operator ticks a
 - [x] Disk Layout
 - [x] Encryption
 - [x] Swap
-- [ ] Snapshots
+- [x] Snapshots
 - [ ] Localization and Time
 - [ ] System Identity
 - [ ] Kernel
@@ -109,8 +109,6 @@ Went through section by section. It now has five sections, mentions no tool and 
 **Dotfiles has to grow into what it now owns.** Operating Model defers the shared-configuration principle to it, and the document does not contain it: its `Decision` covers permissions on `/dotfiles` and nothing else, and its `Context` frames the whole document as "what access the group gives". It needs to decide, in its own words, that the configuration is one source that every work context takes from, and that what differs between contexts or machines is declared rather than kept as separate copies. This is also the document that may legitimately link down to Dotfiles Map Format, being the layer that already touches implementation.
 
 **The secret store is a domain fact owned by an infrastructure document.** Where the store lives, with what owner and what modes, is a property of the installed machine, and it is specified in Dotfiles Map Format. Dotfiles expressly disclaims it, because the store sits outside `/dotfiles`. Underneath there is a worse one: the path is `/etc/oparch/dotfiles-sync/secrets`, so the name of a tool is inside the machine's layout.
-
-**Snapshots contradicts itself after the rename.** It still says `home/@<login-user>` and `/snapshots/home/<login-user>/…` in five places, and `home/<work-context>` in one.
 
 **Recovery has to be written.** What it collects is spread across Disk Layout, Bootloader, Snapshots and Kernel, and two documents defer an obligation to it: Encryption leaves it how the unlock file and the master-key copy are used from there, and Work Contexts and Accounts requires root recovery procedures to be documented.
 
@@ -201,3 +199,17 @@ It worked badly as an index too, being grouped by topic rather than alphabetical
 ### Still to do
 
 **The installer sets no swap priority.** Swap decides that the compressed swap in RAM is used before the swapfile on disk, and nothing in the code makes that true. The mount table entry the swap phase appends is `/swap/swapfile none swap defaults 0 0`, with no `pri=`, and the zram configuration it writes carries a size and a compression algorithm and no priority either. Which of the two the kernel reaches for first is left to whatever the defaults turn out to be.
+
+## Snapshots
+
+### Changed elsewhere because of it
+
+**[Disk Layout](docs/decisions/001-disk-layout.md) gained a third branch under `@snapshots`.** A system snapshot now carries the boot artifacts of its moment, which cannot be inside it because the EFI system partition is FAT32: they are copied instead, one directory per distinct set named by the hash of its contents, beside the table that pairs each system snapshot with the set that belongs to it.
+
+### Still to do
+
+**[Bootloader](docs/decisions/009-bootloader.md) accepts what Snapshots has stopped accepting.** Its `Why` states, as something to be accepted deliberately, that a snapshot of `@` does not include the kernel and the initramfs; and two of its considerations say that rolling `@` back does not roll them back, and that a bad kernel update is answered through the recovery workflow and a package downgrade. Those are now false: the artifacts are copied with every system snapshot and put back on restore. What survives is its `Context`, which is true of Btrfs snapshots and needs to stop implying the conclusion the rest drew from it.
+
+**[Kernel](docs/decisions/007-kernel.md) sends a bad kernel out of the machine.** Its argument for keeping one kernel accepts that failures have no local answer and closes with recovery delegated to an external live environment. Both halves moved: recovery is a partition of the machine now, and restoring a system snapshot brings back the kernel that root was running, which is the local way back that argument says does not exist.
+
+**Two snapshot tools describe a job that has grown.** [oparch-snapshot-system-create](docs/tools/oparch-snapshot-system-create/000-command.md) describes creating the snapshot and nothing else, where creating one now also means hashing the boot artifacts, storing the set when it is new, and recording the pair. [oparch-snapshot-restore](docs/tools/oparch-snapshot-restore/000-command.md) says a system restore must run offline from live media plus chroot, which predates the recovery partition, and that a home restore can run on the installed system "with controlled session state", where Snapshots now requires that context to be logged out; neither the table nor putting the artifacts back is mentioned at all.

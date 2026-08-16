@@ -59,6 +59,7 @@ A name beginning with `@` is a subvolume, and a name without it is an ordinary d
 - `@snapshots` is the snapshot-storage subvolume. The snapshots inside it are subvolumes too, at these paths:
   - `@snapshots/system/{automatic,manual}` holds the automatic and manual snapshots of the `@` subvolume.
   - `@snapshots/home/<work-context>/{automatic,manual}` holds the automatic and manual snapshots of each `home/@<work-context>` subvolume.
+  - `@snapshots/boot` holds one directory per distinct set of boot artifacts, named by the hash of its contents, and the table that pairs each system snapshot with the set that belongs to it, as [Snapshots](004-snapshots.md) decides. These are files rather than subvolumes: what they copy lives on the EFI system partition, outside Btrfs.
 - `@log` stores system logs.
 - `@pkg` stores the pacman package cache.
 - `@dotfiles` stores shared dotfiles.
@@ -84,24 +85,35 @@ Btrfs top-level id=5
 │   │       ├── @1778764800-before-kernel-upgrade
 │   │       └── @1778851200-clean-base-install
 │   │
-│   └── home
-│       ├── personal
-│       │   ├── automatic
-│       │   │   └── @1778761600
-│       │   └── manual
-│       │       └── @1778765200-before-photo-library-cleanup
-│       │
-│       ├── work
-│       │   ├── automatic
-│       │   │   └── @1778761500
-│       │   └── manual
-│       │       └── @1778765100-before-client-project-import
-│       │
-│       └── iokode
-│           ├── automatic
-│           │   └── @1778761800
-│           └── manual
-│               └── @1778765400-before-blog-redesign
+│   ├── home
+│   │   ├── personal
+│   │   │   ├── automatic
+│   │   │   │   └── @1778761600
+│   │   │   └── manual
+│   │   │       └── @1778765200-before-photo-library-cleanup
+│   │   │
+│   │   ├── work
+│   │   │   ├── automatic
+│   │   │   │   └── @1778761500
+│   │   │   └── manual
+│   │   │       └── @1778765100-before-client-project-import
+│   │   │
+│   │   └── iokode
+│   │       ├── automatic
+│   │       │   └── @1778761800
+│   │       └── manual
+│   │           └── @1778765400-before-blog-redesign
+│   │
+│   └── boot
+│       ├── table
+│       ├── 2c6d281a7198da35893e6b5bfcb1fc2d3499169c27055adc47430645652f2050
+│       │   ├── vmlinuz-linux
+│       │   ├── initramfs-linux.img
+│       │   └── amd-ucode.img
+│       └── 2d07898b568b0949d5863b8d4949b3f2d505c9c36e80426d72897a66c41f46be
+│           ├── vmlinuz-linux
+│           ├── initramfs-linux.img
+│           └── amd-ucode.img
 │
 ├── @log
 ├── @pkg
