@@ -123,9 +123,9 @@ checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
 name = "baml_bridge"
-version = "0.15.1-nightly.20260810.b"
+version = "0.17.1-nightly.20260815.a"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57325d42db3a2d6be56493d323f0095d10d1a4585f73cdf119015dddb6203d57"
+checksum = "4154afaf99ebda9061ce895acc5795a5c8ea20aedfcb796c3024c0b258aeb6eb"
 dependencies = [
  "hex",
  "indexmap",
