@@ -18,7 +18,7 @@ The message is shown in the languages the operator selects.
 
 ### Rendering
 
-The message is rendered to images, and that images are what the unlock screen displays.
+The message is rendered to images, and those images are what the unlock screen displays.
 
 The rendered images reach the edges of the screen. Their content does not: the renderer composes them with a margin around it.
 
