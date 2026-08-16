@@ -26,12 +26,8 @@ Every document, ticked when its review is called done. Only the operator ticks a
 - [x] Boot Image Format
 - [x] Bootloader
 - [x] Pre-Boot Ownership Message
-- [ ] Return Message on an Installed System — work in progress, nothing decided yet
 - [ ] mkinitcpio Hooks
 - [ ] Recovery — work in progress, nothing decided yet
-- [ ] Package Baseline — work in progress, nothing decided yet
-- [ ] AUR — work in progress, nothing decided yet
-- [ ] Service Baseline — work in progress, nothing decided yet
 - [ ] Network Stack
 - [ ] Audio Stack — work in progress, nothing decided yet
 - [ ] Dotfiles
@@ -99,7 +95,7 @@ Every document, ticked when its review is called done. Only the operator ticks a
 
 **Recovery mode** — Operating Model says what it is in passing, and Recovery will own it once written. *A second Arch system on the machine's own disk, started in place of the installed one, from which a damaged system is repaired by hand or restored from one of its snapshots.*
 
-**"Shared configuration" will probably give way to "dotfiles".** The two are practically synonyms here, and the long form misleads: *shared* suggests sharing between people, and this system is built for one. Two documents still carry it: [Dotfiles](docs/decisions/018-dotfiles.md), in its context and in two of its arguments, and [Installation Checks](docs/development/007-installation-checks.md), where a check says the operator would be able to read the shared configuration and change none of it.
+**"Shared configuration" will probably give way to "dotfiles".** The two are practically synonyms here, and the long form misleads: *shared* suggests sharing between people, and this system is built for one. Two documents still carry it: [Dotfiles](docs/decisions/014-dotfiles.md), in its context and in two of its arguments, and [Installation Checks](docs/development/007-installation-checks.md), where a check says the operator would be able to read the shared configuration and change none of it.
 
 ## Work Contexts and Accounts
 
@@ -115,7 +111,7 @@ Every document, ticked when its review is called done. Only the operator ticks a
 
 **Nothing says what happens when a preserved home and a named context collide.** In `keep-homes` the operator ticks which homes to keep and, on the Work contexts screen, names the contexts to create; the second is described as creating them "in addition to" the ones whose homes are preserved. If the same name arrives by both paths, no document says whether that is a validation error or simply that context coming back with the home it had. The mode is not implemented, so deciding it now costs nothing.
 
-**The 4 GiB of the recovery partition are a placeholder.** The layout fixes a size because it fixes every size, and this one was chosen before anything decided what the recovery system holds — an Arch installation and the tools it repairs with, none of which is written down yet. When [Recovery](docs/decisions/012-recovery.md) says what has to be in there, the number comes from that and [Disk Layout](docs/decisions/001-disk-layout.md) takes whatever it turns out to be.
+**The 4 GiB of the recovery partition are a placeholder.** The layout fixes a size because it fixes every size, and this one was chosen before anything decided what the recovery system holds — an Arch installation and the tools it repairs with, none of which is written down yet. When [Recovery](docs/decisions/011-recovery.md) says what has to be in there, the number comes from that and [Disk Layout](docs/decisions/001-disk-layout.md) takes whatever it turns out to be.
 
 ## Swap
 
@@ -127,7 +123,7 @@ Every document, ticked when its review is called done. Only the operator ticks a
 
 ## Localization and Time
 
-**[mkinitcpio Hooks](docs/decisions/011-mkinitcpio-hooks.md) attributes a path to a document that does not hold it.** It says the keymap at unlock is the machine's own "as [Localization and Time] decides it: written to `/etc/vconsole.conf`, and applied through `keymap`". Localization and Time names no file, deliberately: on a system with systemd there is one canonical place for the language, the keymap and the timezone, so writing them down would be documenting how Arch works rather than deciding anything. Where the hook reads the keymap from is the hook's own business and can stay in that document; what has to go is the attribution.
+**[mkinitcpio Hooks](docs/decisions/010-mkinitcpio-hooks.md) attributes a path to a document that does not hold it.** It says the keymap at unlock is the machine's own "as [Localization and Time] decides it: written to `/etc/vconsole.conf`, and applied through `keymap`". Localization and Time names no file, deliberately: on a system with systemd there is one canonical place for the language, the keymap and the timezone, so writing them down would be documenting how Arch works rather than deciding anything. Where the hook reads the keymap from is the hook's own business and can stay in that document; what has to go is the attribution.
 
 ## Pre-Boot Ownership Message
 

@@ -56,7 +56,7 @@ Example EFI system partition layout:
 
 4 GiB, ext4, labeled `RECOVERY`, holding the recovery system: an Arch installation of its own, started in place of the installed system rather than beside it.
 
-It is not encrypted and the installed system does not mount it. What recovery is and what it has to be able to do is [Recovery](012-recovery.md).
+It is not encrypted and the installed system does not mount it. What recovery is and what it has to be able to do is [Recovery](011-recovery.md).
 
 ### The encrypted partition
 

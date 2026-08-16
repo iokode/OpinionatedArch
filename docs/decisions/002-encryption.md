@@ -34,5 +34,5 @@ Two files may be exported while the machine is being installed, each onto a medi
 - What is written to the recovery partition is readable by anyone holding the disk, so it carries no secret of the installed system.
 - Swap confidentiality at rest depends on the existing `LUKS2` container, not on a separate swap encryption mapping.
 - Do not create a `crypttab` entry for swap encryption.
-- How each exported file is used from the recovery system is not decided here: it is a recovery path, and [Recovery](012-recovery.md) owns it.
+- How each exported file is used from the recovery system is not decided here: it is a recovery path, and [Recovery](011-recovery.md) owns it.
 - The two exports are not equally dangerous to keep. The unlock file is one key among the container's own, and removing that key ends what it opens. The master-key copy is not revoked by changing the passphrase, or by anything short of encrypting the volume again: whoever holds it opens this disk for as long as the disk exists.

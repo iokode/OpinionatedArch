@@ -20,16 +20,12 @@ Every document in this directory, by type. What the types are and what shape eac
 - [Boot Image Format](decisions/007-boot-image-format.md)
 - [Bootloader](decisions/008-bootloader.md)
 - [Pre-Boot Ownership Message](decisions/009-preboot-ownership-message.md)
-- [Return Message on an Installed System](decisions/010-return-message-on-an-installed-system.md) — work in progress, nothing decided yet
-- [mkinitcpio Hooks](decisions/011-mkinitcpio-hooks.md)
-- [Recovery](decisions/012-recovery.md) — work in progress, nothing decided yet
-- [Package Baseline](decisions/013-package-baseline.md) — work in progress, nothing decided yet
-- [AUR](decisions/014-aur.md) — work in progress, nothing decided yet
-- [Service Baseline](decisions/015-service-baseline.md) — work in progress, nothing decided yet
-- [Network Stack](decisions/016-network-stack.md)
-- [Audio Stack](decisions/017-audio-stack.md) — work in progress, nothing decided yet
-- [Dotfiles](decisions/018-dotfiles.md)
-- [Oparch Tools](decisions/019-oparch-tools.md)
+- [mkinitcpio Hooks](decisions/010-mkinitcpio-hooks.md)
+- [Recovery](decisions/011-recovery.md) — work in progress, nothing decided yet
+- [Network Stack](decisions/012-network-stack.md)
+- [Audio Stack](decisions/013-audio-stack.md) — work in progress, nothing decided yet
+- [Dotfiles](decisions/014-dotfiles.md)
+- [Oparch Tools](decisions/015-oparch-tools.md)
 
 ## Tools
 

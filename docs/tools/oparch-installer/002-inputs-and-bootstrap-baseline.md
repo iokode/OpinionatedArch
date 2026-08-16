@@ -61,7 +61,7 @@ When a public dotfiles package is enabled, the installer puts its content into `
 
 It is the last thing the installation does, and it is judged long before it: the package is brought to the staging path while the form is still being answered, and `oparch-dotfiles-sync` is asked what it makes of it, for the hostname and the work contexts this installation is creating. A package it will not apply is refused there, with the disk untouched.
 
-What `/dotfiles` is left as — its modes, the default ACL that keeps them true, and the `safe.directory` entry that lets git work in a tree it does not own — is decided in [Dotfiles](../../decisions/018-dotfiles.md).
+What `/dotfiles` is left as — its modes, the default ACL that keeps them true, and the `safe.directory` entry that lets git work in a tree it does not own — is decided in [Dotfiles](../../decisions/014-dotfiles.md).
 
 A map that declares secrets is given them as one encrypted store, defined in [Secret Store Archive](../oparch-dotfiles-sync/002-secret-store-archive.md). It is opened into the live staging path, which is memory, and copied into the target with the owner and modes the map format requires, before the tool runs.
 

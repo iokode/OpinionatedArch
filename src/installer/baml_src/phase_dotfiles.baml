@@ -43,7 +43,7 @@ function git_system_config() -> string {
     "[safe]\n\tdirectory = " + dotfiles_directory() + "\n"
 }
 
-/// Leaves `/dotfiles` as `docs/decisions/018-dotfiles.md` requires.
+/// Leaves `/dotfiles` as `docs/decisions/014-dotfiles.md` requires.
 ///
 /// Two halves, because they answer different questions. The modes are for what
 /// the copy just brought, which arrives with whatever modes it was copied from;
