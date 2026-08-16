@@ -24,7 +24,7 @@ Every document, ticked when its review is called done. Only the operator ticks a
 - [x] Localization and Time
 - [x] Kernel
 - [x] Boot Image Format
-- [ ] Bootloader
+- [x] Bootloader
 - [ ] Pre-Boot Ownership Message
 - [ ] Return Message on an Installed System — work in progress, nothing decided yet
 - [ ] mkinitcpio Hooks
@@ -123,16 +123,9 @@ Every document, ticked when its review is called done. Only the operator ticks a
 
 ## Snapshots
 
-**[Bootloader](docs/decisions/008-bootloader.md) accepts what Snapshots has stopped accepting.** Its `Why` states, as something to be accepted deliberately, that a snapshot of `@` does not include the kernel and the initramfs; and two of its considerations say that rolling `@` back does not roll them back, and that a bad kernel update is answered through the recovery workflow and a package downgrade. Those are now false: the artifacts are copied with every system snapshot and put back on restore. What survives is its `Context`, which is true of Btrfs snapshots and needs to stop implying the conclusion the rest drew from it.
-
 **Two snapshot tools describe a job that has grown.** [oparch-snapshot-system-create](docs/tools/oparch-snapshot-system-create/000-command.md) describes creating the snapshot and nothing else, where creating one now also means hashing the boot artifacts, storing the set when it is new, and recording the pair. [oparch-snapshot-restore](docs/tools/oparch-snapshot-restore/000-command.md) says a system restore must run offline from live media plus chroot, which predates the recovery partition, and that a home restore can run on the installed system "with controlled session state", where Snapshots now requires that context to be logged out; neither the table nor putting the artifacts back is mentioned at all.
 
 ## Localization and Time
 
 **[mkinitcpio Hooks](docs/decisions/011-mkinitcpio-hooks.md) attributes a path to a document that does not hold it.** It says the keymap at unlock is the machine's own "as [Localization and Time] decides it: written to `/etc/vconsole.conf`, and applied through `keymap`". Localization and Time names no file, deliberately: on a system with systemd there is one canonical place for the language, the keymap and the timezone, so writing them down would be documenting how Arch works rather than deciding anything. Where the hook reads the keymap from is the hook's own business and can stay in that document; what has to go is the attribution.
 
-## Boot Image Format
-
-**[Bootloader](docs/decisions/008-bootloader.md) leaves GRUB's files outside the project's directory.** It installs the menu as `/boot/grub/grub.cfg` and has the dotfiles' own `grub/` directory copied to `/boot`, with `custom.cfg` beside it. GRUB's modules now live in `OpinionatedArch/grub/`, which is where `grub-install --boot-directory` puts them and where the core image looks for everything of its own, so the menu and what the installation writes beside it go there too. Its `Why` for the dotfiles synchronisation says `/boot` as well, and [Dotfiles Map Format](docs/tools/oparch-dotfiles-sync/001-map-format.md) follows it in an example and in a consideration.
-
-**[Bootloader](docs/decisions/008-bootloader.md) also carries the boot menu's own paths**, which move with the directory: `grub.cfg` and `oparch.cfg` are written where GRUB reads its files from.

@@ -2,7 +2,7 @@
 
 ## Context
 
-OpinionatedArch operational tools are small commands for recurring system operations.
+OpinionatedArch decides how a machine is laid out and how it is operated, and a machine changes: contexts are added, secrets rotate, snapshots are taken and restored. Those decisions hold only if something carries them out afterwards.
 
 ## Decision
 

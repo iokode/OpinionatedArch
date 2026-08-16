@@ -2,59 +2,43 @@
 
 ## Context
 
-`/boot` is located on the EFI system partition and remains unencrypted.
-
-Because of that boot layout, Btrfs snapshots of `@` do not include kernel/initramfs artifacts stored in `/boot`.
+Arch's repositories carry several bootloaders — `grub`, `refind`, `limine`, `syslinux`, `systemd-boot`, and others — and leave the choice to whoever installs the system.
 
 ## Decision
 
-That trade-off is accepted.
+The bootloader is GRUB.
 
-The boot menu is hidden and the default entry is started without waiting.
+The boot menu is hidden and the default entry, `OpinionatedArch`, is started without waiting (`GRUB_TIMEOUT_STYLE=hidden` with `GRUB_TIMEOUT=1`).
+
+Pressing any key during that second shows the menu.
 
 `grub-mkconfig` is not used.
 
-The menu is one static `grub.cfg`, kept among the project's assets and installed as `/boot/grub/grub.cfg`.
+The menu is one static `grub.cfg`, kept among the project's assets and installed as `/boot/OpinionatedArch/grub/grub.cfg`, where GRUB reads its files from as [Boot Image Format](007-boot-image-format.md) decides.
 
-If the shared dotfiles contain a `grub/` directory, the dotfiles synchronization tool copies that directory to `/boot`.
+The menu carries nothing particular to the machine it starts: the installation writes those values beside it, in `oparch.cfg`, which the menu's first line reads.
 
-If `custom.cfg` exists after that synchronization, GRUB includes it.
+The menu includes `custom.cfg` only if it exists where GRUB reads its files.
 
-- `GRUB_TIMEOUT_STYLE=hidden`
-- `GRUB_TIMEOUT=1`
-- Default boot entry: `OpinionatedArch`
-- Normal startup does not display the menu.
-- Pressing any key while the machine starts shows the menu instead of booting directly.
+### Entry order
 
-Entry order:
 1. `OpinionatedArch`
 2. `Recovery mode`
-3. `Netboot archiso`
+3. `Arch Netboot`
 4. `EFI firmware settings`
 5. `Reboot`
 6. `Shutdown`
 
 ## Why
 
-- A single startup behaviour is used because an unattended boot is what the design needs everywhere: the pre-boot return message exists so that whoever finds a lost machine sees ownership details, and a menu that waits indefinitely shows a boot menu instead. Anyone who wants the menu can enable it by editing the GRUB configuration, and can keep that change in their dotfiles.
-- Keeping `/boot` on EFI and unencrypted is required because this design prioritizes a simple boot chain and early initramfs/Plymouth unlock flow; if `/boot` is moved inside encrypted root, boot complexity and pre-unlock prompt behavior increase.
-- Accepting that `@` snapshots do not include kernel/initramfs is required because it is the direct consequence of the selected `/boot` layout; if this is not stated explicitly, rollback expectations become incorrect.
-- Avoiding `grub-mkconfig` is required because this policy uses reviewed static GRUB configuration assets; if GRUB configuration is generated dynamically, menu content can drift from the project-owned source of truth.
-- One static `grub.cfg` is required because the menu is a designed artifact rather than generated output; if it were generated, menu content could drift from the project-owned source of truth.
-- A hidden timeout is required because a system that normally boots the default entry should reach unlock quickly without showing the boot menu; if the menu is shown or the timeout is long, normal startup becomes slower without benefit.
-- An interrupt path is required so startup still has an explicit operator way into the GRUB menu; if there is none, the recovery entries become harder to reach.
-- The interrupt is any key during the hidden timeout, rather than a modifier held while powering on, because a modifier cannot be read here: `keystatus` needs the firmware to report which modifiers are held, and the UEFI console input this project boots from does not. A menu behind `Shift` is a menu behind nothing, and nothing about it looks broken from the outside. This project targets UEFI and does not support BIOS, so the reading that would work there is not one to keep the promise for.
-- Stable entry order is required because boot menu usage must be predictable under normal and recovery conditions; if order changes, operator error risk increases.
-- `Recovery mode` and `Netboot archiso` entries are required because local recovery and external live-boot recovery are different incident paths; if either is missing, some recovery workflows require separate manual boot handling.
-- `EFI firmware settings`, `Reboot`, and `Shutdown` entries are required because firmware access, restart, and safe power-off should be available without booting Linux; if missing, those operations become less direct.
-- Dotfiles-provided `grub/` synchronization is required so machine/project custom GRUB additions have one managed source; if copied manually, `/boot` can drift from the dotfiles state.
-- Optional `custom.cfg` inclusion is required because local GRUB extensions must remain possible without editing the static base assets; if omitted, every local addition requires modifying the base `grub.cfg` source.
-- Snapshot recovery is intentionally restore-based (not snapshot boot entries) because booting snapshots adds boot-menu complexity and interacts poorly with `/boot` being outside `@`; if snapshot boot entries are enabled, recovery expectations and boot behavior become harder to reason about.
+- GRUB is the chosen bootloader because it does everything this design asks of it, and it is the most mature bootloader on Linux.
+- `grub-mkconfig` is not used because what it generates is a dirty, unmaintainable configuration.
+- The menu is one file among the project's assets because it is then read, reviewed and changed like anything else this project owns.
+- The machine's own values live in a second file so that the menu stays identical wherever it is installed.
+- Startup goes to the default entry without showing the menu because what follows it is the unlock prompt carrying the return message, which [Pre-Boot Ownership Message](009-preboot-ownership-message.md) puts there for whoever finds a lost machine: a menu waiting there shows them a menu instead. The operator can turn the menu on in the GRUB configuration and keep that change in their dotfiles.
+- An interrupt exists so the recovery entries stay reachable, and it is any key during the hidden second rather than a modifier held while powering on, because a modifier cannot be read here: `keystatus` needs the firmware to report which modifiers are held, and the UEFI console input this project boots from does not. A menu behind `Shift` is a menu behind nothing, and nothing about it looks broken from the outside. This project targets UEFI and does not support BIOS, so the reading that would work there is not one to keep the promise for.
+- The order of the entries is fixed because an entry that moves is an entry chosen wrong.
+- `Recovery mode` and `Arch Netboot` are both there because they start different things: one the recovery system on the machine's own disk, the other a live environment that needs nothing from the disk.
+- `EFI firmware settings`, `Reboot` and `Shutdown` are there because the menu is already on screen, and reaching any of them otherwise means starting Linux first.
+- `custom.cfg` is included so that local additions have somewhere to go that is not the project's own file.
 
-## Considerations
-
-- With `/boot` on EFI, rollback of `@` does not rollback kernel/initramfs.
-- Kernel-update recovery is expected through the recovery workflow and package downgrade when needed.
-- Snapshot restore workflow is external to GRUB menu entries by policy.
-- Startup must boot `OpinionatedArch` directly unless a key is pressed while it starts.
-- Any `custom.cfg` content is outside the base static `grub.cfg` source of truth.

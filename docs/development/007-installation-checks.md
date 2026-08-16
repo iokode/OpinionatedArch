@@ -26,7 +26,7 @@ The last one is a checksum comparison rather than a presence check on purpose: a
 
 ## That the recovery path works
 
-Press a key while the machine starts, choose `Netboot archiso`, and reach a root shell in the live environment it loads.
+Press a key while the machine starts, choose `Arch Netboot`, and reach a root shell in the live environment it loads.
 
 This is the check the harness explicitly cannot make, for the reason [End-to-End Testing](006-end-to-end-testing.md) records: the menu is drawn on a video console the guest does not have. It matters more than its awkwardness suggests, because it is the only thing that exercises the netboot binary as a binary. Everything else about it is a checksum.
 

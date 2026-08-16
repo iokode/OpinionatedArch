@@ -51,7 +51,7 @@ link 'opencode/agent/' to '&HOME/.config/opencode/agent/'
 render 'opencode/mcp/common.conf.tpl' + 'opencode/mcp/github.conf.tpl' to '&HOME/.config/opencode/mcp.conf' with mode '0600'
 
 [dotfiles.boot]
-copy 'grub/' to '/boot/'
+copy 'grub/' to '/boot/OpinionatedArch/grub/'
 ```
 
 Syntax rules:
@@ -505,7 +505,6 @@ The state records links, copies, and rendered targets created by the tool. Rende
 
 ## Considerations
 
-- [Bootloader](../../decisions/008-bootloader.md) already requires copying `grub/` into `/boot`; `copy` makes that behavior explicit in the map instead of retaining a GRUB-specific special case.
 - Rendered targets are generated artifacts. Application edits to them are not versioned and are overwritten during synchronization.
 - Because managed filesystem targets are applied before packages are installed, a package installation failure can leave applied configuration without the packages it configures.
 - A managed target that collides with a file owned by a not-yet-installed package conflicts with that package at install time. Pacman configuration, owned by the already-installed `pacman`, is the reliable pre-install case.

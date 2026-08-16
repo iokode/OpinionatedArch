@@ -91,7 +91,7 @@ Installed with `pacstrap`:
 
 ### Netboot Recovery Binary
 
-The `Netboot archiso` entry required by [Bootloader](../../decisions/008-bootloader.md) chainloads `/EFI/OpinionatedArch/netbootx64.efi` on the EFI system partition.
+The `Arch Netboot` entry required by [Bootloader](../../decisions/008-bootloader.md) chainloads `/EFI/OpinionatedArch/netbootx64.efi` on the EFI system partition.
 
 That file is copied from the `ipxe` package, which `pacstrap` installs into the target as `/usr/share/ipxe/x86_64/ipxe-arch.efi`. It is not downloaded, and it is not staged in the live environment.
 
