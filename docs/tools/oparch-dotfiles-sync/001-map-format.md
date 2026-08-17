@@ -2,7 +2,7 @@
 
 ## Context
 
-The `/dotfiles` directory is the shared source of configuration for all intended login users.
+The `/dotfiles` directory is the shared source of configuration for every account meant to read it, which is every work context and whatever else was put in the `dotfiles` group.
 
 ## Specification
 
@@ -51,7 +51,7 @@ link 'opencode/agent/' to '&HOME/.config/opencode/agent/'
 render 'opencode/mcp/common.conf.tpl' + 'opencode/mcp/github.conf.tpl' to '&HOME/.config/opencode/mcp.conf' with mode '0600'
 
 [dotfiles.boot]
-copy 'grub/' to '/boot/'
+copy 'grub/' to '/boot/OpinionatedArch/grub/'
 ```
 
 Syntax rules:
@@ -262,8 +262,8 @@ Because managed copies and rendered files default to read-only, a target an appl
 
 Path placeholders are:
 
-- `&USER`: current login username.
-- `&HOME`: the current login user's home directory.
+- `&USER`: current username.
+- `&HOME`: the current user's home directory.
 - `&HOST`: the current value of `/etc/hostname`.
 
 Source paths may contain `&USER` and `&HOST`. Target paths may contain all three placeholders.
@@ -388,7 +388,7 @@ user     /etc/oparch/dotfiles-sync/secrets/user/<username>/<name>
 ```
 
 - `<name>` is the full secret name `<category>.<key>`, used verbatim as the file name. Dots such as in `github.token` are literal, not directory separators.
-- `<username>` is the login user whose target is being rendered.
+- `<username>` is the user whose target is being rendered.
 
 Resolution behavior is:
 
@@ -505,13 +505,12 @@ The state records links, copies, and rendered targets created by the tool. Rende
 
 ## Considerations
 
-- `../../decisions/007-grub-boot-policy.md` already requires copying `grub/` into `/boot`; `copy` makes that behavior explicit in the map instead of retaining a GRUB-specific special case.
 - Rendered targets are generated artifacts. Application edits to them are not versioned and are overwritten during synchronization.
 - Because managed filesystem targets are applied before packages are installed, a package installation failure can leave applied configuration without the packages it configures.
 - A managed target that collides with a file owned by a not-yet-installed package conflicts with that package at install time. Pacman configuration, owned by the already-installed `pacman`, is the reliable pre-install case.
 - Includes only assemble one logical map. They must not introduce override or precedence semantics.
 - Secrets rendered into application configuration exist as clear text at their runtime target, even though the source secret remains outside `/dotfiles` and the filesystem is encrypted at rest.
-- Login users are work-context boundaries rather than security boundaries. User-scoped secret resolution prevents accidental account mixing but does not create isolation between mutually untrusted people.
+- Work contexts are boundaries between the areas of one person's activity, not security boundaries. User-scoped secret resolution prevents accidental mixing between them, but it does not create isolation between mutually untrusted people, and this system has only one.
 - The installer currently synchronizes an externally obtained public dotfiles source before first boot. If that map requires secrets, those secrets must be provisioned before complete synchronization; secret-dependent rules must not be skipped silently.
 - AUR packages must not be applied until the project defines the AUR helper, restricted build user, and PKGBUILD review policy.
 - Do not add arbitrary synchronization scripts, shell expressions, template conditions, loops, or format-specific merge engines to this syntax without a separate decision.

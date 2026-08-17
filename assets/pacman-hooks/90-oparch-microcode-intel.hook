@@ -1,0 +1,14 @@
+# The microcode image is installed by its own package at a path that belongs to
+# the package. It is moved, not copied, into the directory this project owns,
+# as docs/decisions/007-boot-image-format.md decides.
+
+[Trigger]
+Type = Path
+Operation = Install
+Operation = Upgrade
+Target = boot/intel-ucode.img
+
+[Action]
+Description = Moving the microcode image into the project's directory...
+When = PostTransaction
+Exec = /usr/bin/mv /boot/intel-ucode.img /boot/OpinionatedArch/intel-ucode.img

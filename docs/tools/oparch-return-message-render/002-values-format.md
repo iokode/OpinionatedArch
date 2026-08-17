@@ -36,15 +36,15 @@ logo:
 | `logo.origin` | `url` or `local` | only inside `logo` |
 | `logo.location` | Where the logo was taken from: a URL, or a path | only inside `logo` |
 
-A key outside this list is an error. Inside `fields` this does not apply: the names there belong to the package, as defined in `001-template-package-format.md`.
+A key outside this list is an error. Inside `fields` this does not apply: the names there belong to the package, as defined in [Return Message Template Package Format](001-template-package-format.md).
 
-The file does not name the template package or the theme. They reach the renderer as directories, through the `--template-package` and `--theme` of `000-command.md`, resolved by whoever calls it — as decided in `../oparch-installer/003-input-sources.md`.
+The file does not name the template package or the theme. They reach the renderer as directories, through the `--template-package` and `--theme` of [oparch-return-message-render](000-command.md), resolved by whoever calls it — as decided in [Installer Input Sources](../oparch-installer/003-input-sources.md).
 
-Text values are quoted, and a value YAML would read as something other than text is refused, as in `../oparch-installer/001-config-file-format.md`. A field value written as `+376000000` would come back without its `+`, so it is refused rather than converted.
+Text values are quoted, and a value YAML would read as something other than text is refused, as in [Installer Configuration File Format](../oparch-installer/001-config-file-format.md). A field value written as `+376000000` would come back without its `+`, so it is refused rather than converted.
 
 Without `logo`, the message carries no logo. There is no separate key stating whether one is included.
 
-`logo` states where the logo was taken from; it is not what the renderer reads. The renderer is given the file, through the `--logo` of `000-command.md`, by whoever resolved this key into one.
+`logo` states where the logo was taken from; it is not what the renderer reads. The renderer is given the file, through the `--logo` of [oparch-return-message-render](000-command.md), by whoever resolved this key into one.
 
 ### Validation
 
@@ -65,7 +65,7 @@ Nothing is rendered when any of these fails.
 - What the installer carries in its configuration is this format plus those two origins, rather than a shape of its own, because the values themselves are the same values; two shapes for one thing drift apart and one of them ends up wrong.
 - A field named here that the package does not declare is refused rather than ignored, because a value that is typed and then dropped looks like it was used.
 - The file is read at render time rather than baked into the image's own metadata because the point of the file is to be edited: a new phone number is a change to this file and a re-run, not a reinstallation.
-- How many languages may be listed is not a number this format sets because the theme is what has to lay them out, as argued in `004-themes.md`; a number fixed here would refuse a theme that can do more and accept one that cannot do what it allows.
+- How many languages may be listed is not a number this format sets because the theme is what has to lay them out, as argued in [Return Message Themes](004-themes.md); a number fixed here would refuse a theme that can do more and accept one that cannot do what it allows.
 - The renderer is given the logo as a file rather than fetching this URL itself because a download that fails is a question — retry with another URL, or go on without one — and only something that can ask the operator may answer it. A renderer that fetched the URL could only guess, and a guess here either loses the branding silently or refuses to rebuild a message over an unrelated address.
 
 ## Considerations

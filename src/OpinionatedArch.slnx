@@ -1,5 +1,0 @@
-<Solution>
-  <Project Path="Installer/Installer.csproj" />
-  <Project Path="CommandLine/CommandLine.csproj" />
-  <Project Path="SpectreConsole/SpectreConsole.csproj" />
-</Solution>

@@ -6,7 +6,7 @@ Several of the installer's inputs are not values but content held elsewhere: the
 
 Each was asked for as one line of text, and what the line meant was deduced from its shape: empty was the project's own, a string carrying a scheme was a URL to a `.tar` to download and unpack, and anything else was a directory. The operator had to know the convention, a git repository could not be named at all, and a directory could only be reached by typing its absolute path from memory — on a machine that is not theirs, in a live environment where the medium holding it is usually not mounted yet.
 
-`oparch-return-message-render` reads the same locations from the other side. It is given a values file that names a `template` and a `theme`, and resolves them itself, downloading and unpacking when they are URLs. Its own command document already states the opposite rule for the logo: *"The logo arrives as a file, not as the URL the configuration names. Obtaining it — downloading it, or letting the operator pick one from disk — belongs to whoever calls this tool."*
+`oparch-return-message-render` read the same locations from the other side: its values file named a `template`, a directory or a URL, and the tool resolved it. Its own command document stated the opposite rule for the logo: *"The logo arrives as a file, not as the URL the configuration names. Obtaining it — downloading it, or letting the operator pick one from disk — belongs to whoever calls this tool."*
 
 ## Specification
 
@@ -29,6 +29,10 @@ The origin is a question of its own, answered before the location, and nothing i
 
 A local origin is copied into the installer's staging directory, `/tmp/oparch`, the moment the installer learns of it: when the picker returns, or, in an unattended installation, when the configuration file is read. A directory is copied, a `.tar` is unpacked there, a file is copied. This happens for every local origin, whether or not the installer is what mounted the medium it came from.
 
+### An origin that cannot be obtained stops the installation
+
+Whatever the input and whatever its origin, a package or a file that cannot be fetched, unpacked or read stops the installation there. The operator answers again — with another origin, or with an explicit choice to go on without what it carried, where going without is possible at all. Nothing is skipped in silence.
+
 ### Removable media are mounted from inside the installer
 
 F5 opens a mount widget, from any screen. A device is mounted at `/run/oparch/media/<device>`, where the pickers see it as a directory like any other.
@@ -50,6 +54,7 @@ Decision 015 gives the host the terminal and the running of processes, and gives
 
 - The origin is asked for rather than inferred because the four origins are not distinguishable by shape. A git repository and an archive are both URLs, and a rule that guesses between them is a rule that fetches the wrong thing and reports the failure as something else.
 - A picker replaces a typed path because the operator is choosing content on a machine they are installing, not recalling a path they wrote. Typing an absolute path from memory fails silently into "no such directory", and the correction is another blind attempt.
+- A failed origin stops and asks because a URL typed wrong is the common case, and a silent fallback leaves the machine missing something the operator believed was there, discovered on the day it is wanted.
 - Mounting belongs inside the installer because a live system shows only what is mounted, and a package on a USB stick is otherwise unreachable without leaving for a shell — which is the one thing an installer with a form should not require.
 - The mount widget is separate from the pickers because a picker that also mounts is two tools sharing one screen. Being global instead, it also serves every later screen that needs a medium, at no extra cost.
 - A local origin is copied as soon as it is named, not when it is used, because two things happen in between: the unmount when the installation starts, and the erasure of the target disk. Reading the configuration file is the unattended counterpart of the operator choosing — the first moment the installer knows what the content is, and the last at which the content is certainly still there.
@@ -63,8 +68,8 @@ Decision 015 gives the host the terminal and the running of processes, and gives
 
 The configuration file that drives an unattended installation names the origin explicitly too, as a kind and a location. The pickers are the interactive way to answer that question, not a second way of asking it.
 
-A dotfiles package is cloned whole where the other two are cloned at one revision. The others are read here and dropped, and a history is not their content; the dotfiles package stays, as the repository `../../decisions/001-disk-layout.md` restores `/dotfiles` from, so its history is part of what is being fetched. A package taken as a directory or an archive leaves no repository, and that restore path does not exist on that machine.
+A dotfiles package is cloned whole where the other two are cloned at one revision. The others are read here and dropped, and a history is not their content; the dotfiles package stays, as the repository [Disk Layout](../../decisions/001-disk-layout.md) restores `/dotfiles` from, so its history is part of what is being fetched. A package taken as a directory or an archive leaves no repository, and that restore path does not exist on that machine.
 
-The encrypted secret store is a file input, obtained the same way the logo is. What it holds and what opens it are specified in `../oparch-dotfiles-sync/002-secret-store-archive.md`.
+The encrypted secret store is a file input, obtained the same way the logo is. What it holds and what opens it are specified in [Secret Store Archive](../oparch-dotfiles-sync/002-secret-store-archive.md).
 
 What would change this decision: a rebuild of the return message that runs unattended on an installed system — a timer, or a tool rebuilding after an edit — has no one to pass the flags. That is when the values file would have to name the template and the theme again, as local paths the installer put there, and the copy into the installed system would come with it.

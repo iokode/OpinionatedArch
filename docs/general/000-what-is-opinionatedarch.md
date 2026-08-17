@@ -1,24 +1,29 @@
 # What is OpinionatedArch
 
-OpinionatedArch is an Arch-based system for one physical person who wants multiple work contexts without maintaining separate system configurations for each login account.
+OpinionatedArch is an Arch-based system for one physical person who wants multiple work contexts without maintaining a separate system configuration for each.
 
-For a longer introduction, read [Introducing OpinionatedArch](https://iokode.blog/posts/opinionated-arch/).
+## The Problems It Solves
 
-## The Problem It Solves
+Arch decides almost nothing for you, and it offers no method for what comes after. That is the point of it, and it is also the work: the network stack, the audio daemon, the kernel, swap and the locale are choices you make and wire yourself, and the machine is then yours to keep in that shape by hand. You can automate the first part — with `archinstall`, or a script of your own — and the automation becomes one more thing you own and maintain. Most of what follows is that same absence, seen from a different side.
 
-One person often separates their activity into contexts: personal use, client work, a specific project. Separate login accounts give each context its own session, browser profiles, cookies, and running processes.
+It multiplies where one person keeps several accounts. Separating personal use from client work is what accounts are for, and each one gives its own session, browser profile, cookies and running processes, which is exactly what is wanted. What is not wanted is configuring every one of them and repeating every change across all of them — and sharing that configuration by hand, with symlinks or a script, is one more arrangement to keep working.
 
-Keeping several accounts on a normal system means configuring each one, and repeating every configuration change across all of them. OpinionatedArch treats the accounts as contexts of the same operator: configuration is shared from `/dotfiles`, while sessions and data stay separate per account.
+Nothing holds the shape over time. Adding an account, rotating the disk passphrase, taking a snapshot before something risky: each is a multi-step procedure done by hand, and it is easy for two of them to come out different. A machine drifts into parts that no longer agree with each other, and nothing written down says what it was supposed to be.
+
+Rollback and recovery are things you have to remember to arrange. Btrfs snapshots and a recovery medium are within reach of any Arch install, and they are opt-in: you choose the scope, size the retention, wire them to the layout, and find out whether you got it right on the day it matters.
+
+One problem here is not of that kind. A lost machine cannot say whose it is on its own, however methodically it was built. Engraving the chassis or sticking a label on it works and needs no computer at all, which is why most people do it; it also comes off, and not everyone wants it on the lid of a laptop.
 
 ## What It Decides
 
-OpinionatedArch is opinionated about the operating model, disk layout, encryption, snapshots, recovery, dotfiles, and maintenance invariants.
+OpinionatedArch decides the system and not the interface. Everything from the disk up to a booted, recoverable machine with its configuration in place has one answer, taken once and written down as a decision.
 
-It does not decide how the user should interact with the machine day to day (the desktop environment, window manager, shell workflow, etc.).
+Everything above that — the desktop, the window manager, the shell, the editor — is the operator's, and the [dotfiles](../decisions/014-dotfiles.md) are what carry their answer to every context.
 
 ## Where To Continue
 
 - [Operating Model](001-operating-model.md) describes how the system works.
 - [Installation Overview](002-installation-overview.md) describes how a machine is installed.
-- [Glossary](003-glossary.md) defines the terms used across the documentation.
+- [Decisions](../decisions/) are the answers this document says are taken once, one per document with its reasoning.
+- [Tools](../tools/) are the commands that keep a machine in the shape those decisions describe.
 

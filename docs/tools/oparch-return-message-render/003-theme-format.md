@@ -2,7 +2,7 @@
 
 ## Context
 
-The pre-boot return message is rendered to an image, as decided in `../../decisions/006-preboot-ownership-message.md`. What that message says is defined by a template package, in `001-template-package-format.md`, and which values fill it by `002-values-format.md`. Neither says anything about what the result looks like: presentation is deliberately absent from both.
+The pre-boot return message is rendered to an image, as decided in [Pre-Boot Ownership Message](../../decisions/009-preboot-ownership-message.md). What that message says is defined by a template package, in [Return Message Template Package Format](001-template-package-format.md), and which values fill it by [Return Message Values Format](002-values-format.md). Neither says anything about what the result looks like: presentation is deliberately absent from both.
 
 A theme is what says it. It carries the typography, the colours, the panels, the spacing and the arrangement of the languages, and nothing else. `oparch-return-message-render` builds the images from a template package, a set of values and a theme.
 
@@ -14,7 +14,7 @@ The operator may supply their own theme, so the format is what a person writes b
 
 A theme decides everything visible except the words and the logo.
 
-It does not define the message text or the language names, which belong to the template package; which languages are shown or what the fields say, which belong to the values file; the logo image, which is given to the tool by whoever calls it; or the wording of the password prompt, which belongs to the tool and is English by `../../decisions/010-localization-and-time-policy.md`.
+It does not define the message text or the language names, which belong to the template package; which languages are shown or what the fields say, which belong to the values file; the logo image, which is given to the tool by whoever calls it; or the wording of the password prompt, which belongs to the tool and is English by [Localization and Time](../../decisions/005-localization-and-time.md).
 
 ### The package
 
@@ -30,19 +30,19 @@ A theme is a directory:
 
 `manifest.yaml` declares the theme. `fonts/` holds font files the theme brings with it. Any other file is only meaningful if a key names it.
 
-A theme is given from any of the origins `../oparch-installer/003-input-sources.md` defines. An archive is extracted into a directory the installer chooses, and entries that would land anywhere else are refused before extraction. This is the delivery defined for template packages in `001-template-package-format.md`, unchanged.
+A theme is given from any of the origins [Installer Input Sources](../oparch-installer/003-input-sources.md) defines. An archive is extracted into a directory the installer chooses, and entries that would land anywhere else are refused before extraction. This is the delivery defined for template packages in [Return Message Template Package Format](001-template-package-format.md), unchanged.
 
 ### Version
 
-`version` declares the revision of this format, not the version of the tool that reads it. Its compatibility rules are the ones defined for the map version in `../oparch-dotfiles-sync/001-map-format.md`: a major increment is incompatible, a minor increment is strictly additive, an unimplemented revision is rejected during validation rather than interpreted, and major `0` carries no compatibility guarantee.
+`version` declares the revision of this format, not the version of the tool that reads it. Its compatibility rules are the ones defined for the map version in [Dotfiles Map Format](../oparch-dotfiles-sync/001-map-format.md): a major increment is incompatible, a minor increment is strictly additive, an unimplemented revision is rejected during validation rather than interpreted, and major `0` carries no compatibility guarantee.
 
 The format is at `0.1` and stays in major `0` until the distribution is released.
 
 ### Values, names and references
 
-- A **name** — of a colour, a font or a style — is lowercase letters, digits and `_`, starting with a letter. This is the rule field names follow in `001-template-package-format.md`.
+- A **name** — of a colour, a font or a style — is lowercase letters, digits and `_`, starting with a letter. This is the rule field names follow in [Return Message Template Package Format](001-template-package-format.md).
 - A **colour** is written `"#RRGGBB"` or `"#RRGGBBAA"`, quoted. Without quotes YAML reads `#` as the start of a comment.
-- A **number** is an integer greater than zero, except `size` and `fit`, which are decimals.
+- A **number** is an integer greater than zero, except `size`, which is a decimal.
 - **Every key is required** unless it is marked optional here. A theme has no defaults: what it does not say, it does not have. The project ships a complete theme, which is what is used when no other is given.
 - A key outside the list its section defines is an error.
 - Every colour is a name declared in `palette`, and every font a name declared in `fonts`. A colour or a font written as a literal anywhere else is an error.
@@ -163,7 +163,7 @@ The glyph drawn once for each character typed into the password prompt, written 
 | `size` | The side of the image, in canvas pixels |
 | `color_palette` | Name declared in `palette` |
 
-It is a drawn shape and not a character, which `../../decisions/006-preboot-ownership-message.md` requires.
+It is a drawn shape and not a character, which [Pre-Boot Ownership Message](../../decisions/009-preboot-ownership-message.md) requires.
 
 ### language_panel and password_prompt_panel
 
@@ -189,17 +189,20 @@ The prompt's panel is as wide as the text it holds plus its padding, and is plac
 ### canvas
 
 ```yaml
-canvas: { width: 3840, row_gap: 96, column_gap: 96, body_size_ratio: 0.0215 }
+canvas: { width: 3840, margin: 288, row_gap: 96, column_gap: 96, body_size_ratio: 0.0215 }
 ```
 
 | Key | Value |
 | --- | --- |
 | `width` | The width the message and the prompt are composed at |
+| `margin` | Space left between the content and the edges of the composed image |
 | `row_gap` | Space between the rows of the arrangement |
 | `column_gap` | Space between the cells of a row |
 | `body_size_ratio` | The body's point size as a fraction of the inner width of the block it falls in |
 
 `width` is chosen above any display the message is expected to meet, so that the boot splash always scales the composition down. Enlarging is what turns text into a blur; reducing never does.
+
+`margin` is what keeps the text off the edges of the screen, because the images themselves are drawn to those edges. It is in canvas pixels like everything else here, so it shrinks with the rest.
 
 The inner width of a cell is its width less twice the sum of `language_panel.border.width` and `language_panel.padding`. For the prompt, it is `canvas.width` less twice the sum of the equivalent values of `password_prompt_panel`.
 
@@ -261,7 +264,6 @@ A narrow column makes the text of that block smaller, because the body size foll
 screen:
   background_palette: panel
   background_image: "background.png"
-  fit: 0.85
   message_gap: 120
   mask_gap: 48
 ```
@@ -272,7 +274,6 @@ What the boot splash needs and the three images cannot carry.
 | --- | --- | --- |
 | `background_palette` | Name declared in `palette`, painted behind everything, and without an alpha component | yes |
 | `background_image` | Path of an image inside the package, scaled to cover the screen and centred over the colour | no |
-| `fit` | Fraction of the limiting screen dimension the composition is scaled to, greater than `0` and at most `1` | yes |
 | `message_gap` | Space between the message and the password prompt | yes |
 | `mask_gap` | Space between the password prompt and the typed characters | yes |
 
@@ -286,7 +287,7 @@ The text of a template package is data and cannot carry markup. The markup is wr
 
 ### Choosing a theme
 
-A theme reaches the tool as a directory, through the `--theme` of `000-command.md`, exactly as the template package arrives through `--template-package`. The values file names neither. Without the flag, the project's own theme is used. The theme is validated with the template package, before the installer touches the disk.
+A theme reaches the tool as a directory, through the `--theme` of [oparch-return-message-render](000-command.md), exactly as the template package arrives through `--template-package`. The values file names neither. Without the flag, the project's own theme is used. The theme is validated with the template package, before the installer touches the disk.
 
 ### Validation
 
@@ -307,7 +308,7 @@ A theme is rejected, with the first problem found, when:
 - A key of `kinds` is not one of the five kinds a template package declares.
 - An entry of `kinds` declares `icon_glyph` without `icon_style`, or the other way round.
 - `weight`, `slant`, `align`, `shape` or `position` is outside its list of values.
-- A number that must be an integer greater than zero is not, or `fit` is not greater than `0` and at most `1`.
+- A number that must be an integer greater than zero is not.
 - `arrangement` declares no entry, an entry whose cells do not come to the number it is keyed by, or a weight that is not an integer greater than zero.
 - The archive holds an entry that would be written outside the directory it is extracted into.
 
@@ -316,7 +317,7 @@ A theme is validated completely before anything is drawn, and nothing is written
 ## Why
 
 - A theme is delivered as a package, and by the same means as a template, because it is written by the same person and obtained the same way; if it had a delivery of its own, there would be two ways of bringing presentation onto a machine and one of them would be the one nobody tested.
-- A theme is data with a closed schema, and never drawing instructions, because a theme may be fetched from a URL. A theme that could describe drawing operations would be a program, and fetching one would run it on the machine being installed — which is exactly what `../../decisions/006-preboot-ownership-message.md` refuses for template packages, and the reason applies unchanged to something with more control over the result.
+- A theme is data with a closed schema, and never drawing instructions, because a theme may be fetched from a URL. A theme that could describe drawing operations would be a program, and fetching one would run it on the machine being installed — which is exactly what [Pre-Boot Ownership Message](../../decisions/009-preboot-ownership-message.md) refuses for template packages, and the reason applies unchanged to something with more control over the result.
 - Colours and fonts are declared once and referenced by name, with literals refused rather than discouraged, because coherence is the only thing a theme exists to produce, and a colour written in seven places stops being one colour on the first edit. Refusing the literal is what leaves one way of writing it; allowing both would mean a reader has to check which is in use.
 - `extends` is explicit because an implicit parent hides where a value came from: a reader of a style would have to know which style is the root, and know it is a root, before knowing what the style says.
 - Sizes are relative to the body, and the body is a fraction of the block's width, because the width of a block changes with the arrangement. If sizes were point sizes, a theme would render well with two languages and unreadably with four, and nothing would say so.
@@ -331,6 +332,7 @@ A theme is validated completely before anything is drawn, and nothing is written
 - Every key is required, and a theme has no defaults, because a theme with holes leaves the tool choosing. What the screen looks like would then be partly the theme's and partly the tool's, and reading the theme would not tell anyone which parts.
 - A logo given to a tool whose theme draws none is an error because a value that is supplied and then dropped looks like it was used, which is the reason the values format refuses a field the package does not declare.
 - There are no coordinates because the heights follow the content: a theme is written before anyone knows how long a message is, in how many languages, with which optional regions surviving.
+- The margin is left when the image is composed, rather than by scaling the composition down at boot, because a background image is meant to reach every edge of the screen and the text over it is not. What the splash is handed already carries its own margin, and the splash has no layout engine to negotiate one.
 - The tool that draws the images is also the one that writes `screen` into the boot splash, because it is the only thing that has the theme already fetched, resolved and validated. Anything else would have to obtain the same theme a second time to answer the same question, and the day the two disagree — a URL that moved, a validation only one of them runs — the screen would be painted for a theme that is not the one the images were drawn from.
 - What is written into the script is numbers only, and never a name, a filename or a path the theme chose, because the script is executed. A theme fetched from a URL that could put text of its own into it would be a program again, which is the one thing this format exists to prevent.
 
@@ -339,4 +341,5 @@ A theme is validated completely before anything is drawn, and nothing is written
 - A theme may carry font files and a background image, so a theme fetched from a URL puts a binary in front of FreeType and ImageMagick. Template packages carry only text and never did. This is the cost of a format that can bring its own icons, and it is accepted rather than left implicit.
 - The values of `screen` reach the boot splash as literals in its script. `oparch-return-message-render` writes them above the body of the Plymouth script the project ships, and installs the two as one file beside the images. The colour is written as its three components, each a fraction between `0` and `1`, and `background_image` becomes a `1` or a `0`; nothing else of the theme is written there.
 - The project ships a complete theme, used when no other is given.
+- For a given number of languages, a wide arrangement leaves the text larger than a tall one: the composition is scaled by whichever screen dimension limits it, so a tall composition on a wide screen is limited by its height and shrinks everything in it. Raising `body_size_ratio` does not answer that, because the taller image is scaled down by the same proportion.
 - Gradients, and image fills for panels, are not in this revision. Both are additive, so either can arrive in a later minor one.

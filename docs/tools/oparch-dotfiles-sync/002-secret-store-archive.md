@@ -2,7 +2,7 @@
 
 ## Context
 
-A map declares the secrets its renders need and never carries their values, so that a dotfiles package can be published without publishing credentials. The values live in the local store defined in `001-map-format.md`, which `oparch-dotfiles-sync` only ever reads.
+A map declares the secrets its renders need and never carries their values, so that a dotfiles package can be published without publishing credentials. The values live in the local store defined in [Dotfiles Map Format](001-map-format.md), which `oparch-dotfiles-sync` only ever reads.
 
 That leaves the question of how a store reaches a machine that has none. During an installation there is no store at all: the machine is being made, and the tool runs before its first boot. Typing each value at the console is the obvious answer and a bad one — an API token is long, unmemorable, and typed blind on a console whose layout was chosen minutes earlier.
 
@@ -12,7 +12,7 @@ That leaves the question of how a store reaches a machine that has none. During 
 
 A secret store travels as one file with the extension `.dfsec`, beside `.dfmap`.
 
-Its content is a `tar` archive of a store's own tree — the `global` and `user` directories of `001-map-format.md`, with the same names inside — encrypted whole with a passphrase.
+Its content is a `tar` archive of a store's own tree — the `global` and `user` directories of [Dotfiles Map Format](001-map-format.md), with the same names inside — encrypted whole with a passphrase.
 
 Unlike a map, a `.dfsec` is identified by its name alone. A map is recognised by the header at its first byte, and there is nothing to recognise in an archive whose bytes are ciphertext.
 
@@ -30,7 +30,7 @@ It is not confirmed against a second copy of itself, anywhere it is asked for. A
 
 Whoever opens one decrypts it and unpacks the archive that comes out. The two are separate: unpacking is what every other archive in this project gets, including the refusal of an entry that would be written outside the directory it is unpacked into.
 
-Nothing writes a `.dfsec`. Producing one is `oparch-secret-export`, which does not exist yet and is tracked in `../../remaining.md`.
+Nothing writes a `.dfsec`. Producing one is `oparch-secret-export`, which does not exist yet and is tracked in [Remaining](../../state/001-remaining.md).
 
 ## Why
 

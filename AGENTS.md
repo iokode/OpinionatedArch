@@ -12,14 +12,15 @@
 ## 2. Documentation Is the Source of Truth
 
 - `docs/` is the only source of truth for this project. It defines the operating model, the decisions behind it, the formats the project relies on, and the tools it ships.
-- Document types, their directories, and their section orders are defined in `docs/README.md`. Follow them.
+- Document types, their directories, and their section orders are defined in Document Types, `docs/README.md`. Follow them, and list a new document in the Index, `docs/INDEX.md`.
 - Do not restate documented content elsewhere. Link to the document that owns it.
 - `Why` sections must argue motivation, cause, consequence, or risk. Before editing one, ask: "Is this change explaining a reason, or just restating implementation/facts?"
+- A `Why` argues the decision that was taken, and does not enumerate what was never chosen. The alternatives to any decision are endless, and listing them argues with an imaginary reader instead of stating what this project does. A decision that was taken and later dropped is different: that one left a trace, and the trace is worth explaining.
 - Implementation plans do not belong in these documents. When a plan is needed, it gets its own dedicated document.
 
 ## 3. Clean Live Baseline
 
-- Installer scripts must assume execution starts from a clean Arch live environment baseline.
+- The installer must assume execution starts from a clean Arch live environment baseline.
 - Do not add defensive state-handling for pre-existing install paths or artifacts that are impossible in that baseline.
 - Do not add preventive cleanup/check patterns "just in case".
 - Keep install flow linear when baseline state is known; fewer commands and fewer branches are preferred.
