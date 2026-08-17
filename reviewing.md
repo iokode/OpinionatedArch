@@ -71,16 +71,5 @@ Every document, ticked when its review is called done. Only the operator ticks a
 - [x] README
 - [ ] AGENTS
 
-## What is OpinionatedArch
-
-**Oparch Tools does not carry the role this document gives the tools.** Here and in the README they are the way of working that keeps the decisions true as the machine changes, and Where To Continue presents them as the commands that keep a machine in the shape the decisions describe. The decision that owns them opens with "small commands for recurring system operations" and then legislates the naming format and the split between command-line and interactive. Nothing in it says they are what holds a machine to its decisions. Same shape as the Dotfiles entry above: a general document defers a claim to a decision that does not contain it.
-
-## Disk Layout
-
-**The installer still builds the old layout.** The recovery system moved out of the encrypted container and onto an ext4 partition of its own, so the disk now has three partitions and the Btrfs filesystem no longer has a `@recovery` subvolume. Nothing of that is in the code: the disk phase still makes two partitions and creates `@recovery` among the subvolumes, its expected commands say so, and the end-to-end harness checks what it produces. This pass moved the decision and nothing else, deliberately.
-
-## Swap
-
-**The installer sets no swap priority.** Swap decides that the compressed swap in RAM is used before the swapfile on disk, and nothing in the code makes that true. The mount table entry the swap phase appends is `/swap/swapfile none swap defaults 0 0`, with no `pri=`, and the zram configuration it writes carries a size and a compression algorithm and no priority either. Which of the two the kernel reaches for first is left to whatever the defaults turn out to be.
 
 
