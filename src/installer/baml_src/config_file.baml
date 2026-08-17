@@ -336,8 +336,8 @@ function check_config(shell: root.common.Shell, files: root.common.Files, secret
     if (!one_of(config.ucode_package, ["intel-ucode", "amd-ucode", "none"])) {
         return "ucode_package must be intel-ucode, amd-ucode, or none.";
     }
-    if (!one_of(config.gpu_driver, ["nvidia", "nvidia-open", "nouveau", "none"])) {
-        return "gpu_driver must be nvidia, nvidia-open, nouveau, or none.";
+    if (!one_of(config.gpu_driver, ["nvidia-open", "none"])) {
+        return "gpu_driver must be nvidia-open or none.";
     }
     if (config.shared_secret == "") {
         return "shared_secret cannot be empty.";

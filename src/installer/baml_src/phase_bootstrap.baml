@@ -25,13 +25,14 @@ function packaged_netboot_binary() -> string {
 function bootstrap_packages(config: InstallConfig) -> string[] {
     let packages = [
         "base", "linux", "linux-headers", "linux-firmware", "mkinitcpio",
-        "iptables-nft", "btrfs-progs", "cryptsetup", "grub", "efibootmgr",
+        "btrfs-progs", "cryptsetup", "grub", "efibootmgr",
         "sudo", "networkmanager", "ipxe",
     ];
     if (config.ucode_package != "none") {
         packages.push(config.ucode_package);
     }
-    if (config.gpu_driver == "nvidia" || config.gpu_driver == "nvidia-open") {
+    //# the one that is a package. Everything else the kernel drives itself.
+    if (config.gpu_driver == "nvidia-open") {
         packages.push(config.gpu_driver);
     }
     if (config.return_message != null) {
@@ -169,7 +170,7 @@ test "bootstrap_packages is the documented baseline when nothing is selected" {
 
     assert.equal(bootstrap_packages(config), [
         "base", "linux", "linux-headers", "linux-firmware", "mkinitcpio",
-        "iptables-nft", "btrfs-progs", "cryptsetup", "grub", "efibootmgr",
+        "btrfs-progs", "cryptsetup", "grub", "efibootmgr",
         "sudo", "networkmanager", "ipxe",
     ])
 }
@@ -197,12 +198,12 @@ test "bootstrap_packages leaves out the zram generator when no zram is asked for
     assert.is_true(!bootstrap_packages(config).includes("zram-generator"))
 }
 
-test "bootstrap_packages adds no driver for nouveau or none" {
+test "bootstrap_packages adds no driver for the graphics the kernel drives" {
     let config = empty_config();
     config.ucode_package = "none";
 
-    config.gpu_driver = "nouveau";
-    assert.is_true(!bootstrap_packages(config).includes("nouveau"));
+    config.gpu_driver = "none";
+    assert.is_true(!bootstrap_packages(config).includes("nvidia-open"));
 
     config.gpu_driver = "none";
     assert.is_true(!bootstrap_packages(config).includes("none"))
@@ -236,7 +237,7 @@ test "bootstrap installs, writes fstab and stages the netboot binary" {
         bootstrap_base_system(shell, files, ui, config, root.common.chroot_target("/mnt"), "/assets"), "");
 
     assert.equal(shell.streamed, [
-        "pacstrap -K /mnt base linux linux-headers linux-firmware mkinitcpio iptables-nft"
+        "pacstrap -K /mnt base linux linux-headers linux-firmware mkinitcpio"
             + " btrfs-progs cryptsetup grub efibootmgr sudo networkmanager ipxe amd-ucode",
     ]);
     assert.equal(files.written.get("/mnt/etc/fstab"), "UUID=5f3a / btrfs subvol=@ 0 0\n");

@@ -23,7 +23,7 @@ The installer asks for:
 3. install mode (`wipe-all` or `keep-homes`)
 4. if install mode is `keep-homes`: existing home subvolumes to preserve, selected from a multiple-choice list
 5. ucode package (`intel-ucode`, `amd-ucode`, or `none`)
-6. GPU driver (`nvidia`, `nvidia-open`, `nouveau`, or `none`)
+6. GPU driver (`nvidia-open` or `none`)
 7. zram swap size in GB
 8. disk swapfile size in GB (if 0, do not create any swapfile)
 9. work context names (in `keep-homes`, these are created in addition to the contexts whose homes are preserved)
@@ -74,7 +74,6 @@ Installed with `pacstrap`:
 - `linux-headers`
 - `linux-firmware`
 - `mkinitcpio`
-- `iptables-nft`
 - `btrfs-progs`
 - `cryptsetup`
 - `grub`
@@ -85,7 +84,6 @@ Installed with `pacstrap`:
 - `zram-generator` (if the zram swap size is greater than zero)
 - `intel-ucode` (if selected as the ucode package)
 - `amd-ucode` (if selected as the ucode package)
-- `nvidia` (if GPU driver is `nvidia`)
 - `nvidia-open` (if GPU driver is `nvidia-open`)
 - `plymouth` (if pre-boot return message is enabled)
 

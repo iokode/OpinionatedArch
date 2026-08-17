@@ -162,7 +162,7 @@ function step_data_preservation(ui: Ui, tips: Tips, config: InstallConfig) -> bo
 function step_hardware(ui: Ui, tips: Tips, config: InstallConfig) -> bool {
     ui.step("Hardware");
     let ucodes = ["intel-ucode", "amd-ucode", "none"];
-    let gpus = ["nvidia", "nvidia-open", "nouveau", "none"];
+    let gpus = ["nvidia-open", "none"];
     let field = 0;
 
     while (field < 4) {

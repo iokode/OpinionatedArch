@@ -70,7 +70,7 @@ return_message:
 | `install_mode` | `wipe-all` or `keep-homes` | yes |
 | `preserved_work_contexts` | List of names | only with `keep-homes` |
 | `ucode_package` | `intel-ucode`, `amd-ucode` or `none` | yes |
-| `gpu_driver` | `nvidia`, `nvidia-open`, `nouveau` or `none` | yes |
+| `gpu_driver` | `nvidia-open` or `none` | yes |
 | `swap.zram_gb` | Non-negative integer | no, defaults to `0` |
 | `swap.swapfile_gb` | Non-negative integer | no, defaults to `0` |
 | `work_contexts` | List of names, at least one | yes |

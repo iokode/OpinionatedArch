@@ -20,11 +20,8 @@ ucode:
   - "`none` installs no microcode. Use it in VMs."
 
 gpu:
-  - "nvidia: NVIDIA's proprietary kernel modules (Turing, Ampere, Ada Lovelace and Hopper)."
-  - "nvidia-open: NVIDIA's open kernel modules (Turing and newer; required for Blackwell and newer)."
-  - "nvidia-open-dkms: the same open kernel modules, rebuilt by DKMS for every installed kernel."
-  - "nouveau: open, and slower."
-  - "none: for AMD and Intel graphics, which the kernel drives itself."
+  - "nvidia-open: NVIDIA's open kernel modules, for Turing cards and newer (GeForce GTX 16 and RTX 20 series onwards)."
+  - "none: everything else. AMD and Intel graphics, and NVIDIA cards before Turing (GeForce GTX 10 series and older), are driven by the kernel itself."
 
 zram:
   - "Swap held compressed in RAM: quicker than the disk and it costs no space on it. 0 creates none."
