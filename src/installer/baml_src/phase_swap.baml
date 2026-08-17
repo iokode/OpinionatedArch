@@ -1,17 +1,30 @@
 // Swap: compressed swap in RAM, and a swap file on disk. Both are optional and
 // independent; asking for neither is a valid answer.
 
+/// The kernel takes swap of higher priority first. The two numbers are what
+/// makes `docs/decisions/003-swap.md` true: compressing a page and keeping it
+/// in memory is what happens until the compressed pool is full, and the disk
+/// is where pages go after that.
+function zram_priority() -> int {
+    2
+}
+
+function swapfile_priority() -> int {
+    1
+}
+
 /// `zram-generator` reads sizes in megabytes. The compression algorithm is
 /// decided in `docs/decisions/003-swap.md`.
 function zram_config(gigabytes: int) -> string {
     `[zram0]` + "\n"
         + `zram-size = ${gigabytes * 1024}` + "\n"
         + `compression-algorithm = zstd` + "\n"
+        + `swap-priority = ${zram_priority()}` + "\n"
 }
 
 /// The mount table entry for the swap file.
 function swapfile_fstab_entry() -> string {
-    "/swap/swapfile none swap defaults 0 0" + "\n"
+    `/swap/swapfile none swap defaults,pri=${swapfile_priority()} 0 0` + "\n"
 }
 
 //# compressed swap in RAM and the swap file on disk
@@ -58,8 +71,18 @@ function target_with_fstab() -> root.common.RecordingFiles {
 }
 
 test "zram_config asks for the size in megabytes and compresses with zstd" {
-    assert.equal(zram_config(8), "[zram0]\nzram-size = 8192\ncompression-algorithm = zstd\n");
-    assert.equal(zram_config(1), "[zram0]\nzram-size = 1024\ncompression-algorithm = zstd\n")
+    assert.equal(zram_config(8),
+                 "[zram0]\nzram-size = 8192\ncompression-algorithm = zstd\nswap-priority = 2\n");
+    assert.equal(zram_config(1),
+                 "[zram0]\nzram-size = 1024\ncompression-algorithm = zstd\nswap-priority = 2\n")
+}
+
+test "the compressed swap in RAM is reached for before the swapfile on disk" {
+    //# the kernel takes the higher priority first, and this is the whole of
+    //# what makes the order the decision fixes true on a running machine
+    assert.is_true(zram_priority() > swapfile_priority());
+    assert.is_true(zram_config(8).includes(`swap-priority = ${zram_priority()}`));
+    assert.is_true(swapfile_fstab_entry().includes(`pri=${swapfile_priority()}`))
 }
 
 test "swap configures both when both are asked for" {
@@ -71,11 +94,11 @@ test "swap configures both when both are asked for" {
         configure_swap(shell, files, ui, swap_config(8, 16), root.common.chroot_target("/mnt")), "");
 
     assert.equal(files.written.get("/mnt/etc/systemd/zram-generator.conf"),
-                 "[zram0]\nzram-size = 8192\ncompression-algorithm = zstd\n");
+                 "[zram0]\nzram-size = 8192\ncompression-algorithm = zstd\nswap-priority = 2\n");
     assert.equal(shell.commands,
                  ["arch-chroot /mnt btrfs filesystem mkswapfile --size 16G /swap/swapfile"]);
     assert.equal(files.written.get("/mnt/etc/fstab"),
-                 "UUID=5f3a / btrfs subvol=@ 0 0\n/swap/swapfile none swap defaults 0 0\n")
+                 "UUID=5f3a / btrfs subvol=@ 0 0\n/swap/swapfile none swap defaults,pri=1 0 0\n")
 }
 
 test "swap writes no zram configuration when none is asked for" {
@@ -100,7 +123,7 @@ test "swap creates no swap file when none is asked for" {
     assert.equal(shell.commands, []);
     assert.equal(files.written.get("/mnt/etc/fstab"), "UUID=5f3a / btrfs subvol=@ 0 0\n");
     assert.equal(files.written.get("/mnt/etc/systemd/zram-generator.conf"),
-                 "[zram0]\nzram-size = 4096\ncompression-algorithm = zstd\n")
+                 "[zram0]\nzram-size = 4096\ncompression-algorithm = zstd\nswap-priority = 2\n")
 }
 
 test "swap does nothing at all when neither is asked for" {
