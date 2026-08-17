@@ -136,9 +136,12 @@ impl Said {
             Said::Phase => Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
             Said::Action => Style::default().fg(Color::White),
             Said::Output => Style::default().fg(Color::DarkGray),
-            //# red, and no more than that: it is worth finding among the output
-            //# it sits in, and it is not the line that says the run stopped
-            Said::Complaint => Style::default().fg(Color::Red),
+            //# yellow, because standard error is not how a program says it
+            //# failed: `mkinitcpio` reports firmware it did not find there, and
+            //# `grub-install` announces that it finished with no error at all.
+            //# Worth finding among the output it sits in, and never mistakable
+            //# for the one line that says the run stopped, which is the red one.
+            Said::Complaint => Style::default().fg(Color::Yellow),
             Said::Failed => Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
             Said::Finished => Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
         }
@@ -2569,6 +2572,16 @@ mod tests {
         std::fs::write(root.join("dark.tar"), "").unwrap();
         std::fs::write(root.join("notes.txt"), "").unwrap();
         root
+    }
+
+    /// Standard error is where plenty of commands put what is not their output:
+    /// `mkinitcpio` reports firmware it did not find there, and `grub-install`
+    /// announces that it finished with no error at all. Red is kept for the one
+    /// line that says the run stopped, so a run that worked ends without any.
+    #[test]
+    fn what_a_command_wrote_to_standard_error_is_not_painted_as_a_failure() {
+        assert_eq!(Said::Complaint.style().fg, Some(Color::Yellow));
+        assert_eq!(Said::Failed.style().fg, Some(Color::Red));
     }
 
     #[test]
