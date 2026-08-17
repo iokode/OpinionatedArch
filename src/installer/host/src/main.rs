@@ -21,7 +21,7 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Clear, Gauge, List, ListItem, ListState, Paragraph, Wrap};
 use ratatui::{Frame, Terminal};
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 
 /// The TUI draws to the terminal device directly, not to stdout. Sharing
@@ -2167,13 +2167,85 @@ fn drain_stderr(child: &mut tokio::process::Child) -> tokio::task::JoinHandle<St
     tokio::spawn(async move {
         let mut collected = String::new();
         let Some(pipe) = piped else { return collected };
-        let mut lines = BufReader::new(pipe).lines();
-        while let Ok(Some(line)) = lines.next_line().await {
-            collected.push_str(&line);
+        let mut segments = Segments::new(pipe);
+        while let Some(segment) = segments.next().await {
+            collected.push_str(&segment);
             collected.push('\n');
         }
         collected
     })
+}
+
+/// The same, for a command whose complaints the operator is waiting on: each
+/// one reaches the log as it arrives rather than after the command is over.
+/// What is returned is still everything, for the result the caller gets.
+fn stream_stderr(child: &mut tokio::process::Child, host: Arc<Host>)
+        -> tokio::task::JoinHandle<String> {
+    let piped = child.stderr.take();
+    tokio::spawn(async move {
+        let mut collected = String::new();
+        let Some(pipe) = piped else { return collected };
+        let mut segments = Segments::new(pipe);
+        while let Some(segment) = segments.next().await {
+            collected.push_str(&segment);
+            collected.push('\n');
+            {
+                let mut app = host.app.lock().unwrap();
+                if app.installing {
+                    app.push_log(Said::Complaint, readable(&segment));
+                }
+            }
+            host.draw(progress_pane);
+        }
+        collected
+    })
+}
+
+/// What a command writes, cut where a terminal would show a new line: at `\n`,
+/// and also at `\r`.
+///
+/// A download draws its progress by returning the cursor to the start of the
+/// line and painting over it, so a reader that waits for `\n` is handed
+/// nothing at all until the transfer is over — and then one line holding every
+/// redraw at once. Cutting at both gives one segment per redraw, which is what
+/// makes a download something the operator can watch.
+struct Segments<R> {
+    reader: BufReader<R>,
+    buffer: Vec<u8>,
+}
+
+impl<R: tokio::io::AsyncRead + Unpin> Segments<R> {
+    fn new(reader: R) -> Self {
+        Segments { reader: BufReader::new(reader), buffer: Vec::new() }
+    }
+
+    /// The next segment, or nothing when the pipe is closed. Empty segments are
+    /// skipped: a `\r\n` ends one segment and would otherwise open another.
+    async fn next(&mut self) -> Option<String> {
+        loop {
+            match self.reader.read_u8().await {
+                Ok(byte) => {
+                    if byte != b'\n' && byte != b'\r' {
+                        self.buffer.push(byte);
+                        continue;
+                    }
+                    let segment = String::from_utf8_lossy(&self.buffer).into_owned();
+                    self.buffer.clear();
+                    if !segment.trim().is_empty() {
+                        return Some(segment);
+                    }
+                }
+                Err(_) => {
+                    if self.buffer.is_empty() {
+                        return None;
+                    }
+                    let segment = String::from_utf8_lossy(&self.buffer).into_owned();
+                    self.buffer.clear();
+                    return Some(segment);
+                }
+            }
+        }
+    }
 }
 
 /// Runs a command that reads from standard input. The input is written and the
@@ -2305,11 +2377,11 @@ async fn run_streamed(
         }
     };
 
-    let complaints = drain_stderr(&mut child);
+    let complaints = stream_stderr(&mut child, host.clone());
     let mut captured = String::new();
-    let mut lines = BufReader::new(child.stdout.take().expect("piped stdout")).lines();
+    let mut lines = Segments::new(child.stdout.take().expect("piped stdout"));
 
-    while let Ok(Some(line)) = lines.next_line().await {
+    while let Some(line) = lines.next().await {
         captured.push_str(&line);
         captured.push('\n');
 
@@ -2349,23 +2421,9 @@ async fn run_streamed(
     }
 
     let status = child.wait().await;
+    //# already in the log, pushed as each one arrived; what comes back here is
+    //# the whole of it, for the result the caller is given
     let complained = complaints.await.unwrap_or_default();
-
-    // A long command's complaints arrive after its output rather than woven
-    // into it. Ordering them exactly would mean draining both pipes into one
-    // sequence, and what a failing command wrote is worth reading whether or
-    // not it sits in the right place.
-    if !complained.is_empty() {
-        {
-            let mut app = host.app.lock().unwrap();
-            if app.installing {
-                for line in complained.lines() {
-                    app.push_log(Said::Complaint, readable(line));
-                }
-            }
-        }
-        host.draw(progress_pane);
-    }
 
     baml_sdk::common::CommandResult {
         exit_code: status.ok().and_then(|s| s.code()).unwrap_or(-1) as i64,
@@ -2572,6 +2630,34 @@ mod tests {
         std::fs::write(root.join("dark.tar"), "").unwrap();
         std::fs::write(root.join("notes.txt"), "").unwrap();
         root
+    }
+
+    /// A download is drawn by returning the cursor and painting over the line,
+    /// so what makes it watchable is cutting where the terminal shows a new
+    /// line: at the carriage return as much as at the line feed. Cut only at
+    /// the line feed, the four redraws below would reach the log as one line,
+    /// and not until the transfer was over.
+    #[tokio::test]
+    async fn every_redraw_of_a_progress_bar_is_a_segment_of_its_own() {
+        let written = "downloading linux...\r 25%\r 50%\r100%\r\ndone\n";
+        let mut segments = Segments::new(written.as_bytes());
+
+        let mut seen = Vec::new();
+        while let Some(segment) = segments.next().await {
+            seen.push(segment);
+        }
+
+        assert_eq!(seen, vec!["downloading linux...", " 25%", " 50%", "100%", "done"]);
+    }
+
+    /// What a pipe holds when it closes is a segment too, even with nothing
+    /// ending it: a command killed mid-line still said what it said.
+    #[tokio::test]
+    async fn what_arrives_without_an_ending_is_still_a_segment() {
+        let mut segments = Segments::new("half a line".as_bytes());
+
+        assert_eq!(segments.next().await, Some("half a line".to_string()));
+        assert_eq!(segments.next().await, None);
     }
 
     /// Standard error is where plenty of commands put what is not their output:
