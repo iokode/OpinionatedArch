@@ -664,9 +664,22 @@ const INSTALL_LOG_FILE: &str = "oparch-install.log";
 /// Writes the log where the operator chooses: a directory picked by walking to
 /// it, and a name typed into a field. Reports where it landed, or why it did
 /// not.
+///
+/// The walk begins at the medium last attached, when there is one. A log is
+/// saved onto a stick, and the stick is what F5 was pressed for a moment
+/// earlier; starting at the top of the filesystem would make the operator walk
+/// down to what they have just mounted.
 fn save_log(host: &Host, title: &str, suggested: &str, lines: &[String]) {
+    let start = host
+        .app
+        .lock()
+        .unwrap()
+        .mounted
+        .last()
+        .cloned()
+        .unwrap_or_else(|| "/".into());
     let Some(directory) = ui_pick(host, title.into(), "Choose where to write it.".into(),
-                                  "/".into(), Want::Directory)
+                                  start, Want::Directory)
     else {
         return;
     };
@@ -2864,7 +2877,7 @@ mod tests {
 
     #[test]
     fn walking_up_stops_at_the_top() {
-        assert_eq!(parent_of("/run/oparch/media"), Some("/run/oparch".into()));
+        assert_eq!(parent_of("/media/sdb1"), Some("/media".into()));
         assert_eq!(parent_of("/"), None);
     }
 

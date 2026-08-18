@@ -377,12 +377,37 @@ function location_prompt(origin: string) -> string {
     }
 }
 
-/// Where a picker starts walking: where the operator last chose, or the top of
-/// the filesystem the first time. A location that is a `.tar` starts at the
-/// directory holding it, so reopening the picker shows it beside its neighbours.
-function picker_start(location: string) -> string {
+/// Where a picker starts walking when nothing has been chosen yet: the medium
+/// F5 mounted, or the top of the filesystem when there is none.
+///
+/// This is what makes F5 worth pressing. The operator mounts a stick because
+/// what they are about to choose is on it, and walking down to it from `/` is
+/// the walk they mounted it to avoid. A single medium is entered; when several
+/// are mounted the walk begins where they are listed side by side, because
+/// which of them is meant is the operator's to say and not this function's to
+/// guess.
+function mounted_medium(files: root.common.Files) -> string {
+    let media = media_directory();
+    if let held: root.common.DirEntry[] = files.read_dir(media) {
+        if (held.length() == 1) {
+            if let only: root.common.DirEntry = held.at(0) {
+                return root.common.in_directory(media, only.name);
+            }
+        }
+        if (held.length() > 0) {
+            return media;
+        }
+    }
+    "/"
+}
+
+/// Where a picker starts walking: where the operator last chose, or, the first
+/// time, wherever `mounted_medium` says. A location that is a `.tar` starts at
+/// the directory holding it, so reopening the picker shows it beside its
+/// neighbours.
+function picker_start(files: root.common.Files, location: string) -> string {
     if (location == "") {
-        return "/";
+        return mounted_medium(files);
     }
     if (location.ends_with(".tar")) {
         let cut = location.split("/");
@@ -393,12 +418,40 @@ function picker_start(location: string) -> string {
     location
 }
 
+/// A filesystem whose media directory holds the devices named, for the tests
+/// below. The directory itself is there either way, as it is on a machine where
+/// something has been mounted and unmounted again.
+function media_holding(devices: string[]) -> root.common.Files {
+    let held = [media_directory()];
+    for (let device in devices) {
+        held.push(root.common.in_directory(media_directory(), device));
+    }
+    root.common.RecordingFiles {
+        fails_with: null, written: {}, directories: held, symlinks: {}, modes: {},
+        present: [],
+    }
+}
+
 test "a picker starts where the last choice was, or at the top" {
-    assert.equal(picker_start(""), "/");
-    assert.equal(picker_start("/run/oparch/media/sdb1/andorra"), "/run/oparch/media/sdb1/andorra");
+    //# a live system before F5 is pressed: there is no media directory at all
+    let untouched = root.common.recording_files();
+    assert.equal(picker_start(untouched, ""), "/");
+    assert.equal(picker_start(untouched, "/media/sdb1/andorra"), "/media/sdb1/andorra");
     //# an archive is a file, so what is walked is what holds it
-    assert.equal(picker_start("/run/oparch/media/sdb1/andorra.tar"), "/run/oparch/media/sdb1");
-    assert.equal(picker_start("/andorra.tar"), "/")
+    assert.equal(picker_start(untouched, "/media/sdb1/andorra.tar"), "/media/sdb1");
+    assert.equal(picker_start(untouched, "/andorra.tar"), "/");
+    //# and a media directory holding nothing is nothing to start at
+    assert.equal(picker_start(media_holding([]), ""), "/")
+}
+
+test "with nothing chosen yet, a picker starts at the medium that was mounted" {
+    //# the one medium is entered, so the first screen is its content
+    assert.equal(picker_start(media_holding(["sdb1"]), ""), "/media/sdb1");
+    //# two of them, and the walk begins where both are listed
+    assert.equal(picker_start(media_holding(["sdb1", "sdc1"]), ""), "/media");
+    //# a medium is where a walk begins, not where it ends: a choice already made
+    //# is still what a reopened picker returns to
+    assert.equal(picker_start(media_holding(["sdb1"]), "/root/andorra"), "/root/andorra")
 }
 
 /// Asks where content comes from: the origin, and then the location, unless the
@@ -416,8 +469,11 @@ test "a picker starts where the last choice was, or at the top" {
 /// — the dotfiles package, the return message's — rather than which half of the
 /// question is on screen, because the operator is answering the one and not
 /// the other.
-function ask_source(ui: Ui, tips: Tips, note: string, title: string, prompt: string,
-                    origins: string[], packages: bool,
+///
+/// `files` is here for `picker_start`, which reads what is mounted to decide
+/// where a walk begins.
+function ask_source(files: root.common.Files, ui: Ui, tips: Tips, note: string, title: string,
+                    prompt: string, origins: string[], packages: bool,
                     current: Source) -> SourceAnswer {
     let refused = SourceAnswer { source: default_source(), answered: false };
     let labels = origin_labels(origins, packages);
@@ -436,9 +492,9 @@ function ask_source(ui: Ui, tips: Tips, note: string, title: string, prompt: str
             ui.tip(tip_for(tips, note));
             let given = if (origin == "local") {
                 if (packages) {
-                    ui.pick_package(title, location_prompt(origin), picker_start(location))
+                    ui.pick_package(title, location_prompt(origin), picker_start(files, location))
                 } else {
-                    ui.pick_file(title, location_prompt(origin), picker_start(location))
+                    ui.pick_file(title, location_prompt(origin), picker_start(files, location))
                 }
             } else {
                 ui.text(title, location_prompt(origin), location, false)
@@ -493,7 +549,7 @@ function step_dotfiles(shell: root.common.Shell, files: root.common.Files, secre
             }
         } else if (field == 1) {
             //# the project ships no dotfiles, so its own is not among the origins
-            let answered = ask_source(ui, tips, "dotfiles_source", "Dotfiles",
+            let answered = ask_source(files, ui, tips, "dotfiles_source", "Dotfiles",
                                       "Where the dotfiles package comes from.",
                                       supplied_package_origins(), true, existing);
             if (!answered.answered) {
@@ -515,7 +571,7 @@ function step_dotfiles(shell: root.common.Shell, files: root.common.Files, secre
                 }
             }
         } else if (field == 2) {
-            let answered = ask_source(ui, tips, "dotfiles_secrets", "Dotfiles",
+            let answered = ask_source(files, ui, tips, "dotfiles_secrets", "Dotfiles",
                                       "Where the encrypted secret store comes from.",
                                       file_origins(), false, store.archive);
             if (!answered.answered) {
@@ -601,7 +657,7 @@ function step_return_message(shell: root.common.Shell, files: root.common.Files,
                 return false;
             }
         } else if (field == 1) {
-            let answered = ask_source(ui, tips, "return_message_source", "Return message",
+            let answered = ask_source(files, ui, tips, "return_message_source", "Return message",
                                       "Where the template package comes from.",
                                       package_origins(), true, message.template);
             if (!answered.answered) {
@@ -623,7 +679,7 @@ function step_return_message(shell: root.common.Shell, files: root.common.Files,
                 }
             }
         } else if (field == 2) {
-            let answered = ask_source(ui, tips, "return_message_source", "Return message",
+            let answered = ask_source(files, ui, tips, "return_message_source", "Return message",
                                       "Where the theme comes from.",
                                       package_origins(), true, message.theme);
             if (!answered.answered) {
@@ -704,7 +760,7 @@ function step_return_message(shell: root.common.Shell, files: root.common.Files,
                 //# around something that needs none
                 //# one file, walked to rather than typed when it is on this
                 //# machine, and typed when it is not
-                let answered = ask_source(ui, tips, "return_message_source", "Return message",
+                let answered = ask_source(files, ui, tips, "return_message_source", "Return message",
                                           "Where the logo comes from.",
                                           file_origins(), false,
                                           message.logo ?? source_at("url", ""));

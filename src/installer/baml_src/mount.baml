@@ -23,10 +23,12 @@ class MountableDevice {
     label: string,
 }
 
-/// Where mounted media live. Not under `/mnt`, which is the root of the system
-/// being built.
+/// Where mounted media live: one step below the top of the filesystem, so a
+/// picker walking down from `/` reaches a stick in two moves. Not under `/mnt`,
+/// which is the root of the system being built, and nothing else is there to
+/// collide with — the `filesystem` package ships no `/media`.
 function media_directory() -> string {
-    "/run/oparch/media"
+    "/media"
 }
 
 /// The last segment of a path, which for `/dev/sdb1` is what names its mount
@@ -175,13 +177,13 @@ test "an empty listing offers nothing rather than a device with no name" {
 }
 
 test "a mount point is named after the device, and never under the target root" {
-    assert.equal(mount_point_for("/dev/sdb1"), "/run/oparch/media/sdb1");
+    assert.equal(mount_point_for("/dev/sdb1"), "/media/sdb1");
     assert.is_true(!mount_point_for("/dev/sdb1").starts_with("/mnt"))
 }
 
 test "the commands are the ones the host is to run, program and all" {
     assert.equal(mountable_listing_argv().program, "lsblk");
-    assert.equal(mount_argv("/dev/sdb1", "/run/oparch/media/sdb1").args,
-                 ["/dev/sdb1", "/run/oparch/media/sdb1"]);
-    assert.equal(unmount_argv("/run/oparch/media/sdb1").args, ["-l", "/run/oparch/media/sdb1"])
+    assert.equal(mount_argv("/dev/sdb1", "/media/sdb1").args,
+                 ["/dev/sdb1", "/media/sdb1"]);
+    assert.equal(unmount_argv("/media/sdb1").args, ["-l", "/media/sdb1"])
 }
