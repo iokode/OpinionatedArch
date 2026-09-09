@@ -41,7 +41,7 @@ dotfiles:
 secret_store:
   archive:
     origin: local
-    location: /run/oparch/media/sdb1/store.dfsec
+    location: /media/sdb1/store.dfsec
   passphrase: "sixteen words from the short list"
 
 return_message:

@@ -505,44 +505,44 @@ test "a local directory is copied here, contents and all" {
 
     assert.equal(
         bring_here(shell, root.common.recording_files(),
-                   source_at("local", "/run/oparch/media/sdb1/andorra"),
+                   source_at("local", "/media/sdb1/andorra"),
                    "/tmp/oparch", "/tmp/oparch/template-package", "template package", false),
         "");
     //# `test -d` is what tells a directory from an archive, not the name
     assert.equal(shell.commands, [
-        "test -d /run/oparch/media/sdb1/andorra",
-        "cp -r /run/oparch/media/sdb1/andorra/. /tmp/oparch/template-package",
+        "test -d /media/sdb1/andorra",
+        "cp -r /media/sdb1/andorra/. /tmp/oparch/template-package",
     ])
 }
 
 test "a local archive is unpacked here rather than read where it lies" {
     let shell = fetching_shell();
-    let _ = shell.exit_codes.set("test -d /run/oparch/media/sdb1/andorra.tar", 1);
-    let _ = shell.replies.set("tar -tf /run/oparch/media/sdb1/andorra.tar", "manifest.yaml\n");
+    let _ = shell.exit_codes.set("test -d /media/sdb1/andorra.tar", 1);
+    let _ = shell.replies.set("tar -tf /media/sdb1/andorra.tar", "manifest.yaml\n");
     let files = root.common.recording_files();
-    files.present.push("/run/oparch/media/sdb1/andorra.tar");
+    files.present.push("/media/sdb1/andorra.tar");
 
     assert.equal(
         bring_here(shell, files,
-                   source_at("local", "/run/oparch/media/sdb1/andorra.tar"),
+                   source_at("local", "/media/sdb1/andorra.tar"),
                    "/tmp/oparch", "/tmp/oparch/theme", "theme", false),
         "");
     assert.equal(shell.commands, [
-        "test -d /run/oparch/media/sdb1/andorra.tar",
-        "tar -tf /run/oparch/media/sdb1/andorra.tar",
-        "tar -xf /run/oparch/media/sdb1/andorra.tar -C /tmp/oparch/theme",
+        "test -d /media/sdb1/andorra.tar",
+        "tar -tf /media/sdb1/andorra.tar",
+        "tar -xf /media/sdb1/andorra.tar -C /tmp/oparch/theme",
     ])
 }
 
 test "a local location that is neither a directory nor a file is reported" {
     let shell = fetching_shell();
-    let _ = shell.exit_codes.set("test -d /run/oparch/media/sdb1/gone", 1);
+    let _ = shell.exit_codes.set("test -d /media/sdb1/gone", 1);
 
     assert.equal(
         bring_here(shell, root.common.recording_files(),
-                   source_at("local", "/run/oparch/media/sdb1/gone"),
+                   source_at("local", "/media/sdb1/gone"),
                    "/tmp/oparch", "/tmp/oparch/theme", "theme", false),
-        "The theme is not there: /run/oparch/media/sdb1/gone")
+        "The theme is not there: /media/sdb1/gone")
 }
 
 test "the directory the renderer is handed is where the content ended up" {

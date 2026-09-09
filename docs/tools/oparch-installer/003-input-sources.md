@@ -35,7 +35,9 @@ Whatever the input and whatever its origin, a package or a file that cannot be f
 
 ### Removable media are mounted from inside the installer
 
-F5 opens a mount widget, from any screen. A device is mounted at `/run/oparch/media/<device>`, where the pickers see it as a directory like any other.
+F5 opens a mount widget, from any screen. A device is mounted at `/media/<device>`, where the pickers see it as a directory like any other.
+
+A picker that has nothing chosen yet begins its walk at what is mounted: inside the medium when there is one, at `/media` when there are several, and at the top of the filesystem when there is none. A picker reopened on an answer already given still begins where that answer is.
 
 Everything mounted this way is unmounted when the installation starts, at F2 on the summary screen. A partition of the disk about to be erased may therefore be mounted and browsed: by the time anything is written it is gone, and whatever was taken from it was copied when it was chosen. Leaving through F6 or F7 leaves the mounts in place — a shutdown unmounts them, and an operator who stays at a shell can deal with them.
 
@@ -57,6 +59,8 @@ Decision 015 gives the host the terminal and the running of processes, and gives
 - A failed origin stops and asks because a URL typed wrong is the common case, and a silent fallback leaves the machine missing something the operator believed was there, discovered on the day it is wanted.
 - Mounting belongs inside the installer because a live system shows only what is mounted, and a package on a USB stick is otherwise unreachable without leaving for a shell — which is the one thing an installer with a form should not require.
 - The mount widget is separate from the pickers because a picker that also mounts is two tools sharing one screen. Being global instead, it also serves every later screen that needs a medium, at no extra cost.
+- Media are mounted at `/media` because every directory above a mount point is a directory the operator walks through, and a live system has nothing there to collide with: the `filesystem` package ships no `/media` at all. It is not under `/mnt`, which is the root of the system being built.
+- A picker with nothing chosen yet starts at the mounted medium because that is what F5 was pressed for. The content the operator went to mount is the content they are about to choose, and walking down to it from the top of the filesystem is the walk the mounting was meant to spare them. Which medium is meant is not guessed when several are mounted: the walk begins where they are listed side by side, which is one keystroke and no wrong turn.
 - A local origin is copied as soon as it is named, not when it is used, because two things happen in between: the unmount when the installation starts, and the erasure of the target disk. Reading the configuration file is the unattended counterpart of the operator choosing — the first moment the installer knows what the content is, and the last at which the content is certainly still there.
 - The copy is unconditional because the alternative is a rule with a case inside it — copied when the installer mounted the medium, read in place otherwise — which fails the same way, only later and only sometimes.
 - Unmounting when the installation starts, rather than when the installer exits, is what makes browsing the target disk harmless: the operator does not have to know which partitions belong to the disk they are about to erase.
