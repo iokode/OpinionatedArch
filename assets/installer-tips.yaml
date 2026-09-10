@@ -41,6 +41,12 @@ confirm_secret:
 keymap:
   - "The layout of the keyboard in front of you. It is also the layout the boot passphrase screen uses, so a wrong one here is a passphrase that cannot be typed."
 
+network:
+  - "This is asked only when the machine does not already reach the OpinionatedArch repository, which is where the installation gets its packages from."
+  - "There is no answer for connecting by cable: a cable with a DHCP server behind it is already working by the time this asks, and one without needs addresses set by hand. Plug it in and choose `Look again`."
+  - "For anything this does not do — a fixed address, a gateway, a proxy — leave the installer with F6, set it up by hand, and start it again. Nothing is lost: nothing has been written yet."
+  - "Going on without a network is a choice, and it is made here rather than found out later."
+
 timezone:
   - "Where this machine is, which is what sets its clock."
 

@@ -9,22 +9,24 @@ function collect_config(shell: root.common.Shell, files: root.common.Files, secr
     ui.outline(form_phases());
     let step = 0;
 
-    while (step <= 8) {
+    while (step <= 9) {
         let advanced = if (step == 0) {
             step_keymap(shell, ui, tips, config)
         } else if (step == 1) {
-            step_disk(shell, ui, tips, config)
+            step_network(shell, ui, tips)
         } else if (step == 2) {
-            step_data_preservation(ui, tips, config)
+            step_disk(shell, ui, tips, config)
         } else if (step == 3) {
-            step_hardware(ui, tips, config)
+            step_data_preservation(ui, tips, config)
         } else if (step == 4) {
-            step_work_contexts(ui, tips, config)
+            step_hardware(ui, tips, config)
         } else if (step == 5) {
-            step_locale_and_identity(shell, ui, tips, config)
+            step_work_contexts(ui, tips, config)
         } else if (step == 6) {
-            step_dotfiles(shell, files, secrets, ui, tips, config)
+            step_locale_and_identity(shell, ui, tips, config)
         } else if (step == 7) {
+            step_dotfiles(shell, files, secrets, ui, tips, config)
+        } else if (step == 8) {
             step_return_message(shell, files, ui, tips, config, asset_dir)
         } else {
             step_summary(ui, config)
@@ -50,8 +52,9 @@ function collect_config(shell: root.common.Shell, files: root.common.Files, secr
 /// title through `ui.step`, and a test keeps the two in agreement.
 function step_names() -> string[] {
     [
-        "Keymap", "Target disk", "Data preservation", "Hardware", "Work contexts",
-        "Locale and identity", "Dotfiles", "Return message", "Summary",
+        "Keymap", "Network", "Target disk", "Data preservation", "Hardware",
+        "Work contexts", "Locale and identity", "Dotfiles", "Return message",
+        "Summary",
     ]
 }
 
@@ -101,6 +104,114 @@ function step_keymap(shell: root.common.Shell, ui: Ui, tips: Tips, config: Insta
         }
     }
     false
+}
+
+/// Reaching a network, after the keymap and before anything that needs one.
+///
+/// It is asked only when there is something to ask: a machine that already
+/// reaches the repository is not stopped to be told that it does. What is
+/// asked is the repository itself and not a route or a name server, because
+/// reaching it is what the installation is about to need — a machine behind a
+/// captive portal has both of those and none of what it is about to download.
+///
+/// Connecting by cable is not among the answers, because there is nothing for
+/// it to do: a cable with a DHCP server behind it is connected before this
+/// screen runs, and one without needs addresses set by hand, which this screen
+/// does not do. What that case wants is a way to look again after plugging the
+/// cable in, and that is what it has.
+///
+/// Going on without a network is an answer and never an outcome. It is chosen
+/// here, in front of someone, rather than arrived at by a failure nobody saw.
+function step_network(shell: root.common.Shell, ui: Ui, tips: Tips) -> bool {
+    ui.step("Network");
+    let answers = [
+        "Connect to a Wi-Fi network",
+        "Look again",
+        "Continue without a network",
+    ];
+
+    while (true) {
+        if (reaches_repository(shell)) {
+            return true;
+        }
+
+        ui.tip(tip_for(tips, "network"));
+        if let picked: int = ui.choose(
+                "Network",
+                "This machine does not reach the OpinionatedArch repository.",
+                answers, 0) {
+            if (picked == 2) {
+                return true;
+            }
+            if (picked == 0) {
+                let failed = connect_to_wifi(shell, ui);
+                if (failed != "") {
+                    ui.error(failed);
+                }
+            }
+        } else {
+            return false;
+        }
+    }
+    false
+}
+
+/// Associating with a Wi-Fi network, which is the one thing this screen does
+/// rather than asks. Empty when there is nothing to report, as commands are
+/// reported everywhere else here.
+///
+/// The passphrase is given to `iwctl` on its command line, which is the one
+/// place this project puts a secret it otherwise keeps off one. It goes there
+/// because `iwctl` takes it no other way with no terminal to prompt at; the
+/// exposure is the process list of a live environment where the only person
+/// present is the one who just typed it; and what it opens is a network for
+/// the length of an installation, not a disk for the life of a machine.
+function connect_to_wifi(shell: root.common.Shell, ui: Ui) -> string {
+    let devices = wireless_devices(shell);
+    if (devices.length() == 0) {
+        return "This machine has no wireless device.";
+    }
+
+    let device = devices.at(0) ?? "";
+    if (devices.length() > 1) {
+        if let picked: int = ui.choose("Network", "Wireless device.", devices, 0) {
+            device = devices.at(picked) ?? "";
+        } else {
+            return "";
+        }
+    }
+
+    // `scan` returns once iwd has been told to scan and not when it has
+    // finished, so the list is read after waiting for it rather than straight
+    // away, which would show a list that is empty or half there.
+    ui.action(`Scanning with ${device}`);
+    let scanned = root.common.must(shell.capture("iwctl", ["station", device, "scan"]),
+                                   `Scanning with ${device}`);
+    if (scanned != "") {
+        return scanned;
+    }
+    let finished = await_scan(shell, device);
+
+    let networks = network_names(
+        shell.capture("iwctl", ["station", device, "get-networks"]).stdout);
+    if (networks.length() == 0) {
+        if (finished) {
+            return "The scan found no networks in range.";
+        }
+        return "The scan has not come back. Look again.";
+    }
+
+    if let chosen: int = ui.choose("Network", "Wi-Fi network.", networks, 0) {
+        let ssid = networks.at(chosen) ?? "";
+        if let passphrase: string = ui.text("Network", `Passphrase for ${ssid}`, "", true) {
+            ui.action(`Connecting to ${ssid}`);
+            return root.common.must(
+                shell.capture("iwctl", ["--passphrase", passphrase,
+                                        "station", device, "connect", ssid]),
+                `Connecting to ${ssid}`);
+        }
+    }
+    ""
 }
 
 function step_disk(shell: root.common.Shell, ui: Ui, tips: Tips, config: InstallConfig) -> bool {
@@ -914,9 +1025,12 @@ test "the keymap is asked first, and in force before anything else is typed" {
     let config = collect_config(shell, packaged_files(), recording_secrets(), ui, "/assets");
 
     //# the list is read, the choice is applied, and only then is anything else
-    //# even looked at — the disk is the next thing the installer asks the system
-    assert.equal(shell.commands.slice(0, 3),
-                 ["localectl list-keymaps", "loadkeys es", "lsblk -dpno NAME,TYPE"]);
+    //# even looked at — what follows is the network, which is asked before
+    //# anything that would need one, and the disk after it
+    assert.equal(shell.commands.slice(0, 4),
+                 ["localectl list-keymaps", "loadkeys es",
+                  "curl -fsS --max-time 8 -o /dev/null https://packages.oparch.iokode.dev/oparch.db",
+                  "lsblk -dpno NAME,TYPE"]);
     assert.equal(ui.steps.at(0) ?? "", "Keymap");
     if let collected: InstallConfig = config {
         assert.equal(collected.console_keymap, "es")
@@ -1225,7 +1339,38 @@ test "going back re-asks the previous screen" {
     let config = collect_config(fake_live_shell(), packaged_files(), recording_secrets(), ui, "/assets");
 
     assert.not_null(config);
-    assert.equal(ui.steps.slice(1, 4), ["Target disk", "Data preservation", "Target disk"])
+    //# the network sits between the keymap and the disk, and answers itself
+    //# here because the shell this test gives it reaches the repository
+    assert.equal(ui.steps.slice(2, 5), ["Target disk", "Data preservation", "Target disk"])
+}
+
+test "a machine that reaches the repository is not asked about the network" {
+    let shell = fake_live_shell();
+    let ui = scripted(up_to_dotfiles().concat(["no", "no", "start"]));
+
+    let _ = collect_config(shell, packaged_files(), recording_secrets(), ui, "/assets");
+
+    //# the screen was reached and answered itself: it reports its title like
+    //# every other, and asks nothing
+    assert.equal(ui.steps.at(1) ?? "", "Network");
+    assert.is_true(!ui.asked.includes("Network"))
+}
+
+test "a machine that does not reach it is asked, and may go on without one" {
+    let shell = fake_live_shell();
+    let _ = shell.exit_codes.set(
+        "curl -fsS --max-time 8 -o /dev/null https://packages.oparch.iokode.dev/oparch.db", 7);
+    let ui = scripted(
+        ["es", "Continue without a network"]
+            .concat(up_to_dotfiles().slice(1, up_to_dotfiles().length()))
+            .concat(["no", "no", "start"]));
+
+    let config = collect_config(shell, packaged_files(), recording_secrets(), ui, "/assets");
+
+    //# going on without one is an answer given in front of someone, which is
+    //# the whole of what this screen is for
+    assert.not_null(config);
+    assert.is_true(ui.asked.includes("Network"))
 }
 
 test "backing out of the first screen asks it again rather than leaving" {

@@ -19,28 +19,31 @@ This document is the centralized list of:
 The installer asks for:
 
 1. console keymap, applied to the console as soon as it is given, so that every answer below it is typed with it
-2. target disk
-3. install mode (`wipe-all` or `keep-homes`)
-4. if install mode is `keep-homes`: existing home subvolumes to preserve, selected from a multiple-choice list
-5. ucode package (`intel-ucode`, `amd-ucode`, or `none`)
-6. GPU driver (`nvidia-open` or `none`)
-7. zram swap size in GB
-8. disk swapfile size in GB (if 0, do not create any swapfile)
-9. work context names (in `keep-homes`, these are created in addition to the contexts whose homes are preserved)
-10. shared secret (used for root LUKS unlock and as the password of every work context)
-11. timezone
-12. hostname
-13. public dotfiles package (`yes/no`)
-14. if the public dotfiles package is enabled: where it comes from, as [Installer Input Sources](003-input-sources.md) defines a package source
-15. if the dotfiles map declares secrets the plan reaches: where the encrypted secret store comes from, as [Installer Input Sources](003-input-sources.md) defines a file source
-16. if a secret store is given: the passphrase that opens it, asked once and asked again when it does not
-17. pre-boot return message inclusion (`yes/no`)
-18. if return message is enabled: where the template package comes from, the project's own among the origins, as [Installer Input Sources](003-input-sources.md) defines a package source
-19. if return message is enabled: where the theme comes from, the project's own among the origins, as the same document defines it and [Return Message Themes](../oparch-return-message-render/004-themes.md) decides it
-20. if return message is enabled: a value for each field the template package declares. The project's own package declares owner name, phone, email and return address
-21. if return message is enabled: return-message languages, selecting as many as the theme accepts
-22. if return message is enabled: logo inclusion (`yes/no`)
-23. if logo is enabled: where the logo file comes from, as [Installer Input Sources](003-input-sources.md) defines a file source (retry or explicit continue-without-logo when it cannot be obtained)
+2. if the machine does not already reach the package repository: how to reach one — connect to a Wi-Fi network, look again, or go on without one. It is not asked at all when the repository already answers, and there is no answer for connecting by cable
+3. target disk
+4. install mode (`wipe-all` or `keep-homes`)
+5. if install mode is `keep-homes`: existing home subvolumes to preserve, selected from a multiple-choice list
+6. ucode package (`intel-ucode`, `amd-ucode`, or `none`)
+7. GPU driver (`nvidia-open` or `none`)
+8. zram swap size in GB
+9. disk swapfile size in GB (if 0, do not create any swapfile)
+10. work context names (in `keep-homes`, these are created in addition to the contexts whose homes are preserved)
+11. shared secret (used for root LUKS unlock and as the password of every work context)
+12. timezone
+13. hostname
+14. public dotfiles package (`yes/no`)
+15. if the public dotfiles package is enabled: where it comes from, as [Installer Input Sources](003-input-sources.md) defines a package source
+16. if the dotfiles map declares secrets the plan reaches: where the encrypted secret store comes from, as [Installer Input Sources](003-input-sources.md) defines a file source
+17. if a secret store is given: the passphrase that opens it, asked once and asked again when it does not
+18. pre-boot return message inclusion (`yes/no`)
+19. if return message is enabled: where the template package comes from, the project's own among the origins, as [Installer Input Sources](003-input-sources.md) defines a package source
+20. if return message is enabled: where the theme comes from, the project's own among the origins, as the same document defines it and [Return Message Themes](../oparch-return-message-render/004-themes.md) decides it
+21. if return message is enabled: a value for each field the template package declares. The project's own package declares owner name, phone, email and return address
+22. if return message is enabled: return-message languages, selecting as many as the theme accepts
+23. if return message is enabled: logo inclusion (`yes/no`)
+24. if logo is enabled: where the logo file comes from, as [Installer Input Sources](003-input-sources.md) defines a file source (retry or explicit continue-without-logo when it cannot be obtained)
+
+What the network question asks is decided by what the installation needs: the repository is asked directly rather than a route or a name server, because a machine behind a captive portal has both of those and none of what it is about to download. Going on without a network is an answer given here and never an outcome arrived at, which is what [Installation ISO](../../decisions/018-installation-iso.md) requires of it.
 
 Whether a package needs secrets at all is not asked: the installer asks the tool, which answers by building the plan the installation will carry out.
 
@@ -48,7 +51,7 @@ Whether a package needs secrets at all is not asked: the installer asks the tool
 
 `wipe-all` repartitions the target disk and destroys everything that was on it.
 
-`keep-homes` keeps the `home/@<work-context>` subvolumes selected from the ones already there, and rebuilds the rest of the layout around them. Each preserved home returns to the work context of the same name, and the contexts named in prompt 9 are created beside them. The layout both modes arrive at is the one [Disk Layout](../../decisions/001-disk-layout.md) fixes; nothing of the mode survives in the installed system.
+`keep-homes` keeps the `home/@<work-context>` subvolumes selected from the ones already there, and rebuilds the rest of the layout around them. Each preserved home returns to the work context of the same name, and the contexts named in prompt 10 are created beside them. The layout both modes arrive at is the one [Disk Layout](../../decisions/001-disk-layout.md) fixes; nothing of the mode survives in the installed system.
 
 ### Temporary Paths for Installer Staging
 
