@@ -206,9 +206,12 @@ jobs:
 
           # Object storage has no symbolic links, so what repo-add leaves as a
           # link is uploaded as a file of its own under both names, because
-          # pacman asks for the short one and nothing would answer it.
+          # pacman asks for the short one and nothing would answer it. The link
+          # goes before the copy: copying onto it would be copying a file onto
+          # itself, which is what it points at.
           for suffix in db files; do
-              cp -L "$REPO_NAME.$suffix.tar.gz" "$REPO_NAME.$suffix"
+              rm -f "$REPO_NAME.$suffix"
+              cp "$REPO_NAME.$suffix.tar.gz" "$REPO_NAME.$suffix"
               gpg --batch --yes --detach-sign \
                   --output "$REPO_NAME.$suffix.tar.gz.sig" "$REPO_NAME.$suffix.tar.gz"
               cp "$REPO_NAME.$suffix.tar.gz.sig" "$REPO_NAME.$suffix.sig"

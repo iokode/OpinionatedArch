@@ -6,6 +6,10 @@ arch=('x86_64')
 url='https://github.com/iokode/OpinionatedArch'
 license=('BSD-2-Clause')
 
+# No separate package of debug symbols, which makepkg would otherwise make and
+# the repository would then hold alongside every tool it publishes.
+options=('!debug')
+
 # What the Requirements section of docs/tools/oparch-dotfiles-sync/000-command.md
 # names. Every one of them is on any Arch system, and they are declared anyway
 # because nothing is arranged so that they are absent.

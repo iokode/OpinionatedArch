@@ -6,6 +6,10 @@ arch=('x86_64')
 url='https://github.com/iokode/OpinionatedArch'
 license=('BSD-2-Clause')
 
+# No separate package of debug symbols, which makepkg would otherwise make and
+# the repository would then hold alongside every tool it publishes.
+options=('!debug')
+
 # What the Requirements section of docs/tools/oparch-installer/000-command.md
 # names. The two tools are there because the installer calls them by name and
 # needs them on PATH; the rest are what it calls without checking whether they
