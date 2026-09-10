@@ -1,0 +1,21 @@
+version: 2
+
+# What watches the pins in the workflows.
+#
+# The actions there are fixed to commits rather than to version tags, so that
+# the code running beside the signing key cannot change without this repository
+# changing. A pin like that goes stale on its own, and a stale pin is a fix
+# nobody received: this is what proposes moving it, as a pull request that can
+# be read before it is taken.
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore
+
+# Cargo is deliberately not watched. `baml_bridge` is pinned to one nightly
+# because the toolchain that compiles against it is pinned to the same version,
+# and the two move together or not at all — which is a decision, not a
+# dependency that has fallen behind.
