@@ -32,15 +32,21 @@ See [Installation Overview](docs/general/002-installation-overview.md) for what 
 ├── src/
 ├── tests/
 ├── assets/
+├── packages/
+├── archiso/
+├── .github/
 └── docs/
 ```
 
 - `src/`: one directory per tool, and the code they share
 - `tests/`: the end-to-end harness; the unit tests live with the code they test
 - `assets/`: managed project assets
+- `packages/`: the packages the project publishes, and what it takes to sign them
+- `archiso/`: the profile the installation image is built from
+- `.github/`: the workflows that build and publish them
 - `docs/`: project documentation
 
-Why the sources and the tests are laid out this way is [Repository Layout](docs/development/002-repository-layout.md).
+Why the repository is laid out this way is [Repository Layout](docs/development/002-repository-layout.md).
 
 ## Documentation
 
@@ -52,4 +58,20 @@ Documentation lives in [`docs/`](docs/INDEX.md), organized by type. The [Index](
 - [Development](docs/development/) — how the project itself is built and tested
 - [Plans](docs/plans/) — work that is going to be done, and in what order
 - [State](docs/state/) — [what is built](docs/state/000-what-is-built.md) and [what remains](docs/state/001-remaining.md)
+
+## Author
+
+Created by [Ivan Montilla](https://x.com/montyclt).
+
+## Thanks
+
+To each of these people, without whom this project would not exist.
+
+- [Antonio Sarosi](https://x.com/antoniosarosi)
+- [David Heinemeier Hansson](https://x.com/dhh)
+- [Javier Campos](https://x.com/javiercampos)
+- [Juan María Hernández](https://x.com/gulnor)
+- [Marta Noya](https://github.com/martouta)
+- [Mertxe Pasamontes](https://x.com/mertxe)
+- [Nate Gentile](https://x.com/nategentile7)
 

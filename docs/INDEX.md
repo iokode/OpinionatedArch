@@ -26,6 +26,10 @@ Every document in this directory, by type. What the types are and what shape eac
 - [Audio Stack](decisions/013-audio-stack.md) — work in progress, nothing decided yet
 - [Dotfiles](decisions/014-dotfiles.md)
 - [Oparch Tools](decisions/015-oparch-tools.md)
+- [Package Repository](decisions/016-package-repository.md)
+- [Installation Script](decisions/017-installation-script.md)
+- [Installation ISO](decisions/018-installation-iso.md)
+- [Signing Key](decisions/019-signing-key.md)
 
 ## Tools
 

@@ -1,8 +1,8 @@
 # Repository Layout
 
-Where the sources live, where the tests live, and why the two answers are not the same.
+Where the sources live, where the tests live, why the two answers are not the same, and where what is neither of them goes.
 
-The repository holds the source of every tool under `src/`, the end-to-end harness under `tests/`, the assets the tools ship or read under `assets/`, and the documentation under `docs/`. Nothing else is at the top level.
+The repository holds the source of every tool under `src/`, the end-to-end harness under `tests/`, the assets the tools ship or read under `assets/`, the packages the project publishes and what it takes to sign them under `packages/`, the profile the installation image is built from under `archiso/`, the workflows that build and publish both under `.github/`, and the documentation under `docs/`. Those are the directories, and there is no other. Beside them sits `install.sh`, the other way an installation is started, which belongs at the top level rather than inside any of them.
 
 More than one tool is written in BAML, and they have code in common — running external commands, reading command output, and the test doubles that go with those.
 
@@ -61,6 +61,10 @@ The harness is the opposite case and gets the opposite answer. It is a shell scr
 - The shared code is reached by symlinking its namespace directory because BAML offers no other way to pull sources in from outside a project; if the files are duplicated instead, whichever project owns them stops being the source of truth it exists to be.
 - `src/utils/` declares no generator because it produces no artifact of its own; it exists to be included and to hold the tests for what it provides.
 - A tool with no host declares no generator either, for the same reason: a generator exists to hand BAML's symbols to another language, and there is no other language to hand them to.
+- `install.sh` is at the top level rather than inside anything because it is fetched by its address and run, so where it sits is part of how it is published: a directory around it lengthens the command every reader of [Installation Script](../decisions/017-installation-script.md) types, and buys nothing.
+- `packages/` and `archiso/` are at the top level because nothing already there could hold them: `src/` is one BAML project per tool and a `PKGBUILD` is not one, `assets/` is what the tools ship or read and neither a package definition nor an image profile is read by any tool, and `tests/` is the harness. What the two have in common is that they describe what leaves this repository rather than what is in it, and that is not what any of the others is for.
+- `packages/` also holds what generates the key those packages are signed with, because a key whose only purpose is to sign them is not a subject apart from them, and a directory of its own for one script is a place nothing else would ever go.
+- `.github/` is where it is because GitHub requires that name and that place. There is nothing decided about a path this project does not get to choose, and it is named here only so that the list above is the whole list.
 - The unit tests are not gathered under `tests/` with the harness because a `test` block is source and a project cannot compile source from outside itself. Moving them would mean either a second project that duplicates what it tests, or fixtures addressed by a path that climbs out of the project it belongs to — and a suite that is hard to point at is a suite that stops being run.
 
 ## Considerations
@@ -68,6 +72,7 @@ The harness is the opposite case and gets the opposite answer. It is a shell scr
 - Running `baml test` inside a tool project also runs the tests of every namespace symlinked into it. That is wanted: shared code is verified in the context of each tool that depends on it.
 - Generated SDKs and BAML caches exclude themselves from version control — the generator writes a `.gitignore` into the SDK directory, and `.baml/` carries its own. Neither needs an entry in the repository's `.gitignore`.
 - A packed executable excludes itself from nothing, so the tool that produces one carries a `.gitignore` naming it.
+- What a `PKGBUILD` is given to package — the built binaries, the runtime library, the archive of assets — is put beside it when a package is built and is no part of this repository. The definition is committed; what it packages is produced.
 - Git stores the symlink itself, so a clone reproduces the layout with no setup step.
 - Do not add a shared namespace to a tool that does not use it. The symlink is what declares the dependency, and it should mean something.
 - A namespace owned by a tool is a directory two projects read, so renaming or removing that tool breaks whoever links it. The symlink is what makes that visible: it names the owner in the path.
