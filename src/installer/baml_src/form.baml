@@ -9,11 +9,16 @@ function collect_config(shell: root.common.Shell, files: root.common.Files, secr
     ui.outline(form_phases());
     let step = 0;
 
+    //# which way the last screen sent us. A screen that answers itself has to
+    //# know, or it sends anyone who steps back into it straight forward again
+    //# and there is no way past it
+    let going_back = false;
+
     while (step <= 9) {
         let advanced = if (step == 0) {
             step_keymap(shell, ui, tips, config)
         } else if (step == 1) {
-            step_network(shell, ui, tips)
+            step_network(shell, ui, tips, going_back)
         } else if (step == 2) {
             step_disk(shell, ui, tips, config)
         } else if (step == 3) {
@@ -32,6 +37,7 @@ function collect_config(shell: root.common.Shell, files: root.common.Files, secr
             step_summary(ui, config)
         };
 
+        going_back = !advanced;
         step
             = if (advanced) {
                 step + 1
@@ -42,6 +48,7 @@ function collect_config(shell: root.common.Shell, files: root.common.Files, secr
         //# so that a key meant to step back never ends the installation
         if (step < 0) {
             step = 0;
+            going_back = false;
         }
     }
 
@@ -122,7 +129,12 @@ function step_keymap(shell: root.common.Shell, ui: Ui, tips: Tips, config: Insta
 ///
 /// Going on without a network is an answer and never an outcome. It is chosen
 /// here, in front of someone, rather than arrived at by a failure nobody saw.
-function step_network(shell: root.common.Shell, ui: Ui, tips: Tips) -> bool {
+///
+/// A screen that answers itself has to be told which way it was walked into.
+/// Answering forwards when someone stepped back into it puts them where they
+/// just came from, and the screens behind it can never be reached again.
+function step_network(shell: root.common.Shell, ui: Ui, tips: Tips,
+                      going_back: bool) -> bool {
     ui.step("Network");
     let answers = [
         "Connect to a Wi-Fi network",
@@ -131,8 +143,9 @@ function step_network(shell: root.common.Shell, ui: Ui, tips: Tips) -> bool {
     ];
 
     while (true) {
+        ui.action("Looking for a network");
         if (reaches_repository(shell)) {
-            return true;
+            return !going_back;
         }
 
         ui.tip(tip_for(tips, "network"));
@@ -1371,6 +1384,25 @@ test "a machine that does not reach it is asked, and may go on without one" {
     //# the whole of what this screen is for
     assert.not_null(config);
     assert.is_true(ui.asked.includes("Network"))
+}
+
+test "a screen that answers itself is walked back through, not bounced off" {
+    let ui = scripted(
+        [
+            "es", // keymap
+            "<back>", // out of the disk, past the network, to the keymap
+            "es", "/dev/sda (476,9G, Samsung SSD 860)", "wipe-all", "none", "none",
+            "0", "0", "ivan", "s", "s", "UTC", "oparch", "no", "no", "start",
+        ],
+    );
+
+    let config = collect_config(fake_live_shell(), packaged_files(), recording_secrets(), ui, "/assets");
+
+    //# the network answers itself in both directions here, so stepping back
+    //# from the disk reaches the keymap rather than the disk again
+    assert.not_null(config);
+    assert.equal(ui.steps.slice(0, 5),
+                 ["Keymap", "Network", "Target disk", "Network", "Keymap"])
 }
 
 test "backing out of the first screen asks it again rather than leaving" {

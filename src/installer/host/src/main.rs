@@ -94,6 +94,16 @@ struct App {
     /// held here rather than read where it is drawn, because it is drawn on
     /// every keypress and it does not change while the program runs.
     about: Vec<String>,
+    /// What a screen is doing while it is not asking anything, when it is
+    /// doing something. A screen says so with `action`, and the next question
+    /// takes it down again.
+    ///
+    /// Nothing here draws itself: a screen that waits on a radio and a screen
+    /// that has hung look the same from the outside, and this is what tells
+    /// them apart.
+    busy: Option<String>,
+    /// Which frame of the turning thing is up.
+    busy_frame: usize,
 }
 
 /// A line of the installation log, and what kind of thing it is. The kind is
@@ -905,7 +915,12 @@ struct Asking<'a>(&'a Host);
 
 impl<'a> Asking<'a> {
     fn new(host: &'a Host) -> Self {
-        host.app.lock().unwrap().asking += 1;
+        let mut app = host.app.lock().unwrap();
+        app.asking += 1;
+        // A question is the end of whatever was being waited for, whether or
+        // not the screen thought to say so.
+        app.busy = None;
+        drop(app);
         Asking(host)
     }
 }
@@ -1543,6 +1558,44 @@ fn failed_box() -> Vec<Line<'static>> {
     lines
 }
 
+/// What a screen shows while it is working and not asking. The steps stay
+/// where they are; only the pane a question would be in changes.
+fn busy_pane(f: &mut Frame, app: &App, area: Rect) {
+    let Some(label) = app.busy.clone() else { return };
+    // ASCII, because this is drawn on whatever console the machine booted
+    // with, and a character that is not in its font is a blank that never
+    // moves — which is the one thing this exists not to look like.
+    const FRAMES: [char; 4] = ['-', '\\', '|', '/'];
+    let turning = FRAMES[app.busy_frame % FRAMES.len()];
+
+    f.render_widget(Clear, area);
+    f.render_widget(
+        Paragraph::new(vec![
+            Line::from(""),
+            Line::from(format!("{turning} {label}…")).centered(),
+        ])
+        .block(Block::default().borders(Borders::ALL).title(" Working ")),
+        area,
+    );
+}
+
+/// Turns it, until whatever was being waited for is over. One thread for as
+/// long as there is something to say, started by the screen that says it and
+/// ended by the next question.
+fn spin(host: Arc<Host>) {
+    std::thread::spawn(move || loop {
+        {
+            let mut app = host.app.lock().unwrap();
+            if app.busy.is_none() {
+                return;
+            }
+            app.busy_frame = app.busy_frame.wrapping_add(1);
+        }
+        host.draw(busy_pane);
+        std::thread::sleep(std::time::Duration::from_millis(120));
+    });
+}
+
 fn progress_pane(f: &mut Frame, app: &App, area: Rect) {
     // Its own frame rather than the form's: there is no question here, so no
     // room is kept for a prompt or for the note that went with one.
@@ -1908,6 +1961,9 @@ async fn run_interactive(
                     app.current = 0;
                     app.total = 0;
                     app.eta = None;
+                    //# whatever the screen before this one was waiting for is
+                    //# over, said so or not: this is a different screen
+                    app.busy = None;
                     //# the form has its own screens; a phase is a line in the log
                     if app.installing {
                         app.close_the_last_phase();
@@ -1921,12 +1977,18 @@ async fn run_interactive(
                 }
             },
             move |message: String| {
-                // Outside an installation this belongs nowhere: the log is not
-                // on screen, and drawing the progress pane would put it there,
-                // over a form that is still being answered. `announce` says the
-                // same thing about commands, and this is the file operations.
+                // During an installation this is a line of the log. Before one,
+                // there is no log on screen and it means something else: a
+                // screen saying what it is about to wait for, which is what the
+                // turning thing is labelled with until the next question.
                 let mut app = h_action.app.lock().unwrap();
                 if !app.installing {
+                    let was_idle = app.busy.is_none();
+                    app.busy = Some(message);
+                    drop(app);
+                    if was_idle {
+                        spin(h_action.clone());
+                    }
                     return;
                 }
                 app.push_log(Said::Action, message);
