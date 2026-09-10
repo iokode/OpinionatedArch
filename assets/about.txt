@@ -1,0 +1,19 @@
+OpinionatedArch is an Arch-based distribution for one
+person juggling multiple work contexts.
+
+Created by Ivan Montilla (x.com/montyclt)
+Part of the IOKode Project — iokode.blog
+
+Website: oparch.iokode.net
+Licensed under the BSD 2-Clause License
+
+Thanks to each of these people, without whom
+this project would not exist:
+
+Antonio Sarosi (x.com/antoniosarosi)
+David Heinemeier Hansson (x.com/dhh)
+Javier Campos (x.com/javiercampos)
+Juan María Hernández (x.com/gulnor)
+Marta Noya (github.com/martouta)
+Mertxe Pasamontes (x.com/mertxe)
+Nate Gentile (x.com/nategentile7)

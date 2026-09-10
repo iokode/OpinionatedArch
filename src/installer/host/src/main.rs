@@ -90,6 +90,10 @@ struct App {
     tip: Vec<String>,
     /// Everything the installation has said, in order.
     log: Vec<Logged>,
+    /// What this program says about itself, read from the assets once. It is
+    /// held here rather than read where it is drawn, because it is drawn on
+    /// every keypress and it does not change while the program runs.
+    about: Vec<String>,
 }
 
 /// A line of the installation log, and what kind of thing it is. The kind is
@@ -544,19 +548,21 @@ const WORDMARK: [&str; 11] = [
     "█   █  █   █   ████  █   █",
 ];
 
-/// What the About box says, which is what the first screen says too: it is the
-/// same text, and this is where it is read rather than where it is looked up.
-fn about_lines() -> Vec<String> {
-    vec![
-        "OpinionatedArch is an Arch-based distribution for one".into(),
-        "person juggling multiple work contexts.".into(),
-        String::new(),
-        "Created by Ivan Montilla (@montyclt)".into(),
-        "Part of the IOKode Project — iokode.blog".into(),
-        String::new(),
-        "Website: oparch.iokode.net".into(),
-        "Licensed under the BSD 2-Clause License".into(),
-    ]
+/// What the About box says, which is what the first screen says too. It is one
+/// text and it lives beside the other assets, so that changing what this
+/// program says about itself is editing a file rather than building a binary.
+///
+/// Every line is drawn as it is written, centred, so the file is what decides
+/// where the text breaks.
+fn about_text(asset_dir: &str) -> Vec<String> {
+    let path = format!("{asset_dir}/about.txt");
+    match std::fs::read_to_string(&path) {
+        Ok(text) => text.lines().map(str::to_string).collect(),
+        Err(e) => {
+            eprintln!("cannot read {path}: {e}");
+            std::process::exit(2);
+        }
+    }
 }
 
 /// The first screen: the wordmark, what this is, and one key to go on.
@@ -564,11 +570,11 @@ fn about_lines() -> Vec<String> {
 /// The wordmark is dropped on a console too short to hold it, rather than the
 /// text being cut: what the screen is for is the words, and the picture is what
 /// can be spared.
-fn splash_lines(height: u16, footer: &str) -> Vec<Line<'static>> {
+fn splash_lines(about: &[String], height: u16, footer: &str) -> Vec<Line<'static>> {
     let cyan = Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD);
     let mut lines: Vec<Line> = Vec::new();
 
-    let with_wordmark = height >= WORDMARK.len() as u16 + about_lines().len() as u16 + 7;
+    let with_wordmark = height >= WORDMARK.len() as u16 + about.len() as u16 + 7;
     if with_wordmark {
         for row in WORDMARK {
             lines.push(Line::from(Span::styled(row, cyan)).centered());
@@ -579,8 +585,8 @@ fn splash_lines(height: u16, footer: &str) -> Vec<Line<'static>> {
         lines.push(Line::from(""));
     }
 
-    for text in about_lines() {
-        lines.push(Line::from(text).centered());
+    for text in about {
+        lines.push(Line::from(text.clone()).centered());
     }
     lines.push(Line::from(""));
     lines.push(
@@ -597,11 +603,11 @@ fn splash_lines(height: u16, footer: &str) -> Vec<Line<'static>> {
 /// the same drawing: only the line at the bottom differs, because only what to
 /// press next differs.
 fn draw_about(host: &Host, footer: &str) {
-    host.draw(|f, _, area| {
+    host.draw(|f, app, area| {
         f.render_widget(Clear, area);
         let rows = area.height.saturating_sub(2);
         f.render_widget(
-            Paragraph::new(splash_lines(rows, footer))
+            Paragraph::new(splash_lines(&app.about, rows, footer))
                 .block(Block::default().borders(Borders::ALL).title(TITLE)),
             area,
         );
@@ -1833,6 +1839,10 @@ impl PlainHost {
 async fn run_interactive(
     asset_dir: String,
 ) -> Result<baml_sdk::InstallSummary, baml_bridge::Error<std::convert::Infallible>> {
+    // Read before the terminal is taken over, so that a file this program
+    // cannot read is said plainly instead of into a screen nobody will see.
+    let about = about_text(&asset_dir);
+
     // Nothing the runtime says is thrown away: stdout and stderr are captured
     // and shown inside the TUI, which draws to the terminal device instead.
     let (diagnostics, real_streams) = capture_stdio();
@@ -1849,7 +1859,7 @@ async fn run_interactive(
     };
     let host = Arc::new(Host {
         term: Mutex::new(term),
-        app: Mutex::new(App::default()),
+        app: Mutex::new(App { about, ..App::default() }),
         diagnostics: diagnostics.clone(),
     });
     splash(&host);
