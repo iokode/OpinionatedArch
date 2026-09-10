@@ -1,0 +1,54 @@
+name: Set up BAML
+description: >
+  Installs the BAML wrapper and selects the toolchain the installer's host is
+  built against, so that every workflow needing BAML asks for it in one place
+  and there is one version of each to change.
+
+outputs:
+  toolchain:
+    description: The toolchain version that was selected
+    value: ${{ steps.toolchain.outputs.version }}
+
+runs:
+  using: composite
+  steps:
+    # The wrapper is a release archive with a known checksum rather than an
+    # install script fetched and run, so what arrives is what was agreed to.
+    # This version and its checksum are what change when the wrapper is
+    # updated, and they live only here.
+    - name: Install the wrapper
+      shell: bash
+      env:
+        WRAPPER: '0.2.3'
+        WRAPPER_SHA256: 'f9837e05f7e4778776bca1e7ce776351706a66d41e012bd1e948f6e9666d1c98'
+      run: |
+        set -eu
+        archive="baml-wrapper-no-self-update-${WRAPPER}-x86_64-unknown-linux-gnu.tar.gz"
+        curl -fsSL -o /tmp/baml.tar.gz \
+            "https://github.com/BoundaryML/baml/releases/download/baml-wrapper-${WRAPPER}/${archive}"
+        printf '%s  %s\n' "$WRAPPER_SHA256" /tmp/baml.tar.gz | sha256sum -c -
+        tar xzf /tmp/baml.tar.gz -C /tmp
+        install -Dm755 /tmp/bin/baml /usr/local/bin/baml
+
+    # The toolchain has a source of truth already and is not repeated here:
+    # Cargo.lock carries the version that was resolved and built against, where
+    # Cargo.toml carries a request.
+    - name: Select the toolchain
+      id: toolchain
+      shell: bash
+      run: |
+        set -eu
+        version="$(awk '
+            /^name = "baml_bridge"$/ { found = 1; next }
+            found && /^version = / { gsub(/[",]/, "", $3); print $3; exit }
+        ' src/installer/host/Cargo.lock)"
+
+        if [ -z "$version" ]; then
+            echo "no baml_bridge version in src/installer/host/Cargo.lock" >&2
+            exit 1
+        fi
+
+        baml toolchain use "$version"
+
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+        echo "BAML_TOOLCHAIN=$version" >> "$GITHUB_ENV"

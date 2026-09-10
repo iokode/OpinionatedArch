@@ -1,0 +1,23 @@
+pkgname=oparch-dotfiles-sync
+pkgver=0.1.0dev1
+pkgrel=1
+pkgdesc="Applies a dotfiles package to the machine it is run on"
+arch=('x86_64')
+url='https://github.com/iokode/OpinionatedArch'
+license=('BSD-2-Clause')
+
+# What the Requirements section of docs/tools/oparch-dotfiles-sync/000-command.md
+# names. Every one of them is on any Arch system, and they are declared anyway
+# because nothing is arranged so that they are absent.
+depends=('pacman' 'glibc' 'coreutils')
+
+# Built by the workflow and left beside this file. There is no build() here:
+# the toolchain that produces these binaries is not an Arch package, so
+# makepkg cannot compile them and only packages what it is handed.
+source=('oparch-dotfiles-sync')
+sha256sums=('SKIP')
+
+package() {
+    install -Dm755 "${srcdir}/oparch-dotfiles-sync" \
+        "${pkgdir}/usr/bin/oparch-dotfiles-sync"
+}

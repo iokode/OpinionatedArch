@@ -1,0 +1,40 @@
+pkgname=oparch-return-message-render
+pkgver=0.1.0dev1
+pkgrel=1
+pkgdesc="Composes the pre-boot ownership message and installs it as a Plymouth theme"
+arch=('x86_64')
+url='https://github.com/iokode/OpinionatedArch'
+license=('BSD-2-Clause')
+
+# What the Requirements section of
+# docs/tools/oparch-return-message-render/000-command.md names. `pango` is
+# listed because Arch leaves it optional for `imagemagick`, and an ImageMagick
+# without it draws no text at all.
+depends=('imagemagick' 'pango' 'noto-fonts' 'fontconfig')
+
+# The binary is built by the workflow and left beside this file. The assets
+# come from the repository, and go where this tool looks for them with no
+# option given: /usr/share/opinionatedarch/assets.
+source=('oparch-return-message-render'
+        'assets.tar.gz')
+sha256sums=('SKIP'
+            'SKIP')
+
+package() {
+    install -Dm755 "${srcdir}/oparch-return-message-render" \
+        "${pkgdir}/usr/bin/oparch-return-message-render"
+
+    local assets="${pkgdir}/usr/share/opinionatedarch/assets"
+
+    # Only what this tool reads: the body of the Plymouth script it writes,
+    # and the template package and theme the project ships. What the
+    # installer reads belongs to the installer's package, so that one tree
+    # has no file in it owned twice.
+    install -d "${assets}"
+    cp -r "${srcdir}/assets/plymouth" "${assets}/plymouth"
+    cp -r "${srcdir}/assets/return-message" "${assets}/return-message"
+    cp -r "${srcdir}/assets/return-message-theme" "${assets}/return-message-theme"
+
+    find "${assets}" -type d -exec chmod 755 {} +
+    find "${assets}" -type f -exec chmod 644 {} +
+}

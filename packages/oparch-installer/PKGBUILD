@@ -1,0 +1,67 @@
+pkgname=oparch-installer
+pkgver=0.1.0dev1
+pkgrel=1
+pkgdesc="Installs OpinionatedArch onto a machine, from a live environment"
+arch=('x86_64')
+url='https://github.com/iokode/OpinionatedArch'
+license=('BSD-2-Clause')
+
+# What the Requirements section of docs/tools/oparch-installer/000-command.md
+# names. The two tools are there because the installer calls them by name and
+# needs them on PATH; the rest are what it calls without checking whether they
+# are present, which is what lets a live environment be given rather than
+# examined.
+depends=('oparch-return-message-render'
+         'oparch-dotfiles-sync'
+         'git'
+         'fontconfig'
+         'gptfdisk'
+         'cryptsetup'
+         'btrfs-progs'
+         'dosfstools'
+         'arch-install-scripts'
+         'util-linux'
+         'parted'
+         'systemd'
+         'kbd'
+         'curl'
+         'tar')
+
+# All three are built by the workflow and left beside this file. The library is
+# the BAML runtime the host loads at run time: it is carried rather than
+# fetched, so that an installation does not depend on a network it has not
+# configured yet.
+source=('oparch-installer'
+        'libbaml_cffi-x86_64-unknown-linux-gnu.so'
+        'oparch-installer.sh'
+        'assets.tar.gz')
+sha256sums=('SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP')
+
+package() {
+    # The binary and its library sit together, out of the way, and what goes
+    # on PATH is the wrapper that points the one at the other.
+    install -Dm755 "${srcdir}/oparch-installer" \
+        "${pkgdir}/usr/lib/oparch/oparch-installer"
+    install -Dm755 "${srcdir}/libbaml_cffi-x86_64-unknown-linux-gnu.so" \
+        "${pkgdir}/usr/lib/oparch/libbaml_cffi-x86_64-unknown-linux-gnu.so"
+    install -Dm755 "${srcdir}/oparch-installer.sh" \
+        "${pkgdir}/usr/bin/oparch-installer"
+
+    local assets="${pkgdir}/usr/share/opinionatedarch/assets"
+
+    # Only what the installer reads. The return message's package, theme and
+    # Plymouth script belong to oparch-return-message-render, which this
+    # package depends on, so both halves of the tree are present at run time
+    # and neither file is owned twice.
+    install -d "${assets}"
+    cp -r "${srcdir}/assets/grub" "${assets}/grub"
+    cp -r "${srcdir}/assets/pacman-hooks" "${assets}/pacman-hooks"
+    install -Dm644 "${srcdir}/assets/installer-tips.yaml" \
+        "${assets}/installer-tips.yaml"
+
+    find "${assets}" -type d -exec chmod 755 {} +
+    find "${assets}" -type f -exec chmod 644 {} +
+}

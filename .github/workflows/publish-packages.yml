@@ -1,0 +1,230 @@
+name: Publish packages
+
+# A merge to master publishes whatever declares a version the repository does
+# not already hold. A merge that changes no version publishes nothing and ends
+# green.
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+# The repository database is the one thing two runs would damage between them,
+# so only one run publishes at a time and none is cancelled half way.
+concurrency:
+  group: publish-packages
+  cancel-in-progress: false
+
+env:
+  REPO_NAME: oparch
+  REPO_URL: https://packages.oparch.iokode.dev
+
+jobs:
+  # Runs every toolchain the project needs, and holds no secret. What it
+  # produces is handed to the job below as an artifact.
+  build:
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+      - name: Install what the build needs
+        run: |
+          pacman -Syu --noconfirm --needed git rust curl
+
+      - uses: actions/checkout@v4
+
+      # Both versions BAML needs are pinned, and both are pinned there: the
+      # image workflow will want the same thing, and a version written in two
+      # workflows is a version that gets updated in one of them.
+      - uses: ./.github/actions/setup-baml
+
+      - name: Build the tools
+        run: |
+          set -eu
+
+          # The host runs the BAML program embedded in its generated SDK, and
+          # only `baml generate` puts a change to baml_src/ there. Building the
+          # binary without this step ships the previous program.
+          baml --directory src/installer generate
+          cargo build --release --manifest-path src/installer/host/Cargo.toml
+
+          ( cd src/return-message-render \
+              && baml pack main --output ./oparch-return-message-render )
+          ( cd src/dotfiles-sync \
+              && baml pack main --output ./oparch-dotfiles-sync )
+
+      - name: Work out what the repository does not already hold
+        run: |
+          set -eu
+
+          # The published database is the state of the repository, and asking
+          # it is what makes this idempotent: a run that publishes nothing new
+          # changes nothing, and a publication that failed half way is finished
+          # by the next run rather than needing to be unpicked.
+          if curl -fsSL "$REPO_URL/$REPO_NAME.db" -o published.db; then
+              tar tzf published.db | sed 's:/.*::' | sort -u > published.txt
+          else
+              echo "no database published yet" >&2
+              : > published.txt
+          fi
+
+          : > to-build.txt
+          for definition in packages/*/PKGBUILD; do
+              directory="$(dirname "$definition")"
+              # shellcheck disable=SC1090
+              ( . "$definition"
+                identifier="${pkgname}-${pkgver}-${pkgrel}"
+                if grep -qxF "$identifier" published.txt; then
+                    echo "$identifier is published already" >&2
+                else
+                    echo "$directory" >> to-build.txt
+                fi )
+          done
+
+          if [ ! -s to-build.txt ]; then
+              echo "nothing to publish" >&2
+          fi
+
+      - name: Stage what makepkg packages
+        run: |
+          set -eu
+          [ -s to-build.txt ] || exit 0
+
+          library="$HOME/.cache/baml/libs/$BAML_TOOLCHAIN/libbaml_cffi-x86_64-unknown-linux-gnu.so"
+          if [ ! -f "$library" ]; then
+              echo "no BAML runtime library at $library" >&2
+              exit 1
+          fi
+
+          tar czf /tmp/assets.tar.gz assets
+
+          cp src/installer/host/target/release/oparch-installer \
+              packages/oparch-installer/
+          cp "$library" packages/oparch-installer/
+          cp /tmp/assets.tar.gz packages/oparch-installer/
+
+          cp src/return-message-render/oparch-return-message-render \
+              packages/oparch-return-message-render/
+          cp /tmp/assets.tar.gz packages/oparch-return-message-render/
+
+          cp src/dotfiles-sync/oparch-dotfiles-sync \
+              packages/oparch-dotfiles-sync/
+
+      - name: Build the packages
+        run: |
+          set -eu
+          [ -s to-build.txt ] || exit 0
+
+          # makepkg refuses to run as root, and this container has no other
+          # user. It is not asked to sign: signing happens in the job below,
+          # which is the only one the key is given to.
+          useradd --create-home builder
+          chown -R builder packages
+
+          mkdir -p /tmp/packages
+          while read -r directory; do
+              sudo -u builder --preserve-env=PATH \
+                  makepkg --dir "$directory" --nodeps --clean
+              mv "$directory"/*.pkg.tar.zst /tmp/packages/
+          done < to-build.txt
+
+          ls -l /tmp/packages
+
+      - name: Hand them over
+        if: hashFiles('to-build.txt') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: /tmp/packages
+          if-no-files-found: ignore
+          retention-days: 1
+
+  # Holds the signing key, and runs nothing but the signing and the upload.
+  # Nothing of the project's own toolchain is installed here, and no code that
+  # is not in this file runs beside the key.
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    environment: signing
+    steps:
+      - uses: actions/download-artifact@v4
+        id: artifact
+        continue-on-error: true
+        with:
+          name: packages
+          path: packages
+
+      - name: Stop if there is nothing to publish
+        id: check
+        run: |
+          if [ -n "$(ls packages/*.pkg.tar.zst 2>/dev/null)" ]; then
+              echo "publish=yes" >> "$GITHUB_OUTPUT"
+          else
+              echo "publish=no" >> "$GITHUB_OUTPUT"
+              echo "nothing was built" >&2
+          fi
+
+      - name: Install what signing and uploading need
+        if: steps.check.outputs.publish == 'yes'
+        run: pacman -Syu --noconfirm --needed gnupg curl aws-cli-v2
+
+      - name: Take the key
+        if: steps.check.outputs.publish == 'yes'
+        env:
+          SIGNING_KEY: ${{ secrets.OPARCH_SIGNING_KEY }}
+        run: |
+          set -eu
+          # The key never becomes a shell variable of its own and is never
+          # echoed: it goes from the environment into gpg and nowhere else.
+          printf '%s' "$SIGNING_KEY" | gpg --batch --import
+          gpg --list-secret-keys --keyid-format=long
+
+      - name: Sign, add to the database, and upload
+        if: steps.check.outputs.publish == 'yes'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          set -eu
+          cd packages
+
+          # A repository is state that accumulates: repo-add adds to the
+          # database it is given, so the published one is fetched first. Adding
+          # to an empty database instead would publish a repository holding
+          # only what was built today.
+          if curl -fsSL "$REPO_URL/$REPO_NAME.db.tar.gz" \
+                  -o "$REPO_NAME.db.tar.gz"; then
+              curl -fsSL "$REPO_URL/$REPO_NAME.files.tar.gz" \
+                  -o "$REPO_NAME.files.tar.gz" || true
+          else
+              echo "starting a new database" >&2
+          fi
+
+          for package in *.pkg.tar.zst; do
+              gpg --batch --yes --detach-sign --output "${package}.sig" "$package"
+          done
+
+          repo-add "$REPO_NAME.db.tar.gz" ./*.pkg.tar.zst
+
+          # Object storage has no symbolic links, so what repo-add leaves as a
+          # link is uploaded as a file of its own under both names, because
+          # pacman asks for the short one and nothing would answer it.
+          for suffix in db files; do
+              cp -L "$REPO_NAME.$suffix.tar.gz" "$REPO_NAME.$suffix"
+              gpg --batch --yes --detach-sign \
+                  --output "$REPO_NAME.$suffix.tar.gz.sig" "$REPO_NAME.$suffix.tar.gz"
+              cp "$REPO_NAME.$suffix.tar.gz.sig" "$REPO_NAME.$suffix.sig"
+          done
+
+          endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+
+          # The packages go up before the database that names them, so that a
+          # database is never published pointing at a file that is not there.
+          for file in *.pkg.tar.zst *.pkg.tar.zst.sig; do
+              aws s3 cp --endpoint-url "$endpoint" "$file" "s3://${R2_BUCKET}/$file"
+          done
+          for file in "$REPO_NAME".db* "$REPO_NAME".files*; do
+              aws s3 cp --endpoint-url "$endpoint" "$file" "s3://${R2_BUCKET}/$file"
+          done

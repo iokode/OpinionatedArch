@@ -1,0 +1,32 @@
+# The key is added and then signed locally, because adding it alone leaves
+# it known and untrusted, and pacman refuses signatures made by a key it
+# does not trust exactly as it refuses signatures it cannot check at all.
+#
+# The fingerprint is read out of the key file rather than written here, so
+# that the two cannot come to disagree: rotating the key replaces the file
+# and this scriptlet keeps being true.
+
+_key=/usr/share/oparch-keyring/oparch.gpg
+
+_trust_key() {
+    local fingerprint
+
+    fingerprint="$(gpg --with-colons --import-options show-only --import \
+        < "$_key" | awk -F: '/^fpr:/ { print $10; exit }')"
+
+    if [ -z "$fingerprint" ]; then
+        echo "oparch-keyring: no key found in $_key" >&2
+        return 1
+    fi
+
+    pacman-key --add "$_key"
+    pacman-key --lsign-key "$fingerprint"
+}
+
+post_install() {
+    _trust_key
+}
+
+post_upgrade() {
+    _trust_key
+}

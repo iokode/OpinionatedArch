@@ -1,0 +1,20 @@
+pkgname=oparch-keyring
+pkgver=0.1.0dev1
+pkgrel=1
+pkgdesc="Public key the oparch repository is signed with"
+arch=('any')
+url='https://github.com/iokode/OpinionatedArch'
+license=('BSD-2-Clause')
+depends=('pacman' 'gnupg')
+install="${pkgname}.install"
+# Named `.gpg` and not `.asc` because makepkg reads a source ending in `.asc`
+# as a detached signature for another source, and would look for a file this
+# package does not have. The content is armoured all the same, so that what is
+# committed to this repository is text.
+source=('oparch.gpg')
+sha256sums=('SKIP')
+
+package() {
+    install -Dm644 "${srcdir}/oparch.gpg" \
+        "${pkgdir}/usr/share/oparch-keyring/oparch.gpg"
+}

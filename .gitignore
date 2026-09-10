@@ -2,6 +2,7 @@
 vm-config.txt
 
 .idea/
+.nocommit/
 artifacts/
 deploy-to-vm.sh
 
