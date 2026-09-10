@@ -1,0 +1,24 @@
+pkgname=oparch-assets
+pkgver=0.1.0dev1
+pkgrel=1
+pkgdesc="The assets this project's tools read"
+arch=('any')
+url='https://github.com/iokode/OpinionatedArch'
+license=('BSD-2-Clause')
+
+# The whole tree, in one package, because it is one tree. Split between the
+# tools that read it, two packages would be writing into one directory and
+# nothing but care would keep them from claiming the same file.
+source=('assets.tar.gz')
+sha256sums=('SKIP')
+
+package() {
+    # Where Oparch Tools decides these live, and what the tools that read them
+    # are pointed at.
+    install -d "${pkgdir}/usr/share/opinionatedarch"
+
+    # Modes come from the repository rather than being flattened here: one of
+    # these is a script, and a tree of data with a script in it is still a tree
+    # whose modes mean something.
+    cp -r "${srcdir}/assets" "${pkgdir}/usr/share/opinionatedarch/assets"
+}

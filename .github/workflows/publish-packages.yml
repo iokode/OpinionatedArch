@@ -88,18 +88,16 @@ jobs:
           set -eu
           [ -s to-build.txt ] || exit 0
 
-          tar czf /tmp/assets.tar.gz assets
+          tar czf packages/oparch-assets/assets.tar.gz assets
 
           # The library was fetched and checked when BAML was set up, and its
           # path comes from there rather than being built again here.
           cp src/installer/host/target/release/oparch-installer \
               packages/oparch-installer/
           cp "$BAML_RUNTIME_LIBRARY" packages/oparch-installer/
-          cp /tmp/assets.tar.gz packages/oparch-installer/
 
           cp src/return-message-render/oparch-return-message-render \
               packages/oparch-return-message-render/
-          cp /tmp/assets.tar.gz packages/oparch-return-message-render/
 
           cp src/dotfiles-sync/oparch-dotfiles-sync \
               packages/oparch-dotfiles-sync/
