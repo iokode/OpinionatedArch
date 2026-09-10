@@ -1,13 +1,17 @@
 name: Set up BAML
 description: >
-  Installs the BAML wrapper and selects the toolchain the installer's host is
-  built against, so that every workflow needing BAML asks for it in one place
-  and there is one version of each to change.
+  Installs the BAML wrapper, selects the toolchain the installer's host is built
+  against, and fetches the runtime library that host loads, so that every
+  workflow needing BAML asks for it in one place and there is one version of
+  each to change.
 
 outputs:
   toolchain:
     description: The toolchain version that was selected
     value: ${{ steps.toolchain.outputs.version }}
+  library:
+    description: Path to the BAML runtime library the host loads
+    value: ${{ steps.library.outputs.path }}
 
 runs:
   using: composite
@@ -21,14 +25,17 @@ runs:
       env:
         WRAPPER: '0.2.3'
         WRAPPER_SHA256: 'f9837e05f7e4778776bca1e7ce776351706a66d41e012bd1e948f6e9666d1c98'
+        TARGET: 'x86_64-unknown-linux-gnu'
       run: |
         set -eu
-        archive="baml-wrapper-no-self-update-${WRAPPER}-x86_64-unknown-linux-gnu.tar.gz"
+        archive="baml-wrapper-no-self-update-${WRAPPER}-${TARGET}.tar.gz"
         curl -fsSL -o /tmp/baml.tar.gz \
             "https://github.com/BoundaryML/baml/releases/download/baml-wrapper-${WRAPPER}/${archive}"
         printf '%s  %s\n' "$WRAPPER_SHA256" /tmp/baml.tar.gz | sha256sum -c -
         tar xzf /tmp/baml.tar.gz -C /tmp
         install -Dm755 /tmp/bin/baml /usr/local/bin/baml
+
+        echo "BAML_TARGET=$TARGET" >> "$GITHUB_ENV"
 
     # The toolchain has a source of truth already and is not repeated here:
     # Cargo.lock carries the version that was resolved and built against, where
@@ -52,3 +59,39 @@ runs:
 
         echo "version=$version" >> "$GITHUB_OUTPUT"
         echo "BAML_TOOLCHAIN=$version" >> "$GITHUB_ENV"
+
+    # The host loads this library rather than carrying it, and it is fetched
+    # here rather than left to arrive on its own: the host downloads it on its
+    # first run, and a build that obtained a file by running the installer and
+    # letting it fail would be taking a file from the wreckage of something
+    # that was never meant to run.
+    #
+    # Selecting the toolchain leaves the manifest for that version cached, and
+    # the manifest names the library's address and its checksum. Neither is
+    # written here, so neither can disagree with the version above.
+    - name: Fetch the runtime library
+      id: library
+      shell: bash
+      run: |
+        set -eu
+        pacman -Sy --noconfirm --needed jq
+
+        manifest="$HOME/.baml/manifest-cache/prod/version/${BAML_TOOLCHAIN}.json"
+        if [ ! -f "$manifest" ]; then
+            echo "no manifest for $BAML_TOOLCHAIN at $manifest" >&2
+            exit 1
+        fi
+
+        url="$(jq -er --arg t "$BAML_TARGET" '.cffi[$t].url' "$manifest")"
+        sha="$(jq -er --arg t "$BAML_TARGET" '.cffi[$t].sha256' "$manifest")"
+
+        # Where the host itself would keep it, so that anything running the
+        # binary in this job finds it without being told.
+        library="$HOME/.cache/baml/libs/${BAML_TOOLCHAIN}/libbaml_cffi-${BAML_TARGET}.so"
+        mkdir -p "$(dirname "$library")"
+        curl -fsSL -o "$library" "$url"
+        printf '%s  %s\n' "$sha" "$library" | sha256sum -c -
+        chmod 755 "$library"
+
+        echo "path=$library" >> "$GITHUB_OUTPUT"
+        echo "BAML_RUNTIME_LIBRARY=$library" >> "$GITHUB_ENV"

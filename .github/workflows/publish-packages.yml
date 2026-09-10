@@ -88,17 +88,13 @@ jobs:
           set -eu
           [ -s to-build.txt ] || exit 0
 
-          library="$HOME/.cache/baml/libs/$BAML_TOOLCHAIN/libbaml_cffi-x86_64-unknown-linux-gnu.so"
-          if [ ! -f "$library" ]; then
-              echo "no BAML runtime library at $library" >&2
-              exit 1
-          fi
-
           tar czf /tmp/assets.tar.gz assets
 
+          # The library was fetched and checked when BAML was set up, and its
+          # path comes from there rather than being built again here.
           cp src/installer/host/target/release/oparch-installer \
               packages/oparch-installer/
-          cp "$library" packages/oparch-installer/
+          cp "$BAML_RUNTIME_LIBRARY" packages/oparch-installer/
           cp /tmp/assets.tar.gz packages/oparch-installer/
 
           cp src/return-message-render/oparch-return-message-render \
