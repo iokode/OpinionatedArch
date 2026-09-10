@@ -19,15 +19,20 @@ The installation is not a single command: it partitions and encrypts a disk, cre
 
 What has to be on the live environment before this runs. It is not checked for: the installer presumes the environment it is documented to run in and calls what it needs without asking whether it is there, which is what [End-to-End Testing](../../development/006-end-to-end-testing.md) argues for and against testing it anywhere else.
 
-The Arch live medium already carries most of it: `gptfdisk` for `sgdisk`, `cryptsetup`, `btrfs-progs`, `dosfstools` for `mkfs.fat`, `arch-install-scripts` for `pacstrap`, `arch-chroot` and `genfstab`, `util-linux` for `blkid`, `lsblk`, `mount` and `wipefs`, `parted` for `partprobe`, `systemd` for `udevadm`, `localectl` and `timedatectl`, `kbd` for `loadkeys`, and `curl` and `tar`.
+The Arch live medium already carries most of it: `gptfdisk` for `sgdisk`, `cryptsetup`, `btrfs-progs`, `dosfstools` for `mkfs.fat`, `arch-install-scripts` for `pacstrap`, `arch-chroot` and `genfstab`, `util-linux` for `blkid`, `lsblk`, `mount` and `wipefs`, `parted` for `partprobe`, `systemd` for `udevadm`, `localectl` and `timedatectl`, `kbd` for `loadkeys`, `iproute2` for `ip`, `iwd` for `iwctl`, and `curl` and `tar`.
 
-Three things are not on it, and each has to be installed before a run:
+`iwctl` talks to a daemon, and on a live medium that daemon is running: it is how `releng` is built, and this project's own image is built from it. `ip` is read for the machine's wireless interfaces rather than `iwctl` being asked, because one prints a line per interface and the other prints a table drawn for a person to look at.
+
+Four things are not on it, and each has to be there before a run:
 
 - **`git`**, and only when the dotfiles package is taken from a repository. It is cloned with its history, because `/dotfiles` stays the repository [Disk Layout](../../decisions/001-disk-layout.md) restores from.
 - **`fontconfig`**, for `fc-scan`, when the chosen theme carries a font of its own: the family a font file declares is read from the file rather than trusted from the manifest.
-- **The BAML runtime library.** This tool has a host, so its binary loads a shared library of about 25 MB rather than carrying it. Where it comes from is [Host Bridge](../../development/001-host-bridge.md); on the project's own medium it is shipped and pointed at with `BAML_LIBRARY_PATH`, and `BAML_LIBRARY_DISABLE_DOWNLOAD` turns a missing one into a failure instead of a silent download.
+- **The BAML runtime library.** This tool has a host, so its binary loads a shared library of about 25 MB rather than carrying it. Where it comes from is [Host Bridge](../../development/001-host-bridge.md). Its package carries it and what goes on `PATH` is a wrapper that names it with `BAML_LIBRARY_PATH`, along with `BAML_LIBRARY_DISABLE_DOWNLOAD`, which turns a missing one into a failure instead of a silent download.
+- **Its assets.** The wrapper names those too, at the one place [Oparch Tools](../../decisions/015-oparch-tools.md) keeps them, because this tool's own default is a directory beside its binary and that is not where the project puts them.
 
 It also needs the two tools it calls by name, findable on `PATH`: `oparch-return-message-render` when a return message was asked for, and `oparch-dotfiles-sync` when a dotfiles package was, which it copies into the target before entering it. What each of those needs is in its own document, and the return message's needs are the ones most often missing from a live medium.
+
+None of that has to be arranged by hand: all of it is what this tool's package declares, so installing the tool brings it. Which is [Package Repository](../../decisions/016-package-repository.md) and not anything decided here — this section names what the tool calls, whoever put it there, because a list that named a way of installing would have to be edited every time one changed.
 
 What the *installed* system gets is a different list and is not this one: it is the bootstrap package set in [Installer Inputs and Bootstrap Baseline](002-inputs-and-bootstrap-baseline.md).
 
@@ -40,9 +45,11 @@ The exit status is `0` when the installation finished, and non-zero when it was 
 
 ## Interactive usage
 
-Without `--config`, the tool takes over the terminal and asks nine screens in order: keymap, target disk, data preservation, hardware, work contexts, locale and identity, dotfiles, return message, and a summary.
+Without `--config`, the tool takes over the terminal and asks ten screens in order: keymap, network, target disk, data preservation, hardware, work contexts, locale and identity, dotfiles, return message, and a summary.
 
 The keymap is first because it is the only answer that changes how every later answer is typed: it is applied to the console the moment it is given.
+
+The network is second, and it is the one screen that may ask nothing: a machine already reaching the package repository is not stopped to be told so. It comes after the keymap because a wireless passphrase is typed like every other answer.
 
 The left pane lists the screens and marks which are done. The right pane shows the current one. Answers are validated as they are given, and an invalid answer is reported without leaving the screen.
 

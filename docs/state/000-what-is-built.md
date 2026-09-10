@@ -11,16 +11,22 @@ This document is descriptive. What the tools are for is defined in `../tools/`, 
 - `src/return-message-render/` — `oparch-return-message-render`. No host: `baml pack` makes it an executable of its own. It owns namespace `root.return_message`, and with it the template package format, the values format and the theme format, which the installer links from here because it asks for what a package declares, validates the same values in its own configuration file, and reads the theme to know how many languages it may offer.
 - `src/dotfiles-sync/` — `oparch-dotfiles-sync`. No host either, and packed the same way.
 - `tests/e2e/run.sh` — the end-to-end harness, with the configuration file and the dotfiles package it hands the guest.
+- `packages/` — a `PKGBUILD` for each package the project publishes, the wrapper that goes on `PATH` in place of the installer's binary, the scriptlet that makes pacman trust the signing key, and the script that made that key.
+- `archiso/` — nothing yet. The profile the installation image is built from goes there.
+- `.github/` — the workflow that builds and publishes, and the composite action that installs BAML at the versions the host is built against.
+- `install.sh` — the other way an installation is started, from an Arch live environment that already has a network.
 
-The layout and the reason for it are [Repository Layout](../development/002-repository-layout.md).
+The layout and the reason for it are [Repository Layout](../development/002-repository-layout.md); how the last two are used is [Building and Publishing](../development/008-building-and-publishing.md).
 
-Tests, counted on 2026-08-13: 270 in `src/installer`, 131 in `src/return-message-render`, 83 in `src/dotfiles-sync`, 40 in `src/utils`. Counts move with the work, so treat them as of that date rather than as a fact about the suite. Every suite runs with `baml test` and needs no host, no bridge, no ImageMagick and no privileges. The counts overlap: a suite also runs the tests of every namespace linked into it.
+Tests, counted on 2026-09-11: 290 in `src/installer`, 132 in `src/return-message-render`, 84 in `src/dotfiles-sync`, 41 in `src/utils`. Counts move with the work, so treat them as of that date rather than as a fact about the suite. Every suite runs with `baml test` and needs no host, no bridge, no ImageMagick and no privileges. The counts overlap: a suite also runs the tests of every namespace linked into it.
 
 ## The installer
 
-**Both ways in.** The terminal interface asks nine screens with back navigation, per-answer validation and a note explaining each question, the last of them a summary; `--config` takes the same inputs from a YAML file and reports as plain lines without taking over the terminal. Formats: [Installer Configuration File Format](../tools/oparch-installer/001-config-file-format.md).
+**Both ways in.** The terminal interface asks ten screens with back navigation, per-answer validation and a note explaining each question, the last of them a summary; `--config` takes the same inputs from a YAML file and reports as plain lines without taking over the terminal. Formats: [Installer Configuration File Format](../tools/oparch-installer/001-config-file-format.md).
 
 **The keymap first.** It is the first screen, and `loadkeys` applies it as it is answered, so everything typed afterwards is typed with it — including the two masked answers, the shared secret and the passphrase of the secret store.
+
+**The network second, and only when there is something to ask.** It asks the package repository directly rather than a route or a name server, and a machine that already answers is not stopped to be told so. When it is not reached, the answers are a Wi-Fi network, looking again, and going on without one — there is none for connecting by cable, which either works before this runs or needs addresses set by hand. Wi-Fi goes through `iwd`, which is what the live medium carries, and the wireless interfaces are read from `ip` rather than from a table drawn for a person. While it waits — on the repository, on a scan — the screen says what it is waiting for and turns a marker, because a screen waiting on a radio and a screen that has hung look the same until one of them moves.
 
 **Eleven phases**, orchestrated in order and stopping at the first failure: `prepare_layout`, `bootstrap_base_system`, `configure_localization`, `configure_identity`, `configure_users`, `configure_network`, `configure_swap`, `configure_return_message`, `configure_initramfs`, `configure_bootloader`, `configure_dotfiles`. Nine of them always run; the return message and the dotfiles are present only when the installation was given what they act on, so the list never shows a step that will not happen. Every command's exit status is checked, and a failed file operation is reported by the host and noticed by the orchestrator.
 
@@ -40,11 +46,25 @@ Tests, counted on 2026-08-13: 270 in `src/installer`, 131 in `src/return-message
 
 **The splash.** The theme under `assets/plymouth/opinionatedarch/` was rewritten for this design: a `.plymouth` file and one script body that draws no text and only places the images. The renderer writes the script the splash runs — seven numeric literals taken from the theme's `screen` values, then that body, read from the project's assets so a re-run cannot stack a second prelude — and copies the theme's background image beside the others when it has one.
 
+## How it reaches a machine
+
+**The repository is live.** `https://packages.oparch.iokode.dev` serves five signed packages — one for each tool, one for the assets they read, and the keyring the rest are checked against — from object storage behind a domain of the project's own. What it is and how a machine comes to trust it is [Package Repository](../decisions/016-package-repository.md); how it is filled is [Building and Publishing](../development/008-building-and-publishing.md).
+
+**A merge to `master` publishes.** One job builds and holds no secret; another signs and uploads and runs nothing else. What is published is decided by comparing the version each `PKGBUILD` declares against the versions the published database already holds, so a run that adds nothing changes nothing and one that failed half way is finished by the next.
+
+**Two ways in.** `install.sh`, fetched by its address and run on an Arch live environment, trusts the signing key against the fingerprint it carries, adds the repository and installs the installer from it; that is [Installation Script](../decisions/017-installation-script.md). The other is the image [Installation ISO](../decisions/018-installation-iso.md) decides, which does not exist yet.
+
+**The key exists.** Made once by `packages/generate-signing-key.sh`, an Ed25519 primary that certifies and a subkey that signs, held apart as [Signing Key](../decisions/019-signing-key.md) requires.
+
 ## What has been seen, and how
 
 **It boots.** On 2026-08-11 the harness installed from a configuration file and then started the disk it had made: the firmware found `\EFI\OpinionatedArch\grubx64.efi`, GRUB started the kernel the project's menu names, the initramfs asked for the passphrase, and the secret the installation was given opened the container and reached a login on the hostname that was configured. That was the harness before the dotfiles step was given to it; it has not been run since, which [Remaining](001-remaining.md) carries as work.
 
 **The splash was seen by hand, not by the harness.** The same day, on VMware and with a display: the machine booted to the return message screen, and Escape moved between it and the text unlock prompt and back. The harness runs its guest with `-nographic`, so Plymouth has no display there and falls back to the text prompt, and it therefore never draws the composed message and never runs the script the renderer writes. That is a limit of the harness, not of the thing it is testing, and [End-to-End Testing](../development/006-end-to-end-testing.md) records it as one.
+
+**Wi-Fi has connected, on a laptop and by hand.** The screen found the radio, listed what was in range, took a passphrase and associated. That is the one part of it no suite reaches: there is no wireless device in the harness's guest, and iwd's table was read from its source rather than from a table anyone had seen until then. What is still unknown about it is in [Remaining](001-remaining.md).
+
+**The repository has been fetched and checked.** Its database lists what the workflow said it published, and its signature verifies against the public half of the key in this repository. That was done from outside, against the address a machine would use.
 
 **The recording doubles remain what they always were.** They assert which commands would run, not that they work. What answers that is the harness, and only for the run it makes.
 

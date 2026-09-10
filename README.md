@@ -20,9 +20,15 @@ See [What is OpinionatedArch](docs/general/000-what-is-opinionatedarch.md) for m
 
 ## Installation
 
-There is no medium to boot yet, eventually, there will be an ISO.
+From an Arch Linux live environment with a network, one command:
 
-The system is installed by running `oparch-installer`, from an Arch Linux live environment.
+```sh
+curl -fsSL https://oparch.iokode.dev/install.sh | bash
+```
+
+There is no image to boot yet. When there is, it will carry all of this already and need no network at all: [Installation ISO](docs/decisions/018-installation-iso.md).
+
+### Installer
 
 See [Installation Overview](docs/general/002-installation-overview.md) for what it asks and what it does, and [oparch-installer](docs/tools/oparch-installer/000-command.md) for the installer tool itself.
 
@@ -74,4 +80,3 @@ To each of these people, without whom this project would not exist.
 - [Marta Noya](https://github.com/martouta)
 - [Mertxe Pasamontes](https://x.com/mertxe)
 - [Nate Gentile](https://x.com/nategentile7)
-
