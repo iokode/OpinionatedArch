@@ -65,6 +65,7 @@ The first three are written. The rest are specified and not implemented, which [
 - [BAML Working Notes](development/005-baml-working-notes.md)
 - [End-to-End Testing](development/006-end-to-end-testing.md)
 - [Installation Checks](development/007-installation-checks.md)
+- [Building and Publishing](development/008-building-and-publishing.md)
 
 ## Plans
 
