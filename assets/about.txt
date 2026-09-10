@@ -2,9 +2,9 @@ OpinionatedArch is an Arch-based distribution for one
 person juggling multiple work contexts.
 
 Created by Ivan Montilla (x.com/montyclt)
-Part of the IOKode Project — iokode.blog
+Part of the IOKode Project — iokode.dev
 
-Website: oparch.iokode.net
+Website: oparch.iokode.dev
 Licensed under the BSD 2-Clause License
 
 Thanks to each of these people, without whom

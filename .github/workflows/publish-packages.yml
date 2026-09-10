@@ -29,7 +29,7 @@ jobs:
         run: |
           pacman -Syu --noconfirm --needed git rust curl
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Both versions BAML needs are pinned, and both are pinned there: the
       # image workflow will want the same thing, and a version written in two
@@ -124,7 +124,7 @@ jobs:
 
       - name: Hand them over
         if: hashFiles('to-build.txt') != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: packages
           path: /tmp/packages
@@ -140,7 +140,7 @@ jobs:
     container: archlinux:latest
     environment: signing
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         id: artifact
         continue-on-error: true
         with:

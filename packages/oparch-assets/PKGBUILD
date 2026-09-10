@@ -1,5 +1,5 @@
 pkgname=oparch-assets
-pkgver=0.1.0dev1
+pkgver=0.1.0dev2
 pkgrel=1
 pkgdesc="The assets this project's tools read"
 arch=('any')
