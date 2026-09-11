@@ -1,41 +1,27 @@
-# The key is added and then signed locally, because adding it alone leaves
-# it known and untrusted, and pacman refuses signatures made by a key it
-# does not trust exactly as it refuses signatures it cannot check at all.
+# The key is installed where pacman looks for keyrings that are not its own,
+# so what puts it into a keyring is pacman's own populate rather than anything
+# written here. That is what makes it reach the live medium: the image has no
+# keyring while it is being built, and `pacman-key --init` followed by a bare
+# `--populate` creates one at boot out of every keyring found there, this one
+# among them.
 #
-# The fingerprint is read out of the key file rather than written here, so
-# that the two cannot come to disagree: rotating the key replaces the file
-# and this scriptlet keeps being true.
+# What is left for this scriptlet is the other case. A system that already has
+# a keyring is not going to be booted again to pick this up, so installing the
+# package takes effect where it is installed.
 
-_key=/usr/share/oparch-keyring/oparch.gpg
-
-_trust_key() {
-    local fingerprint home
-
-    # gpg makes itself a home directory before it does anything at all, even
-    # when all it is asked for is what a file it was handed contains. A
-    # scriptlet runs in the environment of whoever invoked pacman, and that
-    # environment's HOME is no business of this package's and need not exist
-    # where this runs — inside the chroot an image is built in, it does not.
-    # So gpg is given a directory of its own, and the answer stops depending
-    # on who ran the installation.
-    home="$(mktemp -d /tmp/oparch-keyring.XXXXXX)"
-    fingerprint="$(GNUPGHOME="$home" gpg --with-colons --import-options show-only --import \
-        < "$_key" | awk -F: '/^fpr:/ { print $10; exit }')"
-    rm -rf "$home"
-
-    if [ -z "$fingerprint" ]; then
-        echo "oparch-keyring: no key found in $_key" >&2
-        return 1
+_populate() {
+    # Only where there is a keyring to populate. Where there is not, this would
+    # fail for want of one, and the key is already where whoever makes it will
+    # find it.
+    if pacman-key -l >/dev/null 2>&1; then
+        pacman-key --populate oparch
     fi
-
-    pacman-key --add "$_key"
-    pacman-key --lsign-key "$fingerprint"
 }
 
 post_install() {
-    _trust_key
+    _populate
 }
 
 post_upgrade() {
-    _trust_key
+    _populate
 }

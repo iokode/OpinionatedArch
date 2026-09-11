@@ -1,5 +1,5 @@
 pkgname=oparch-keyring
-pkgver=0.1.0dev2
+pkgver=0.1.0dev3
 pkgrel=1
 pkgdesc="Public key the oparch repository is signed with"
 arch=('any')
@@ -15,6 +15,30 @@ source=('oparch.gpg')
 sha256sums=('SKIP')
 
 package() {
+    # Where pacman looks for keyrings that are not its own: `pacman-key
+    # --populate` reads every `.gpg` here together with the `-trusted` file
+    # beside it. That is how a key reaches a keyring somebody else makes, which
+    # is the case that matters — the live medium has no keyring while the image
+    # is being built, and creates one at boot.
     install -Dm644 "${srcdir}/oparch.gpg" \
-        "${pkgdir}/usr/share/oparch-keyring/oparch.gpg"
+        "${pkgdir}/usr/share/pacman/keyrings/oparch.gpg"
+
+    # The fingerprint is taken from the key rather than written down, so that
+    # replacing the key cannot leave the two disagreeing. It is the primary's,
+    # which is what is signed; trust reaches the subkey that signs packages
+    # through the binding the primary made for it.
+    #
+    # gpg is given a directory of its own because it makes one for itself
+    # before it will do anything at all, including reading a file it is handed.
+    local home fingerprint
+    home="$(mktemp -d)"
+    fingerprint="$(GNUPGHOME="$home" gpg --with-colons --import-options show-only \
+        --import < "${srcdir}/oparch.gpg" | awk -F: '/^fpr:/ { print $10; exit }')"
+    rm -rf "$home"
+    [ -n "$fingerprint" ] || return 1
+
+    # `4` is full trust, which is what a key has to carry for pacman to accept
+    # what it signed.
+    printf '%s:4:\n' "$fingerprint" \
+        > "${pkgdir}/usr/share/pacman/keyrings/oparch-trusted"
 }
