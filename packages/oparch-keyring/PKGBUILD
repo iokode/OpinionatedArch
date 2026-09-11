@@ -30,8 +30,12 @@ package() {
     #
     # gpg is given a directory of its own because it makes one for itself
     # before it will do anything at all, including reading a file it is handed.
+    # It goes in the directory makepkg gave this build, which is the one place
+    # a package build is entitled to write: `/tmp` belongs to whoever is
+    # running the build, and under fakeroot it is not always theirs to use.
     local home fingerprint
-    home="$(mktemp -d)"
+    home="${srcdir}/gnupg"
+    install -dm700 "$home"
     fingerprint="$(GNUPGHOME="$home" gpg --with-colons --import-options show-only \
         --import < "${srcdir}/oparch.gpg" | awk -F: '/^fpr:/ { print $10; exit }')"
     rm -rf "$home"
