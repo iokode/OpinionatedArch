@@ -12,8 +12,9 @@ This document is descriptive. What the tools are for is defined in `../tools/`, 
 - `src/dotfiles-sync/` — `oparch-dotfiles-sync`. No host either, and packed the same way.
 - `tests/e2e/run.sh` — the end-to-end harness, with the configuration file and the dotfiles package it hands the guest.
 - `packages/` — a `PKGBUILD` for each package the project publishes, the wrapper that goes on `PATH` in place of the installer's binary, the scriptlet that makes pacman trust the signing key, and the script that made that key.
-- `archiso/` — nothing yet. The profile the installation image is built from goes there.
-- `.github/` — the workflow that builds and publishes, and the composite action that installs BAML at the versions the host is built against.
+- `archiso/` — what this project's installation image is, as a difference from `releng`: what it adds, what it drops, what its own repository carries, the file that starts the installer, and the script that assembles all of it and builds.
+- `.cloudflare/` — the Worker that answers with whatever image is newest, and its configuration.
+- `.github/` — three workflows, and the composite action that installs BAML at the versions the host is built against.
 - `install.sh` — the other way an installation is started, from an Arch live environment that already has a network.
 
 The layout and the reason for it are [Repository Layout](../development/002-repository-layout.md); how the last two are used is [Building and Publishing](../development/008-building-and-publishing.md).
@@ -52,7 +53,9 @@ Tests, counted on 2026-09-11: 290 in `src/installer`, 132 in `src/return-message
 
 **A merge to `master` publishes.** One job builds and holds no secret; another signs and uploads and runs nothing else. What is published is decided by comparing the version each `PKGBUILD` declares against the versions the published database already holds, so a run that adds nothing changes nothing and one that failed half way is finished by the next.
 
-**Two ways in.** `install.sh`, fetched by its address and run on an Arch live environment, trusts the signing key against the fingerprint it carries, adds the repository and installs the installer from it; that is [Installation Script](../decisions/017-installation-script.md). The other is the image [Installation ISO](../decisions/018-installation-iso.md) decides, which does not exist yet.
+**Two ways in.** `install.sh`, fetched by its address and run on an Arch live environment, trusts the signing key against the fingerprint it carries, adds the repository and installs the installer from it; that is [Installation Script](../decisions/017-installation-script.md).
+
+**The image is written and has never been built.** The profile, the workflow that builds it monthly and publishes it, and the Worker that answers with the newest one are all there; no run has produced an image. What that leaves open is in [Remaining](001-remaining.md), and how it is put together is [Building and Publishing](../development/008-building-and-publishing.md).
 
 **The key exists.** Made once by `packages/generate-signing-key.sh`, an Ed25519 primary that certifies and a subkey that signs, held apart as [Signing Key](../decisions/019-signing-key.md) requires.
 

@@ -48,6 +48,28 @@ Object storage has no symbolic links. What `repo-add` leaves as a link — the s
 
 One run publishes at a time. The database is the one thing two of them would damage between themselves, and neither is cancelled half way.
 
+## How the image is built
+
+The profile is not kept here. `releng` is archiso's, it moves with archiso, and holding a copy would be maintaining a fork of a bootloader configuration nobody in this project wrote — while the reason the image is rebuilt every month is precisely that upstream moves. So the profile is assembled at build time: a copy of `releng` as it is on the day, with this project's differences applied over it. What is kept in `archiso/` is only the difference — what the medium adds, what it drops, what its own repository carries, and the one file that starts the installer.
+
+The medium's repository is filled by downloading rather than installing: what is wanted is package files, so that an installation with nothing to fetch from has something to install. Every package an answer might ask for is fetched, and not the ones a particular answer would, because an installation without a network cannot go and get the microcode of the processor it turns out to be running on.
+
+Two repositories end up in the live system's `pacman.conf`, and their order is the whole of what separates them: the published one above the official ones, because packages of this project's are this project's wherever else a name appears; and the medium's own below everything, because it is what answers when nothing else can and never what wins while something else can. That file is generated from the profile's own rather than written out a second time, so the repositories an image was built from and the ones it installs from cannot come to disagree.
+
+It is built in a container that is allowed more than containers usually are, because `mkarchiso` makes filesystems and mounts them.
+
+Images are named for the day they were built. That is not decoration: what sorts last is what was built last, which is how the two that are kept are told from the ones that are deleted, and how the address that always answers with the newest finds it. Two places depend on that, and only one of them is in this repository.
+
+The prune runs after the new image is up and not before, so that an upload which fails leaves the two that were there rather than one. It costs a few minutes with three of them in the bucket, which is what that is worth.
+
+## What runs at the edge
+
+One address answers with whatever image is newest, and what answers it is a Worker that reads the bucket rather than being told. It is deployed by a workflow of its own, when what is in `.cloudflare/` changes and not otherwise, so that what is deployed is what was committed rather than what somebody remembered to push by hand.
+
+It is not deployed alongside the image it points at. That is published every month and this changes almost never, and joining them would mean a failure to deploy taking down the publication of an image that was fine.
+
+The token it is given can rewrite what the project's own addresses answer with, which is neither the signing key nor write access to a bucket, so it lives in an environment of its own and is reachable from nothing else.
+
 ## The signing key
 
 Made once, by `packages/generate-signing-key.sh`, and not again: there is one key, the job that publishes signs with it, and nobody signs by hand. Contributing needs no key at all. What runs that script a second time is a fork setting up a repository of its own.

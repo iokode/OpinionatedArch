@@ -41,6 +41,7 @@ See [Installation Overview](docs/general/002-installation-overview.md) for what 
 ├── packages/
 ├── archiso/
 ├── .github/
+├── .cloudflare/
 └── docs/
 ```
 
@@ -49,7 +50,8 @@ See [Installation Overview](docs/general/002-installation-overview.md) for what 
 - `assets/`: managed project assets
 - `packages/`: the packages the project publishes, and what it takes to sign them
 - `archiso/`: the profile the installation image is built from
-- `.github/`: the workflows that build and publish them
+- `.github/`: the workflows that build, publish and deploy all of it
+- `.cloudflare/`: what the project runs at the edge of its own domain
 - `docs/`: project documentation
 
 Why the repository is laid out this way is [Repository Layout](docs/development/002-repository-layout.md).
