@@ -1,0 +1,36 @@
+name: Deploy the edge
+
+# When what runs at the edge changes, and only then. It is not tied to the
+# image it points at: that is published every month and this changes almost
+# never, and a deployment that failed would otherwise take a good image down
+# with it.
+on:
+  push:
+    branches: [master]
+    paths:
+      - .cloudflare/**
+      - .github/workflows/deploy-edge.yml
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-edge
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Its own, because the token here can rewrite what answers on the
+    # project's addresses, and that is neither the signing key nor a bucket.
+    environment: edge
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Pinned to a commit like every other action, and this one more than
+      # most: it is handed a token that can change what the project's own
+      # addresses answer with.
+      - uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: .cloudflare
+          command: deploy

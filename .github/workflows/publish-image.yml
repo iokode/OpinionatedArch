@@ -1,0 +1,94 @@
+name: Publish image
+
+# Monthly, because what ages on this medium ages on Arch's clock rather than on
+# this project's, and Arch's is monthly. Also on request, for the month when
+# something has to be looked at before the first of the next one.
+on:
+  schedule:
+    - cron: '0 3 1 * *'
+  workflow_dispatch:
+
+# Two of these would be building the same thing and uploading to the same
+# place, and the second to finish would decide what the month's image is.
+concurrency:
+  group: publish-image
+  cancel-in-progress: false
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    # mkarchiso makes filesystems and mounts them, which a container cannot do
+    # without being allowed to.
+    container:
+      image: archlinux:latest
+      options: --privileged
+    # Its own, and not the one the signing key is in. Nothing here signs
+    # anything, so nothing here has any business reaching that key.
+    environment: image
+    steps:
+      - name: Install what building an image needs
+        run: pacman -Syu --noconfirm --needed archiso git curl aws-cli-v2 jq
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The keyring has to be there before anything is verified against it, and
+      # a container starts without one.
+      - name: Start this machine's keyring
+        run: |
+          set -eu
+          pacman-key --init
+          pacman-key --populate archlinux
+
+      - name: Build the image
+        run: |
+          set -eu
+          mkdir -p out
+          archiso/build.sh "$PWD/out"
+          ls -lh out
+
+      # A bucket of its own and not the one the packages are in. They are read
+      # by different things at different rates, and this one has images
+      # deleted out of it, which is not something to do next to a repository
+      # whose whole property is that nothing in it disappears.
+      - name: Upload it, and keep the last two
+        env:
+          # These names are the same ones the package workflow reads, and they
+          # are not the same secrets: what they resolve to is decided by the
+          # environment this job declares. The credentials behind them here are
+          # scoped to this bucket alone, and the ones the packages are
+          # published with would not write to it.
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          set -eu
+          image="$(ls out/*.iso)"
+          name="$(basename "$image")"
+
+          # Its checksum goes up beside it, because what the project says about
+          # an image is how someone tells they have the one it published.
+          ( cd out && sha256sum "$name" > "$name.sha256" )
+
+          endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          for file in "$image" "$image.sha256"; do
+              aws s3 cp --endpoint-url "$endpoint" \
+                  "$file" "s3://${R2_BUCKET}/$(basename "$file")"
+          done
+
+          # Pruned after the new one is up and not before: an upload that fails
+          # then leaves the two that were there rather than one. It costs a few
+          # minutes with three of them in the bucket, which is what that is
+          # worth.
+          #
+          # Images are named for the day they were built, so what sorts last is
+          # what was built last, and nothing has to read a date out of anything.
+          aws s3api list-objects-v2 --endpoint-url "$endpoint" \
+              --bucket "$R2_BUCKET" --query 'Contents[].Key' --output json |
+              jq -r '.[] | select(endswith(".iso"))' | sort | head -n -2 |
+              while read -r old; do
+                  echo "removing $old"
+                  aws s3 rm --endpoint-url "$endpoint" "s3://${R2_BUCKET}/$old"
+                  aws s3 rm --endpoint-url "$endpoint" "s3://${R2_BUCKET}/$old.sha256"
+              done

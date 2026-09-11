@@ -1,0 +1,17 @@
+name = "oparch-latest-image"
+main = "worker.js"
+compatibility_date = "2026-09-11"
+
+# One address that always answers with the current image, on the host that
+# already exists for things with no origin behind them. Not on the images' own
+# host, which is bound to the bucket and serves it directly.
+[[routes]]
+pattern = "oparch.iokode.dev/latest.iso"
+zone_name = "iokode.dev"
+
+# Read-only in practice: this lists and nothing else. The binding is part of
+# the Worker's deployment rather than a credential handed to it, so nothing
+# that publishes an image needs to know about this at all.
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "oparch-iso"

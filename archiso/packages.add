@@ -1,0 +1,10 @@
+# What this medium has that `releng` does not, one per line.
+#
+# The project's own packages come from the repository Package Repository
+# defines, and everything they need arrives as their declared dependencies —
+# the renderer's ImageMagick and fonts, the installer's git, the BAML runtime.
+# None of that is listed here, because a list beside the packages and a list
+# inside them are two lists that have to agree.
+
+oparch-installer
+oparch-keyring

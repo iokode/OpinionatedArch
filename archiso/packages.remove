@@ -1,0 +1,95 @@
+# What `releng` carries that a medium whose only job is to install this system
+# does not need, one per line. Removing them is worth about 120 MiB of
+# packages, which is not what decides the size of the image; it is worth doing
+# because a medium that only installs should not carry another installer, a web
+# server, four VPN clients and three filesystem toolsets this project never
+# touches. Less on it is less to explain and less to go wrong.
+#
+# What is deliberately kept, because it is a judgement and not an obvious cut:
+# `lvm2` and `mdadm`, for a disk that arrives that way; `vim` and `nano`, for
+# when something has to be looked at; `tmux`, `openssh`, `rsync`, `usbutils`,
+# `dmidecode` and the TPM tools. And `zsh` with `grml-zsh-config`, which are not
+# optional at all: `releng` gives root a zsh, and a medium whose root has no
+# shell does not log in.
+
+# Another installer
+archinstall
+
+# Serving, scanning and talking to the network in ways an installation does not
+darkhttpd
+dnsmasq
+bind
+ldns
+lftp
+ndisc6
+nmap
+openconnect
+openvpn
+pptpclient
+vpnc
+wvdial
+xl2tpd
+ppp
+linux-atm
+modemmanager
+usb_modeswitch
+usbmuxd
+
+# Cloning and rescuing disks
+clonezilla
+partclone
+partimage
+fsarchiver
+testdisk
+ddrescue
+gpart
+
+# Filesystems this project does not lay down
+xfsprogs
+jfsutils
+nilfs-utils
+f2fs-tools
+exfatprogs
+ntfsprogs
+udftools
+bcachefs-tools
+dmraid
+
+# Guests of hypervisors this medium is not a guest of
+open-vm-tools
+qemu-guest-agent
+virtualbox-guest-utils-nox
+hyperv
+
+# Sound, speech and braille, which an installer does not use
+alsa-utils
+sof-firmware
+espeakup
+brltty
+livecd-sounds
+
+# The rest
+cloud-init
+mc
+irssi
+lynx
+screen
+gpm
+hdparm
+sdparm
+sg3_utils
+lsscsi
+smartmontools
+mmc-utils
+mtools
+nbd
+nfs-utils
+mkinitcpio-nfs-utils
+open-iscsi
+pcsclite
+openpgp-card-tools
+sequoia-sq
+b43-fwcutter
+refind
+memtest86+
+memtest86+-efi

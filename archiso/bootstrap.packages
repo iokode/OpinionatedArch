@@ -1,0 +1,38 @@
+# What the medium's own repository carries, so that a machine can be installed
+# with no network at all, as Installation ISO decides.
+#
+# It is the bootstrap package set of Installer Inputs and Bootstrap Baseline,
+# and every package it may install rather than the ones a given answer picks:
+# an installation without a network cannot go and fetch the microcode of the
+# processor it turns out to be running on. Their dependencies come with them,
+# resolved when the medium is built.
+#
+# The project's own packages are added to this repository too, so that what an
+# installation puts into the target comes from the medium when there is nothing
+# to fetch from.
+
+base
+linux
+linux-headers
+linux-firmware
+mkinitcpio
+btrfs-progs
+cryptsetup
+grub
+efibootmgr
+sudo
+networkmanager
+ipxe
+
+# Only when the answers ask for them, and therefore all of them
+zram-generator
+intel-ucode
+amd-ucode
+nvidia-open
+plymouth
+
+# What the tools this system installs need on it
+oparch-return-message-render
+oparch-dotfiles-sync
+oparch-assets
+oparch-keyring
