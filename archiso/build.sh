@@ -26,6 +26,19 @@ readonly REPOSITORY="https://packages.oparch.iokode.dev"
 readonly MEDIUM_REPO=oparch-medium
 readonly MEDIUM_REPO_DIR=/usr/share/oparch/repo
 
+# The pacman configuration an installation without a network is run with, which
+# the installer names by this path. It holds the medium's repository and no
+# other, so a run given it synchronises nothing and reaches for nothing.
+readonly MEDIUM_CONF=/usr/share/oparch/medium.conf
+
+# The stanza that names the repository the medium carries. Both files that
+# mention it are written from here, so they cannot come to disagree about where
+# it is or what is required of what it holds.
+medium_repository() {
+    printf '\n[%s]\nSigLevel = Required DatabaseOptional\nServer = file://%s\n' \
+        "$MEDIUM_REPO" "$MEDIUM_REPO_DIR"
+}
+
 output="${1:?the directory to leave the image in}"
 work="$(mktemp -d)"
 profile="$work/profile"
@@ -42,11 +55,17 @@ cp -r "$RELENG" "$profile"
 # bootloader finds it by, and what a system that mounts it calls it. Dated
 # rather than numbered, because what distinguishes one from the next is when it
 # was built and not anything decided about it.
+#
+# Down to the minute rather than to the day, because more than one image is
+# built on some days and two of them sharing a name is the second silently
+# replacing the first. Nothing has to be counted or looked up for it, and it
+# keeps the property everything downstream rests on: what sorts last was built
+# last, at a width that never changes.
 say "Naming the image"
 {
     printf '\niso_name="oparch"\n'
     printf 'iso_label="OPARCH_%s"\n' "$(date +%Y%m)"
-    printf 'iso_version="%s"\n' "$(date +%Y.%m.%d)"
+    printf 'iso_version="%s"\n' "$(date +%Y.%m.%d.%H%M)"
     printf 'iso_publisher="OpinionatedArch <https://oparch.iokode.dev>"\n'
     printf 'iso_application="OpinionatedArch installation medium"\n'
 } >> "$profile/profiledef.sh"
@@ -111,13 +130,19 @@ say "Writing the live system's pacman.conf"
 mkdir -p "$profile/airootfs/etc"
 {
     cat "$profile/pacman.conf"
-    cat <<EOF
-
-[$MEDIUM_REPO]
-SigLevel = Required DatabaseOptional
-Server = file://$MEDIUM_REPO_DIR
-EOF
+    medium_repository
 } > "$profile/airootfs/etc/pacman.conf"
+
+# And the one an installation without a network is run with: the same options
+# the medium was built under, and the medium's repository as the only one there
+# is. Everything from the top of the file down to the first repository is what
+# `[options]` is, so the section is taken rather than written out again and the
+# two configurations cannot disagree about how packages are checked.
+say "Writing the configuration an installation without a network uses"
+{
+    awk '/^\[/ && $0 != "[options]" { exit } { print }' "$profile/pacman.conf"
+    medium_repository
+} > "$profile/airootfs$MEDIUM_CONF"
 
 say "Applying this project's overlay"
 cp -r "$HERE/airootfs/." "$profile/airootfs/"

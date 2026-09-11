@@ -69,6 +69,15 @@ function as_float(value: baml.json.json) -> float? {
     }
 }
 
+/// A boolean, and only what YAML read as one. `"true"` in quotes is text, and
+/// a reader that took both would let the quoting decide the meaning.
+function as_bool(value: baml.json.json) -> bool? {
+    match (value) {
+        let b: bool => b,
+        _ => null,
+    }
+}
+
 function as_map(value: baml.json.json) -> map<string, baml.json.json>? {
     match (value) {
         let entries: map<string, baml.json.json> => entries,
@@ -136,6 +145,15 @@ test "read_text tells absent from present-but-not-text" {
     assert.equal(read_text(top, "missing", "missing").value, "");
     assert.equal(read_text(top, "missing", "missing").error, "");
     assert.is_true(read_text(top, "phone", "phone").error.starts_with("phone must be quoted:"))
+}
+
+test "as_bool takes what YAML read as a boolean and nothing else" {
+    let top = as_map(baml.yaml.parse("yes: true\nno: false\nquoted: \"true\"\n"))
+        ?? empty_json_map();
+
+    assert.equal(as_bool(top.get("yes")), true);
+    assert.equal(as_bool(top.get("no")), false);
+    assert.equal(as_bool(top.get("quoted")), null)
 }
 
 test "unknown_key names the first key outside the list" {

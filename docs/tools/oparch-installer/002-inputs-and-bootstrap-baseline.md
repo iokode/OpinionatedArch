@@ -19,7 +19,7 @@ This document is the centralized list of:
 The installer asks for:
 
 1. console keymap, applied to the console as soon as it is given, so that every answer below it is typed with it
-2. if the machine does not already reach the package repository: how to reach one — connect to a Wi-Fi network, look again, or go on without one. It is not asked at all when the repository already answers, and there is no answer for connecting by cable
+2. if the machine does not already reach the package repository: how to reach one — connect to a Wi-Fi network, look again, or, on a medium carrying a repository of its own, go on without one. It is not asked at all when the repository already answers, and there is no answer for connecting by cable
 3. target disk
 4. install mode (`wipe-all` or `keep-homes`)
 5. if install mode is `keep-homes`: existing home subvolumes to preserve, selected from a multiple-choice list
@@ -43,7 +43,7 @@ The installer asks for:
 23. if return message is enabled: logo inclusion (`yes/no`)
 24. if logo is enabled: where the logo file comes from, as [Installer Input Sources](003-input-sources.md) defines a file source (retry or explicit continue-without-logo when it cannot be obtained)
 
-What the network question asks is decided by what the installation needs: the repository is asked directly rather than a route or a name server, because a machine behind a captive portal has both of those and none of what it is about to download. Going on without a network is an answer given here and never an outcome arrived at, which is what [Installation ISO](../../decisions/018-installation-iso.md) requires of it.
+What the network question asks is decided by what the installation needs: the repository is asked directly rather than a route or a name server, because a machine behind a captive portal has both of those and none of what it is about to download. Going on without a network is an answer given here and never an outcome arrived at, which is what [Installation ISO](../../decisions/018-installation-iso.md) requires of it. It is what sends the bootstrap to the repository the medium carries, and it is offered only on a medium that carries one: the official Arch image does not, and an answer that erases a disk before finding out there is nothing to install from is worse than an answer that was never offered. A configuration file says the same thing by asking for it, and is refused in the same way and at the same moment as any other value the live system cannot honour.
 
 Whether a package needs secrets at all is not asked: the installer asks the tool, which answers by building the plan the installation will carry out.
 
@@ -89,6 +89,8 @@ Installed with `pacstrap`:
 - `amd-ucode` (if selected as the ucode package)
 - `nvidia-open` (if GPU driver is `nvidia-open`)
 - `plymouth` (if pre-boot return message is enabled)
+
+They come from the repositories the live environment is configured with, the official ones first and the medium's own last; or, when the installation was told it has no network, from the medium's own configuration, which names the repository the medium carries and nothing else. Which of the two an installation draws from is settled in [Installation ISO](../../decisions/018-installation-iso.md), and the answer that settles it is prompt 2.
 
 ### Netboot Recovery Binary
 

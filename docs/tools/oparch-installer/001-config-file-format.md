@@ -17,6 +17,7 @@ The file is YAML.
 ```yaml
 disk: /dev/sda
 install_mode: wipe-all
+offline: true
 
 ucode_package: amd-ucode
 gpu_driver: none
@@ -68,6 +69,7 @@ return_message:
 | --- | --- | --- |
 | `disk` | Path of an existing block device | yes |
 | `install_mode` | `wipe-all` or `keep-homes` | yes |
+| `offline` | `true` takes every package from the repository the medium carries, and reaches for no network | no, defaults to `false` |
 | `preserved_work_contexts` | List of names | only with `keep-homes` |
 | `ucode_package` | `intel-ucode`, `amd-ucode` or `none` | yes |
 | `gpu_driver` | `nvidia-open` or `none` | yes |
@@ -140,6 +142,7 @@ Hostnames are one to sixty-three characters, start with a letter or digit, and c
 Before anything is installed, the configuration is checked against the machine it will run on:
 
 - `disk` must be an existing block device.
+- `offline: true` requires a medium that carries a repository of its own, which is this project's image and not the official one.
 - `timezone` must be one of the timezones the live system reports, which is the same list the interactive screen offers.
 - The return message values are checked against their template package, as that format defines.
 
@@ -151,6 +154,7 @@ The first problem found stops the run, and nothing is executed.
 - Lists are written as YAML sequences because the previous format had to encode them as comma-separated strings, which needed its own parsing and its own errors for something the file format already expresses.
 - A missing section means the feature is off, rather than a separate key saying so, because two ways of expressing the same thing can disagree; a file that says the return message is disabled while carrying its fields has no obvious meaning, and the previous format had to define which one won.
 - Unknown keys are refused because a configuration file is written by hand; a silently ignored key would install something other than what the file describes.
+- `offline` is written down because installing without a network is an answer and never an outcome, as [Installation ISO](../../decisions/018-installation-iso.md) requires: no run decides on its own that a network it failed to reach is a network it did not need. The interactive screen asks that in front of someone, and a file is read where there is nobody to ask, so what the screen would have collected has to be in it. Absent means with a network, because a file written on a machine that has one has nothing to declare, and the one that has to say something is the unusual one.
 - The return message section is the values format rather than a copy of it, because the same values are read by `oparch-return-message-render` on an installed system; two shapes for one thing drift apart. It adds `template` and `theme`, which that format does not carry: the renderer is handed directories and resolves nothing, so naming where they come from is the caller's business and this file is where the caller is told.
 - A source is written as an origin and a location, in the same shape the screens ask for, so that an installation performed either way is the same installation and the file can express every origin a picker can.
 - A text value YAML would read as a number is refused rather than converted, because converting it back to text gives the number's canonical form and not what was written: `+376000000` loses its `+`, and `1.10` its trailing zero, with nothing failing. A quoted value is one keystroke; a phone number that silently loses its country prefix is discovered when someone cannot call it.

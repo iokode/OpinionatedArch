@@ -81,13 +81,30 @@ function packaged_ucode_image(config: InstallConfig) -> string {
     }
 }
 
+/// What `pacstrap` is told before it is told what to install.
+///
+/// An installation without a network is given the medium's own pacman
+/// configuration, which names the repository the medium carries and no other:
+/// with it there is nothing to synchronise and nothing to reach for. An
+/// installation with one is given nothing, which leaves the live system's
+/// configuration, where the official repositories come first and the medium's
+/// is the last place looked.
+function pacstrap_options(config: InstallConfig, target: root.common.Target) -> string[] {
+    let options = ["-K", target.root];
+    if (config.offline) {
+        return ["-C", medium_pacman_conf()].concat(options);
+    }
+    options
+}
+
 //# installs the base system and writes the mount table
 function bootstrap_base_system(shell: root.common.Shell, files: root.common.Files, ui: Ui,
                                config: InstallConfig, target: root.common.Target,
                                asset_dir: string) -> string
         throws baml.errors.InvalidArgument {
     ui.step("Installing packages...");
-    let install = shell.stream("pacstrap", ["-K", target.root].concat(bootstrap_packages(config)));
+    let install = shell.stream("pacstrap",
+        pacstrap_options(config, target).concat(bootstrap_packages(config)));
     let installed = root.common.must(install, "Installing the base system");
     if (installed != "") {
         return installed;
@@ -245,6 +262,28 @@ test "bootstrap installs, writes fstab and stages the netboot binary" {
     assert.is_true(shell.commands.includes(
         "cp /mnt/usr/share/ipxe/x86_64/ipxe-arch.efi"
             + " /mnt/boot/EFI/OpinionatedArch/netbootx64.efi"))
+}
+
+test "an installation without a network installs from the medium alone" {
+    let shell = bootstrap_shell();
+    let files = bootstrap_files();
+    let ui = ScriptedUi { answers: [], asked: [], steps: [], actions: [], errors: [], outline: [], warnings: [], tips: [], limits: [] };
+    let config = layout_config();
+    config.ucode_package = "amd-ucode";
+    config.gpu_driver = "none";
+    config.offline = true;
+
+    assert.equal(
+        bootstrap_base_system(shell, files, ui, config, root.common.chroot_target("/mnt"), "/assets"), "");
+
+    //# the same packages, taken from somewhere else: the medium's own
+    //# configuration names its repository and no other, so this run
+    //# synchronises nothing and reaches for nothing
+    assert.equal(shell.streamed, [
+        "pacstrap -C /usr/share/oparch/medium.conf -K /mnt"
+            + " base linux linux-headers linux-firmware mkinitcpio"
+            + " btrfs-progs cryptsetup grub efibootmgr sudo networkmanager ipxe amd-ucode",
+    ])
 }
 
 test "the netboot binary is taken from the target, never fetched or staged" {

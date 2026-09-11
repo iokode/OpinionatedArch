@@ -4,7 +4,7 @@
 // when a new image goes up and nothing to go stale when an old one is deleted:
 // the answer is derived from what is there at the moment it is asked.
 //
-// Images are named for the day they were built, so the last one in order is
+// Images are named for the minute they were built, so the last one in order is
 // the newest. The workflow that prunes them relies on the same thing, and both
 // would have to change together if that name ever did.
 

@@ -54,6 +54,10 @@ class SecretStoreInput {
 class InstallConfig {
     disk: string,
     install_mode: string,
+    /// True when this installation draws its packages from the repository the
+    /// medium carries instead of from the network. It is an answer and never
+    /// an outcome: nothing sets it because a synchronisation failed.
+    offline: bool,
     preserved_work_contexts: string[],
     ucode_package: string,
     gpu_driver: string,
@@ -78,6 +82,7 @@ function empty_config() -> InstallConfig {
     InstallConfig {
         disk: "",
         install_mode: "",
+        offline: false,
         preserved_work_contexts: [],
         ucode_package: "",
         gpu_driver: "",
@@ -126,6 +131,7 @@ function summary_rows(config: InstallConfig) -> SummaryRow[] {
     let rows = [
         row("target disk", config.disk),
         row("install mode", config.install_mode),
+        row("packages from", if (config.offline) { "the medium" } else { "the network" }),
         row("preserved work contexts", config.preserved_work_contexts.join(", ")),
         row("ucode package", config.ucode_package),
         row("gpu driver", config.gpu_driver),

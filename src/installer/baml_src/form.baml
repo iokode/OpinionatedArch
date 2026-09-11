@@ -18,7 +18,7 @@ function collect_config(shell: root.common.Shell, files: root.common.Files, secr
         let advanced = if (step == 0) {
             step_keymap(shell, ui, tips, config)
         } else if (step == 1) {
-            step_network(shell, ui, tips, going_back)
+            step_network(shell, files, ui, tips, config, going_back)
         } else if (step == 2) {
             step_disk(shell, ui, tips, config)
         } else if (step == 3) {
@@ -128,23 +128,30 @@ function step_keymap(shell: root.common.Shell, ui: Ui, tips: Tips, config: Insta
 /// cable in, and that is what it has.
 ///
 /// Going on without a network is an answer and never an outcome. It is chosen
-/// here, in front of someone, rather than arrived at by a failure nobody saw.
+/// here, in front of someone, rather than arrived at by a failure nobody saw,
+/// and it is what tells the installation to take its packages from the medium.
+/// It is offered only where it leads somewhere: a medium carrying no
+/// repository of its own has nothing to install from, and an answer that
+/// erases a disk and then stops is worse than an answer that was never there.
 ///
 /// A screen that answers itself has to be told which way it was walked into.
 /// Answering forwards when someone stepped back into it puts them where they
 /// just came from, and the screens behind it can never be reached again.
-function step_network(shell: root.common.Shell, ui: Ui, tips: Tips,
-                      going_back: bool) -> bool {
+function step_network(shell: root.common.Shell, files: root.common.Files, ui: Ui,
+                      tips: Tips, config: InstallConfig, going_back: bool) -> bool {
     ui.step("Network");
     let answers = [
         "Connect to a Wi-Fi network",
         "Look again",
-        "Continue without a network",
     ];
+    if (medium_carries_packages(files)) {
+        answers.push("Continue without a network");
+    }
 
     while (true) {
         ui.action("Looking for a network");
         if (reaches_repository(shell)) {
+            config.offline = false;
             return !going_back;
         }
 
@@ -153,7 +160,10 @@ function step_network(shell: root.common.Shell, ui: Ui, tips: Tips,
                 "Network",
                 "This machine does not reach the OpinionatedArch repository.",
                 answers, 0) {
+            //# the third answer is there only when the medium can answer for
+            //# it, so this index is reachable only where it means something
             if (picked == 2) {
+                config.offline = true;
                 return true;
             }
             if (picked == 0) {
@@ -1378,12 +1388,42 @@ test "a machine that does not reach it is asked, and may go on without one" {
             .concat(up_to_dotfiles().slice(1, up_to_dotfiles().length()))
             .concat(["no", "no", "start"]));
 
-    let config = collect_config(shell, packaged_files(), recording_secrets(), ui, "/assets");
+    let config = collect_config(shell, medium_files(), recording_secrets(), ui, "/assets");
 
     //# going on without one is an answer given in front of someone, which is
     //# the whole of what this screen is for
     assert.not_null(config);
-    assert.is_true(ui.asked.includes("Network"))
+    assert.is_true(ui.asked.includes("Network"));
+    //# and it is the answer that decides where the packages come from
+    if let collected: InstallConfig = config {
+        assert.equal(collected.offline, true);
+    }
+}
+
+test "a machine that reaches the repository installs from it" {
+    let ui = scripted(up_to_dotfiles().concat(["no", "no", "start"]));
+
+    let config = collect_config(fake_live_shell(), medium_files(), recording_secrets(), ui, "/assets");
+
+    //# the medium carries a repository here and is not used for it: what the
+    //# machine reaches comes first, and the medium is the last place to look
+    assert.not_null(config);
+    if let collected: InstallConfig = config {
+        assert.equal(collected.offline, false);
+    }
+}
+
+test "a medium carrying no repository does not offer going on without one" {
+    let shell = fake_live_shell();
+    let _ = shell.exit_codes.set(
+        "curl -fsS --max-time 8 -o /dev/null https://packages.oparch.iokode.dev/oparch.db", 7);
+    let ui = scripted(["Continue without a network"]);
+    let config = empty_config();
+
+    //# the official Arch image is such a medium, and `install.sh` runs there.
+    //# The answer is not among the ones offered, so nothing is chosen by it
+    assert.equal(step_network(shell, packaged_files(), ui, no_tips(), config, false), false);
+    assert.equal(config.offline, false)
 }
 
 test "a screen that answers itself is walked back through, not bounced off" {

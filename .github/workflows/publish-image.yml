@@ -82,11 +82,18 @@ jobs:
           # minutes with three of them in the bucket, which is what that is
           # worth.
           #
-          # Images are named for the day they were built, so what sorts last is
-          # what was built last, and nothing has to read a date out of anything.
+          # Images are named for the minute they were built, so what sorts last
+          # is what was built last, and nothing has to read a date out of
+          # anything.
+          #
+          # By bytes, which is what LC_ALL=C asks for. The Worker that answers
+          # with the newest image sorts the same keys in JavaScript, which
+          # orders by code unit and has no locale to take; a sort here that
+          # took one would weigh punctuation differently and the two would
+          # disagree about which image is the current one.
           aws s3api list-objects-v2 --endpoint-url "$endpoint" \
               --bucket "$R2_BUCKET" --query 'Contents[].Key' --output json |
-              jq -r '.[] | select(endswith(".iso"))' | sort | head -n -2 |
+              jq -r '.[] | select(endswith(".iso"))' | LC_ALL=C sort | head -n -2 |
               while read -r old; do
                   echo "removing $old"
                   aws s3 rm --endpoint-url "$endpoint" "s3://${R2_BUCKET}/$old"

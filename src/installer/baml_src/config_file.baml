@@ -13,9 +13,9 @@ class ConfigParse {
 
 function allowed_top_keys() -> string[] {
     [
-        "disk", "install_mode", "preserved_work_contexts", "ucode_package", "gpu_driver",
-        "swap", "work_contexts", "shared_secret", "console_keymap", "timezone",
-        "hostname", "dotfiles", "secret_store", "return_message",
+        "disk", "install_mode", "offline", "preserved_work_contexts", "ucode_package",
+        "gpu_driver", "swap", "work_contexts", "shared_secret", "console_keymap",
+        "timezone", "hostname", "dotfiles", "secret_store", "return_message",
     ]
 }
 
@@ -57,6 +57,16 @@ function parse_config_file(text: string) -> ConfigParse {
         return ConfigParse { config: config, error: read_install_mode.error };
     }
     config.install_mode = read_install_mode.value;
+
+    //# absent is the installation with a network, which is what a file written
+    //# for a machine that has one says by saying nothing
+    if (top.keys().includes("offline")) {
+        if let chosen: bool = root.common.as_bool(top.get("offline")) {
+            config.offline = chosen;
+        } else {
+            return ConfigParse { config: config, error: "offline must be true or false." };
+        }
+    }
 
     let read_ucode_package = root.common.read_text(top, "ucode_package", "ucode_package");
     if (read_ucode_package.error != "") {
@@ -333,6 +343,12 @@ function check_config(shell: root.common.Shell, files: root.common.Files, secret
     if (config.install_mode == "keep-homes") {
         return "keep-homes is not implemented yet.";
     }
+    //# a file may ask for an installation this medium cannot perform. Refusing
+    //# it here is refusing it while the disk is still intact, which is the one
+    //# thing the interactive screen gets for free by not offering the answer
+    if (config.offline && !medium_carries_packages(files)) {
+        return "offline needs a medium carrying a repository of its own, and this one carries none.";
+    }
     if (!one_of(config.ucode_package, ["intel-ucode", "amd-ucode", "none"])) {
         return "ucode_package must be intel-ucode, amd-ucode, or none.";
     }
@@ -442,6 +458,16 @@ function packaged_files() -> root.common.RecordingFiles {
                 "[Trigger]\nTarget = boot/amd-ucode.img\n");
     files.write("/assets/pacman-hooks/90-oparch-microcode-intel.hook",
                 "[Trigger]\nTarget = boot/intel-ucode.img\n");
+    files
+}
+
+/// The same, on a medium that carries a repository of its own: this project's
+/// image, where an installation with no network at all is possible. What says
+/// so is the pacman configuration written beside that repository when the
+/// image was built.
+function medium_files() -> root.common.RecordingFiles {
+    let files = packaged_files();
+    files.write(medium_pacman_conf(), "[options]\n");
     files
 }
 
@@ -589,6 +615,36 @@ test "check_config rejects keep-homes before anything is touched" {
 
     assert.equal(check_config(checking_shell(), packaged_files(), recording_secrets(), parsed.config, "/assets"),
                  "keep-homes is not implemented yet.")
+}
+
+test "a file says where the packages come from, and saying nothing says the network" {
+    assert.equal(parse_config_file(full_config_text()).config.offline, false);
+    assert.equal(parse_config_file(full_config_text() + "offline: true\n").config.offline, true);
+    assert.equal(parse_config_file(full_config_text() + "offline: false\n").config.offline, false)
+}
+
+test "offline written as anything but a boolean is refused" {
+    //# quoted, it is text, and a reader taking both would let the quoting
+    //# decide whether this machine reaches for a network
+    assert.equal(parse_config_file(full_config_text() + "offline: \"true\"\n").error,
+                 "offline must be true or false.");
+    assert.equal(parse_config_file(full_config_text() + "offline: 1\n").error,
+                 "offline must be true or false.")
+}
+
+test "check_config takes offline on a medium that carries a repository" {
+    let parsed = parse_config_file(full_config_text() + "offline: true\n");
+
+    assert.equal(check_config(checking_shell(), medium_files(), recording_secrets(), parsed.config, "/assets"), "")
+}
+
+test "check_config refuses offline where there is nothing to install from" {
+    let parsed = parse_config_file(full_config_text() + "offline: true\n");
+
+    //# the disk is still whole at this point, which is the whole reason this
+    //# is asked here and not when `pacstrap` discovers it
+    assert.equal(check_config(checking_shell(), packaged_files(), recording_secrets(), parsed.config, "/assets"),
+                 "offline needs a medium carrying a repository of its own, and this one carries none.")
 }
 
 test "check_config rejects a timezone that is not in the canonical list" {
