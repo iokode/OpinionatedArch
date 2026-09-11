@@ -87,7 +87,11 @@ EOF
 
 say "Filling the medium's own repository"
 carried="$profile/airootfs$MEDIUM_REPO_DIR"
-mkdir -p "$carried"
+
+# Both of these are paths handed to something else, and handing a path over
+# does not bring it into being: pacman refuses a `--dbpath` that is not there,
+# and neither of them is anybody's to create but this script's.
+mkdir -p "$carried" "$work/db" "$work/build"
 
 # Downloaded and not installed: what is wanted is the package files, so that an
 # installation with nothing to fetch from has something to install.
