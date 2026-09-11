@@ -33,9 +33,18 @@ readonly MEDIUM_CONF=/usr/share/oparch/medium.conf
 
 # The stanza that names the repository the medium carries. Both files that
 # mention it are written from here, so they cannot come to disagree about where
-# it is or what is required of what it holds.
+# it is or what is asked of what it holds.
+#
+# Signatures are not checked here, and the reason is that checking them would
+# not be a check. The packages, the key that would validate them and the file
+# that says to validate them all travel in this image: whoever can alter one
+# can alter the rest, so the image would be vouching for itself. The check that
+# means something was made when this repository was filled, against the keyring
+# of whoever published each package; and what says this image is the one the
+# project published is the checksum published beside it, which comes from
+# somewhere else.
 medium_repository() {
-    printf '\n[%s]\nSigLevel = Required DatabaseOptional\nServer = file://%s\n' \
+    printf '\n[%s]\nSigLevel = Never\nServer = file://%s\n' \
         "$MEDIUM_REPO" "$MEDIUM_REPO_DIR"
 }
 
