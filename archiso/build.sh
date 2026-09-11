@@ -166,7 +166,14 @@ mkarchiso -v -w "$work/build" -o "$output" "$profile" 2>&1 | tee "$work/build.lo
 # reporting errors, because it looks for firmware that nobody ships for modules
 # nobody here uses, and a build stopped by that is a build that never finishes.
 # What this project ships is its own business and is held to working.
+# A scriptlet's failure is reported after the line naming the package being
+# installed, so what is being installed is tracked and the report attributed to
+# it. pacman announces each phase of its work with a line of its own, and the
+# hooks that run after the packages are in are not any package's doing — one of
+# them is that mkinitcpio — so a phase line ends the attribution rather than
+# leaving whatever was installed last to answer for the rest of the build.
 failed="$(awk '
+    /^:: / { package = ""; next }
     /^(installing|upgrading) oparch-/ { package = $2; sub(/\.\.\.$/, "", package); next }
     /^(installing|upgrading) / { package = ""; next }
     /command failed to execute correctly/ { if (package != "") print package }
