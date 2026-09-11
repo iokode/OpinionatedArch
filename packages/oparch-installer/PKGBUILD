@@ -1,5 +1,5 @@
 pkgname=oparch-installer
-pkgver=0.1.0dev4
+pkgver=0.1.0dev5
 pkgrel=1
 pkgdesc="Installs OpinionatedArch onto a machine, from a live environment"
 arch=('x86_64')

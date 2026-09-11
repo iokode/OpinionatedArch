@@ -216,11 +216,18 @@ function reaches_repository(shell: root.common.Shell) -> bool {
                            repository_probe()]).exit_code == 0
 }
 
+/// Where this project publishes its packages. It is asked about here and
+/// written into the installed system by the bootstrap, and both say it from
+/// here so that they cannot come to name different servers.
+function package_repository() -> string {
+    "https://packages.oparch.iokode.dev"
+}
+
 /// What is asked. The database rather than the bare host, because a name that
 /// resolves and a server that answers are different things, and the second is
 /// the one that matters.
 function repository_probe() -> string {
-    "https://packages.oparch.iokode.dev/oparch.db"
+    `${package_repository()}/oparch.db`
 }
 
 /// Where the medium keeps the pacman configuration that resolves against the

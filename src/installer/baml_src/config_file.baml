@@ -458,6 +458,9 @@ function packaged_files() -> root.common.RecordingFiles {
                 "[Trigger]\nTarget = boot/amd-ucode.img\n");
     files.write("/assets/pacman-hooks/90-oparch-microcode-intel.hook",
                 "[Trigger]\nTarget = boot/intel-ucode.img\n");
+    //# what the `pacman` package leaves in the target, which is there by the
+    //# time the bootstrap writes this project's repository into it
+    files.write("/mnt/etc/pacman.conf", packaged_pacman_conf());
     files
 }
 

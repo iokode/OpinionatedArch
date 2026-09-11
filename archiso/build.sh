@@ -31,6 +31,30 @@ readonly MEDIUM_REPO_DIR=/usr/share/oparch/repo
 # other, so a run given it synchronises nothing and reaches for nothing.
 readonly MEDIUM_CONF=/usr/share/oparch/medium.conf
 
+# Where an installation keeps what it had to fetch. It is the installer's mount
+# point, which is fixed, and the cache has to be on the target rather than on
+# the medium: the live system's own directories are memory, and a bootstrap is
+# more of it than a small machine has.
+readonly TARGET_CACHE=/mnt/var/cache/pacman/pkg
+
+# Everything from the top of a pacman configuration down to the first
+# repository, which is what `[options]` is; and the repositories after it, in
+# the order pacman reads them. Commented-out repositories are not headers and
+# stay where they were written.
+options_section() { awk '/^\[/ && $0 != "[options]" { exit } { print }' "$1"; }
+repositories_section() {
+    awk 'found { print } !found && /^\[/ && $0 != "[options]" { found = 1; print }' "$1"
+}
+
+# Where the packages an installation installs are looked for before any of them
+# is fetched. The first is on the target, and is where whatever did have to be
+# downloaded is kept. The second is the medium's own repository — the same
+# directory that serves it, so the files are on the image once and named twice
+# — and a package whose exact version is already there is not downloaded again.
+package_cache() {
+    printf 'CacheDir = %s/\nCacheDir = %s/\n' "$TARGET_CACHE" "$MEDIUM_REPO_DIR"
+}
+
 # The stanza that names the repository the medium carries. Both files that
 # mention it are written from here, so they cannot come to disagree about where
 # it is or what is asked of what it holds.
@@ -103,13 +127,19 @@ pacman-key --add "$HERE/../packages/oparch-keyring/oparch.gpg"
 pacman-key --lsign-key "$fingerprint"
 
 # The published repository, above the official ones, so that the medium is
-# built out of the same packages an installed system would update to.
-cat >> "$profile/pacman.conf" <<EOF
-
-[$REPOSITORY_NAME]
-SigLevel = Required TrustedOnly
-Server = $REPOSITORY
-EOF
+# built out of the same packages an installed system would update to, and so
+# that a name this project publishes resolves to this project's package
+# wherever else that name turns up. Above means in front of the first
+# repository in the file and not at the end of it, which is where appending
+# would put it: below every official one.
+say "Adding the published repository, above the official ones"
+{
+    options_section "$profile/pacman.conf"
+    printf '\n[%s]\nSigLevel = Required TrustedOnly\nServer = %s\n\n' \
+        "$REPOSITORY_NAME" "$REPOSITORY"
+    repositories_section "$profile/pacman.conf"
+} > "$work/pacman.conf"
+mv "$work/pacman.conf" "$profile/pacman.conf"
 
 # ------------------------------------------- the repository the medium carries
 
@@ -138,18 +168,21 @@ repo-add "$carried/$MEDIUM_REPO.db.tar.gz" "$carried"/*.pkg.tar.zst
 say "Writing the live system's pacman.conf"
 mkdir -p "$profile/airootfs/etc"
 {
-    cat "$profile/pacman.conf"
+    options_section "$profile/pacman.conf"
+    package_cache
+    repositories_section "$profile/pacman.conf"
     medium_repository
 } > "$profile/airootfs/etc/pacman.conf"
 
 # And the one an installation without a network is run with: the same options
-# the medium was built under, and the medium's repository as the only one there
-# is. Everything from the top of the file down to the first repository is what
-# `[options]` is, so the section is taken rather than written out again and the
-# two configurations cannot disagree about how packages are checked.
+# the medium was built under, the same cache, and the medium's repository as
+# the only one there is. The options are taken from the profile's file rather
+# than written out again, so the two configurations cannot disagree about how
+# packages are checked or where they are looked for.
 say "Writing the configuration an installation without a network uses"
 {
-    awk '/^\[/ && $0 != "[options]" { exit } { print }' "$profile/pacman.conf"
+    options_section "$profile/pacman.conf"
+    package_cache
     medium_repository
 } > "$profile/airootfs$MEDIUM_CONF"
 
