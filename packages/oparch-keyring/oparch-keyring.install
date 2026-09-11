@@ -9,10 +9,19 @@
 _key=/usr/share/oparch-keyring/oparch.gpg
 
 _trust_key() {
-    local fingerprint
+    local fingerprint home
 
-    fingerprint="$(gpg --with-colons --import-options show-only --import \
+    # gpg makes itself a home directory before it does anything at all, even
+    # when all it is asked for is what a file it was handed contains. A
+    # scriptlet runs in the environment of whoever invoked pacman, and that
+    # environment's HOME is no business of this package's and need not exist
+    # where this runs — inside the chroot an image is built in, it does not.
+    # So gpg is given a directory of its own, and the answer stops depending
+    # on who ran the installation.
+    home="$(mktemp -d /tmp/oparch-keyring.XXXXXX)"
+    fingerprint="$(GNUPGHOME="$home" gpg --with-colons --import-options show-only --import \
         < "$_key" | awk -F: '/^fpr:/ { print $10; exit }')"
+    rm -rf "$home"
 
     if [ -z "$fingerprint" ]; then
         echo "oparch-keyring: no key found in $_key" >&2

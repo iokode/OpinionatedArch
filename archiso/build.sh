@@ -150,4 +150,17 @@ cp -r "$HERE/airootfs/." "$profile/airootfs/"
 # ------------------------------------------------------------------- the image
 
 say "Building"
-mkarchiso -v -w "$work/build" -o "$output" "$profile"
+set -o pipefail
+mkarchiso -v -w "$work/build" -o "$output" "$profile" 2>&1 | tee "$work/build.log"
+
+# A package's install scriptlet is what puts the package's own arrangements in
+# place — the project's key in the medium's keyring, for one. pacman does not
+# fail a transaction when one of them fails: it says so and carries on, and
+# mkarchiso then finishes and exits zero, so an image missing what a scriptlet
+# was there to do is published with nothing having gone wrong. That line is the
+# only thing pacman offers about it, so it is looked for, and finding it ends
+# the build with the image unwritten rather than uploaded.
+if grep -q "command failed to execute correctly" "$work/build.log"; then
+    say "A package's install scriptlet failed. The image is not to be published."
+    exit 1
+fi
