@@ -153,14 +153,26 @@ say "Building"
 set -o pipefail
 mkarchiso -v -w "$work/build" -o "$output" "$profile" 2>&1 | tee "$work/build.log"
 
-# A package's install scriptlet is what puts the package's own arrangements in
-# place — the project's key in the medium's keyring, for one. pacman does not
-# fail a transaction when one of them fails: it says so and carries on, and
-# mkarchiso then finishes and exits zero, so an image missing what a scriptlet
-# was there to do is published with nothing having gone wrong. That line is the
-# only thing pacman offers about it, so it is looked for, and finding it ends
-# the build with the image unwritten rather than uploaded.
-if grep -q "command failed to execute correctly" "$work/build.log"; then
-    say "A package's install scriptlet failed. The image is not to be published."
+# A package's install scriptlet is what puts that package's own arrangements in
+# place — the project's key where the medium will look for it, for one. pacman
+# does not fail a transaction when one of them fails: it says so and carries
+# on, and mkarchiso then finishes and exits zero, so an image missing what a
+# scriptlet was there to do is published with nothing having gone wrong. The
+# line pacman prints is the only thing it offers about it, so that is what is
+# read for.
+#
+# Only for this project's own packages. Upstream scriptlets fail here as a
+# matter of course and always have: mkinitcpio ends every build of this image
+# reporting errors, because it looks for firmware that nobody ships for modules
+# nobody here uses, and a build stopped by that is a build that never finishes.
+# What this project ships is its own business and is held to working.
+failed="$(awk '
+    /^(installing|upgrading) oparch-/ { package = $2; sub(/\.\.\.$/, "", package); next }
+    /^(installing|upgrading) / { package = ""; next }
+    /command failed to execute correctly/ { if (package != "") print package }
+' "$work/build.log")"
+
+if [ -n "$failed" ]; then
+    say "The install scriptlet of $failed failed. The image is not to be published."
     exit 1
 fi
