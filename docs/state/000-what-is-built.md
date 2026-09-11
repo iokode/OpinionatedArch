@@ -71,7 +71,11 @@ Tests, counted on 2026-09-11: 304 in `src/installer`, 133 in `src/return-message
 
 **The repository has been fetched and checked.** Its database lists what the workflow said it published, and its signature verifies against the public half of the key in this repository. That was done from outside, against the address a machine would use.
 
-**An image booted a laptop.** On 2026-09-11, the first one built: written to a stick, started on real hardware, and the installer came up on its own. What it has not done yet is install without a network, which is what it carries a repository for.
+**An image booted a laptop.** On 2026-09-11, the first one built: written to a stick, started on real hardware, and the installer came up on its own.
+
+**A machine was installed with no network at all.** The same day, from a later image: the network screen offered going on without one, the bootstrap resolved against the repository the medium carries, and the run finished in forty-five seconds. That is the gigabyte an image carries being used for the thing it is carried for, and the first time anything had installed a system from this project's own packages rather than from a mirror.
+
+**And that machine updates from the repository it came from.** Given a network afterwards, `pacman -Syu` on it synchronised `oparch` ahead of `core` and `extra` — which is both that the installation wrote the repository into the target and that it wrote it above the official ones — and found nothing to do, which is what a machine installed from an image built the same day should say.
 
 **The recording doubles remain what they always were.** They assert which commands would run, not that they work. What answers that is the harness, and only for the run it makes.
 
