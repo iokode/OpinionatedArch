@@ -20,13 +20,22 @@ See [What is OpinionatedArch](docs/general/000-what-is-opinionatedarch.md) for m
 
 ## Installation
 
-From an Arch Linux live environment with a network, one command:
+### ISO Image
+
+- Image: [https://oparch.iokode.dev/latest.iso](https://oparch.iokode.dev/latest.iso)
+- Checksum: [https://oparch.iokode.dev/latest.sha256](https://oparch.iokode.dev/latest.sha256)
+
+Both follow the current image, whichever it is. It carries everything an installation needs and starts the installer on its own.
+
+### Install Script
+
+From an Arch Linux live environment (releng) that already has a network, there is a second way in:
 
 ```sh
 curl -fsSL https://oparch.iokode.dev/install.sh | bash
 ```
 
-There is no image to boot yet. When there is, it will carry all of this already and need no network at all: [Installation ISO](docs/decisions/018-installation-iso.md).
+It fetches the installer with its dependencies and runs it.
 
 ### Installer
 

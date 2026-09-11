@@ -1,4 +1,4 @@
-// Answers with the image published most recently.
+// Answers with the image published most recently, and with its checksum.
 //
 // It reads the bucket rather than being told, so there is nothing to update
 // when a new image goes up and nothing to go stale when an old one is deleted:
@@ -23,9 +23,15 @@ export default {
       return new Response("No image has been published yet.\n", { status: 404 });
     }
 
+    // Two addresses and one lookup. The checksum is uploaded beside the image
+    // under the image's own name with `.sha256` after it, so working out which
+    // image is current is the whole of working out where either one is.
+    const path = new URL(request.url).pathname;
+    const target = path.endsWith(".sha256") ? `${latest}.sha256` : latest;
+
     // Temporary, and deliberately so: this points somewhere else every month,
     // and a permanent redirect is one browsers would go on believing long
     // after the image it named had been deleted.
-    return Response.redirect(`${IMAGES}/${latest}`, 302);
+    return Response.redirect(`${IMAGES}/${target}`, 302);
   },
 };

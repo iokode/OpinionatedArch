@@ -10,7 +10,7 @@ OpinionatedArch ships an installation ISO: an image for `x86_64`, built with `ar
 
 An image is built and published every month, against the packages current when it is built. Images are served over HTTPS from `https://iso.oparch.iokode.dev`, out of object storage of the project's own, in a bucket apart from the one the packages are in and reached with credentials of its own. Each has its checksum beside it. The two most recent are kept and the ones before them are deleted.
 
-One further address, `https://oparch.iokode.dev/latest.iso`, answers with whichever of them is newest. It is published because the images are named for the day they were built, so the address of any one of them stops being the address of the current one a month later, and something has to be linkable.
+Two further addresses, `https://oparch.iokode.dev/latest.iso` and `https://oparch.iokode.dev/latest.sha256`, answer with whichever image is newest and with the checksum of that same one. They are published because the images are named for the day they were built, so the address of any one of them stops being the address of the current one a month later, and both the image and what says it is the image have to be linkable.
 
 The checksum is what the project says about an image, and checking it is how someone tells they have the one that was published.
 

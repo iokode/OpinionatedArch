@@ -58,13 +58,13 @@ Two repositories end up in the live system's `pacman.conf`, and their order is t
 
 It is built in a container that is allowed more than containers usually are, because `mkarchiso` makes filesystems and mounts them.
 
-Images are named for the day they were built. That is not decoration: what sorts last is what was built last, which is how the two that are kept are told from the ones that are deleted, and how the address that always answers with the newest finds it. Two places depend on that, and only one of them is in this repository.
+Images are named for the day they were built. That is not decoration: what sorts last is what was built last, which is how the two that are kept are told from the ones that are deleted, and how the addresses that always answer with the newest find it. Two things depend on that, the prune and the Worker, and both would have to change together if that name ever did.
 
 The prune runs after the new image is up and not before, so that an upload which fails leaves the two that were there rather than one. It costs a few minutes with three of them in the bucket, which is what that is worth.
 
 ## What runs at the edge
 
-One address answers with whatever image is newest, and what answers it is a Worker that reads the bucket rather than being told. It is deployed by a workflow of its own, when what is in `.cloudflare/` changes and not otherwise, so that what is deployed is what was committed rather than what somebody remembered to push by hand.
+Two addresses answer with whatever image is newest and with its checksum, and what answers both is one Worker that reads the bucket rather than being told — the checksum is stored beside the image under the image's own name, so finding the current image finds both. It is deployed by a workflow of its own, when what is in `.cloudflare/` changes and not otherwise, so that what is deployed is what was committed rather than what somebody remembered to push by hand.
 
 It is not deployed alongside the image it points at. That is published every month and this changes almost never, and joining them would mean a failure to deploy taking down the publication of an image that was fine.
 

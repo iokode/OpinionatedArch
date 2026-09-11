@@ -4,11 +4,12 @@ OpinionatedArch is installed from an Arch Linux live environment. The installer 
 
 ## Running the Installer
 
-1. Boot an Arch Linux live environment.
-2. Run `curl -fsSL https://oparch.iokode.dev/install.sh | bash`, which puts the installer on it and starts it.
-3. Answer the prompts — or hand the installer a file with `--config` and answer nothing.
+1. Write this project's image to a stick, from `https://oparch.iokode.dev/latest.iso`, and boot it.
+2. Answer the prompts — or hand the installer a file with `--config` and answer nothing.
 
-Step 2 fetches everything, so it wants a network from the start; what it does and why it is shaped that way is [Installation Script](../decisions/017-installation-script.md). The other way in is an image of this project's own, which carries all of it already, needs no network, and starts the installer without being asked: [Installation ISO](../decisions/018-installation-iso.md) decides it and it does not exist yet.
+The image carries the installer, everything it calls, and the packages it puts into the target, and it starts the installer without being asked: [Installation ISO](../decisions/018-installation-iso.md). Its checksum is at `https://oparch.iokode.dev/latest.sha256`, and checking it is how a person tells they have the image this project published.
+
+There is a second way in, for a machine already running an Arch live environment with a network on it: `curl -fsSL https://oparch.iokode.dev/install.sh | bash`, which fetches what the image carries and then starts the same installer. It wants a network from the first step to the last, and what it is is [Installation Script](../decisions/017-installation-script.md).
 
 The command and its options are [oparch-installer](../tools/oparch-installer/000-command.md).
 

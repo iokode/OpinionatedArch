@@ -13,7 +13,7 @@ This document is descriptive. What the tools are for is defined in `../tools/`, 
 - `tests/e2e/run.sh` — the end-to-end harness, with the configuration file and the dotfiles package it hands the guest.
 - `packages/` — a `PKGBUILD` for each package the project publishes, the wrapper that goes on `PATH` in place of the installer's binary, the scriptlet that makes pacman trust the signing key, and the script that made that key.
 - `archiso/` — what this project's installation image is, as a difference from `releng`: what it adds, what it drops, what its own repository carries, the file that starts the installer, and the script that assembles all of it and builds.
-- `.cloudflare/` — the Worker that answers with whatever image is newest, and its configuration.
+- `.cloudflare/` — the Worker that answers with whatever image is newest and with its checksum, and its configuration.
 - `.github/` — three workflows, and the composite action that installs BAML at the versions the host is built against.
 - `install.sh` — the other way an installation is started, from an Arch live environment that already has a network.
 
@@ -55,7 +55,7 @@ Tests, counted on 2026-09-11: 290 in `src/installer`, 132 in `src/return-message
 
 **Two ways in.** `install.sh`, fetched by its address and run on an Arch live environment, trusts the signing key against the fingerprint it carries, adds the repository and installs the installer from it; that is [Installation Script](../decisions/017-installation-script.md).
 
-**The image is written and has never been built.** The profile, the workflow that builds it monthly and publishes it, and the Worker that answers with the newest one are all there; no run has produced an image. What that leaves open is in [Remaining](001-remaining.md), and how it is put together is [Building and Publishing](../development/008-building-and-publishing.md).
+**The image exists, and it boots.** It is built from `releng` with this project's differences over it, carries the project's packages and a repository of the ones an installation puts into the target, starts the installer on its own, and leaves it reachable as a command. It is published to storage of the project's own, and two addresses answer with whichever is newest and with its checksum, `https://oparch.iokode.dev/latest.iso` and `https://oparch.iokode.dev/latest.sha256` — a Worker that reads the bucket rather than being told, so nothing has to be updated when one replaces another. How it is put together is [Building and Publishing](../development/008-building-and-publishing.md).
 
 **The key exists.** Made once by `packages/generate-signing-key.sh`, an Ed25519 primary that certifies and a subkey that signs, held apart as [Signing Key](../decisions/019-signing-key.md) requires.
 
@@ -68,6 +68,8 @@ Tests, counted on 2026-09-11: 290 in `src/installer`, 132 in `src/return-message
 **Wi-Fi has connected, on a laptop and by hand.** The screen found the radio, listed what was in range, took a passphrase and associated. That is the one part of it no suite reaches: there is no wireless device in the harness's guest, and iwd's table was read from its source rather than from a table anyone had seen until then. What is still unknown about it is in [Remaining](001-remaining.md).
 
 **The repository has been fetched and checked.** Its database lists what the workflow said it published, and its signature verifies against the public half of the key in this repository. That was done from outside, against the address a machine would use.
+
+**An image booted a laptop.** On 2026-09-11, the first one built: written to a stick, started on real hardware, and the installer came up on its own. What it has not done yet is install without a network, which is what it carries a repository for.
 
 **The recording doubles remain what they always were.** They assert which commands would run, not that they work. What answers that is the harness, and only for the run it makes.
 

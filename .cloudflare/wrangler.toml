@@ -2,11 +2,16 @@ name = "oparch-latest-image"
 main = "worker.js"
 compatibility_date = "2026-09-11"
 
-# One address that always answers with the current image, on the host that
-# already exists for things with no origin behind them. Not on the images' own
-# host, which is bound to the bucket and serves it directly.
+# Two addresses that always answer with the current image and with what it
+# should hash to, on the host that already exists for things with no origin
+# behind them. Not on the images' own host, which is bound to the bucket and
+# serves it directly.
 [[routes]]
 pattern = "oparch.iokode.dev/latest.iso"
+zone_name = "iokode.dev"
+
+[[routes]]
+pattern = "oparch.iokode.dev/latest.sha256"
 zone_name = "iokode.dev"
 
 # Read-only in practice: this lists and nothing else. The binding is part of
