@@ -6,7 +6,7 @@ name: Publish image
 # request, for the day when something has to be looked at before tomorrow.
 on:
   schedule:
-    - cron: '0 3 * * *'
+    - cron: '0 5 * * *'
   workflow_dispatch:
 
 # Two of these would be building the same thing and uploading to the same
