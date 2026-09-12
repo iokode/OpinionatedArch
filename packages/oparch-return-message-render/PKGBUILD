@@ -1,6 +1,6 @@
 pkgname=oparch-return-message-render
 pkgver=0.1.0dev1
-pkgrel=2
+pkgrel=3
 pkgdesc="Composes the pre-boot ownership message and installs it as a Plymouth theme"
 arch=('x86_64')
 url='https://github.com/iokode/OpinionatedArch'
@@ -8,7 +8,12 @@ license=('BSD-2-Clause')
 
 # No separate package of debug symbols, which makepkg would otherwise make and
 # the repository would then hold alongside every tool it publishes.
-options=('!debug')
+#
+# And nothing is stripped. `baml pack` leaves the program this tool runs in
+# sections of the binary it produces, and `strip` takes them out: what is left
+# starts, finds no program inside itself, and says so. Every copy of this
+# package published before this line was that.
+options=('!debug' '!strip')
 
 # What the Requirements section of
 # docs/tools/oparch-return-message-render/000-command.md names. `pango` is

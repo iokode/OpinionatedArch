@@ -20,8 +20,30 @@ readonly CASES="$HERE/cases"
 . "$HERE/harness.sh"
 
 usage() {
-    printf 'Usage: %s <image.iso> [case ...]\n' "$0" >&2
+    printf 'Usage: %s [--transcripts <directory>] <image.iso> [case ...]\n' "$0" >&2
 }
+
+# Where the guests' consoles are written, which is where a failed case is read
+# from. A run that is not told picks a directory of its own and says which,
+# because a person is there to go and look. A run on a machine that will stop
+# existing when it ends is told, so that what it leaves can be collected before
+# it goes.
+transcripts=""
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --transcripts)
+            transcripts="${2:-}"
+            if [ -z "$transcripts" ]; then
+                usage
+                exit 2
+            fi
+            shift 2
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
 
 image="${1:-}"
 if [ -z "$image" ]; then
@@ -63,7 +85,12 @@ for name in "${selected[@]}"; do
     done
 done
 
-work="$(mktemp -d --tmpdir oparch-e2e-XXXXXXXX)"
+if [ -n "$transcripts" ]; then
+    mkdir -p "$transcripts"
+    work="$(cd "$transcripts" && pwd)"
+else
+    work="$(mktemp -d --tmpdir oparch-e2e-XXXXXXXX)"
+fi
 
 printf 'Image: %s\n' "$image" >&2
 printf 'Transcripts: %s\n\n' "$work" >&2

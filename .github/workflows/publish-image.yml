@@ -61,7 +61,19 @@ jobs:
       - name: Test the image before publishing it
         run: |
           set -eu
-          tests/e2e/run.sh "$(ls out/*.iso)"
+          tests/e2e/run.sh --transcripts "$PWD/transcripts" "$(ls out/*.iso)"
+
+      # The harness reports that a case failed; what it failed at is in the
+      # console of the guest that failed it, and that is written on a machine
+      # which stops existing when this run ends. So it is taken before it goes,
+      # and only when there is a reason to: a run where everything passed has
+      # nothing in them anybody wants.
+      - name: Keep what a failed case left behind
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: end-to-end-transcripts
+          path: transcripts/
 
       # A bucket of its own and not the one the packages are in. They are read
       # by different things at different rates, and this one has images
