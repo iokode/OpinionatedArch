@@ -62,6 +62,8 @@ A second configuration is written beside the medium's repository, holding that r
 
 It is built in a container that is allowed more than containers usually are, because `mkarchiso` makes filesystems and mounts them.
 
+What is built is then tested, and only published if it passes. The cases in [End-to-End Testing](006-end-to-end-testing.md) boot the image that was just made, install machines from it and boot what they installed, and a case that fails leaves the image where it was built. That is what running it here rather than afterwards is for: an image that does not install a machine that boots never becomes the one anybody downloads.
+
 The build is read for one thing afterwards, and fails on it: one of this project's own packages whose install scriptlet failed. Those scriptlets are where a package arranges what installing it means — the project's key reaches the medium through one of them — and pacman does not fail a transaction when one fails. It reports it and carries on, `mkarchiso` finishes, and the image is published missing whatever that scriptlet was there to do, with every step green. Its report is the only signal there is, so it is what the build looks for.
 
 It is read for this project's packages only. Upstream scriptlets fail here as a matter of course: `mkinitcpio` ends every build of this image reporting errors, because it goes looking for firmware nobody ships for modules nothing here uses, and a build stopped by that is a build that never finishes. What this project ships is its own to get right, and is what this holds to working.

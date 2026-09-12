@@ -50,7 +50,7 @@ A BAML test is a `test` block, written in a `.baml` file inside the project's `b
 
 What a test reads goes in `tests/` **inside the project**, as `src/dotfiles-sync/tests/fixtures/` does. Relative paths in a test resolve against the project directory rather than against the working directory — `baml --directory src/dotfiles-sync test` finds them from anywhere — so a fixture is addressed the same way whoever runs the suite is standing.
 
-The harness is the opposite case and gets the opposite answer. It is a shell script that builds the tools and boots a virtual machine, it belongs to no project, and it tests all of them at once. `tests/e2e/` is where it lives, with the configuration file and the dotfiles package it hands the guest.
+The harness is the opposite case and gets the opposite answer. It boots a virtual machine on an image the project has built, it belongs to no project, and it tests all of them at once. `tests/e2e/` is where it lives: the wiring, the command that runs it, and a directory per case holding what that case hands the guest, as [End-to-End Testing](006-end-to-end-testing.md) lays out.
 
 ## Why
 

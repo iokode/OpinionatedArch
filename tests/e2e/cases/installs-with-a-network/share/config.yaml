@@ -1,0 +1,21 @@
+# The same machine the hermetic case installs, reached the other way: there is
+# no `offline`, so the installation resolves against the official repositories
+# and takes from the medium only what it already holds at the version being
+# installed.
+disk: /dev/vda
+install_mode: wipe-all
+
+ucode_package: none
+gpu_driver: none
+
+swap:
+  zram_gb: 2
+  swapfile_gb: 0
+
+work_contexts:
+  - personal
+shared_secret: "oparch end to end"
+
+console_keymap: es
+timezone: Europe/Madrid
+hostname: oparch

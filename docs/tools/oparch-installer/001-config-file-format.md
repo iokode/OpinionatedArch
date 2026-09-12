@@ -27,7 +27,7 @@ swap:
   swapfile_gb: 0
 
 work_contexts:
-  - ivan
+  - personal
   - work
 shared_secret: "a shared secret"
 

@@ -27,7 +27,9 @@ jobs:
     environment: image
     steps:
       - name: Install what building an image needs
-        run: pacman -Syu --noconfirm --needed archiso git curl aws-cli-v2 jq
+        run: |
+          pacman -Syu --noconfirm --needed archiso git curl aws-cli-v2 jq \
+              qemu-system-x86 qemu-img edk2-ovmf libarchive util-linux procps-ng
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -45,6 +47,21 @@ jobs:
           mkdir -p out
           archiso/build.sh "$PWD/out"
           ls -lh out
+
+      # Before it goes anywhere. Every image published until now became the one
+      # people download with nothing having booted it, and four of the six built
+      # on 2026-09-11 were broken in ways only booting them showed. A failure
+      # here leaves the image unuploaded, which is the whole point of running it
+      # here rather than after.
+      #
+      # The cases boot the image under QEMU, so this wants hardware
+      # acceleration; the harness says which it got and goes on either way. What
+      # each case is and what it holds the image to is
+      # docs/development/006-end-to-end-testing.md.
+      - name: Test the image before publishing it
+        run: |
+          set -eu
+          tests/e2e/run.sh "$(ls out/*.iso)"
 
       # A bucket of its own and not the one the packages are in. They are read
       # by different things at different rates, and this one has images

@@ -10,7 +10,7 @@ This document is descriptive. What the tools are for is defined in `../tools/`, 
 - `src/installer/` — `oparch-installer`, with its Rust host under `src/installer/host/`.
 - `src/return-message-render/` — `oparch-return-message-render`. No host: `baml pack` makes it an executable of its own. It owns namespace `root.return_message`, and with it the template package format, the values format and the theme format, which the installer links from here because it asks for what a package declares, validates the same values in its own configuration file, and reads the theme to know how many languages it may offer.
 - `src/dotfiles-sync/` — `oparch-dotfiles-sync`. No host either, and packed the same way.
-- `tests/e2e/run.sh` — the end-to-end harness, with the configuration file and the dotfiles package it hands the guest.
+- `tests/e2e/` — the end-to-end harness and the command that runs it, and a directory for each case holding what that case hands the guest.
 - `packages/` — a `PKGBUILD` for each package the project publishes, the wrapper that goes on `PATH` in place of the installer's binary, the scriptlet that makes pacman trust the signing key, and the script that made that key.
 - `archiso/` — what this project's installation image is, as a difference from `releng`: what it adds, what it drops, what its own repository carries, the file that starts the installer, and the script that assembles all of it and builds.
 - `.cloudflare/` — the Worker that answers with whatever image is newest and with its checksum, and its configuration.
@@ -63,9 +63,7 @@ Tests, counted on 2026-09-11: 304 in `src/installer`, 133 in `src/return-message
 
 ## What has been seen, and how
 
-**It boots.** On 2026-08-11 the harness installed from a configuration file and then started the disk it had made: the firmware found `\EFI\OpinionatedArch\grubx64.efi`, GRUB started the kernel the project's menu names, the initramfs asked for the passphrase, and the secret the installation was given opened the container and reached a login on the hostname that was configured. That was the harness before the dotfiles step was given to it; it has not been run since, which [Remaining](001-remaining.md) carries as work.
-
-**The splash was seen by hand, not by the harness.** The same day, on VMware and with a display: the machine booted to the return message screen, and Escape moved between it and the text unlock prompt and back. The harness runs its guest with `-nographic`, so Plymouth has no display there and falls back to the text prompt, and it therefore never draws the composed message and never runs the script the renderer writes. That is a limit of the harness, not of the thing it is testing, and [End-to-End Testing](../development/006-end-to-end-testing.md) records it as one.
+**The splash was seen by hand, not by the harness.** On 2026-08-11, on VMware and with a display: the machine booted to the return message screen, and Escape moved between it and the text unlock prompt and back. The harness runs its guest with `-nographic`, so Plymouth has no display there and falls back to the text prompt, and it therefore never draws the composed message and never runs the script the renderer writes. That is a limit of the harness, not of the thing it is testing, and [End-to-End Testing](../development/006-end-to-end-testing.md) records it as one.
 
 **Wi-Fi has connected, on a laptop and by hand.** The screen found the radio, listed what was in range, took a passphrase and associated. That is the one part of it no suite reaches: there is no wireless device in the harness's guest, and iwd's table was read from its source rather than from a table anyone had seen until then. What is still unknown about it is in [Remaining](001-remaining.md).
 
@@ -76,6 +74,8 @@ Tests, counted on 2026-09-11: 304 in `src/installer`, 133 in `src/return-message
 **A machine was installed with no network at all.** The same day, from a later image: the network screen offered going on without one, the bootstrap resolved against the repository the medium carries, and the run finished in forty-five seconds. That is the gigabyte an image carries being used for the thing it is carried for, and the first time anything had installed a system from this project's own packages rather than from a mirror.
 
 **And that machine updates from the repository it came from.** Given a network afterwards, `pacman -Syu` on it synchronised `oparch` ahead of `core` and `extra` — which is both that the installation wrote the repository into the target and that it wrote it above the official ones — and found nothing to do, which is what a machine installed from an image built the same day should say.
+
+**A published image was held to installing a machine that boots, by something other than a person.** On 2026-09-12 the harness ran `installs-and-boots` against `oparch-2026.09.11.1752`: it booted the image, drove the live environment over a serial line, installed with no network from the repository the medium carries, and then booted the disk it had made with no medium attached. The layout on that disk is the one [Disk Layout](../decisions/001-disk-layout.md) fixes, down to a home subvolume for each work context; the firmware found the entry the installation registered, GRUB started the kernel the project's menu names, the initramfs asked for the passphrase, and the shared secret opened the container and reached a login on the hostname that was configured.
 
 **The recording doubles remain what they always were.** They assert which commands would run, not that they work. What answers that is the harness, and only for the run it makes.
 

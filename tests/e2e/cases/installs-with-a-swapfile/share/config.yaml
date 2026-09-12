@@ -1,0 +1,21 @@
+# The hermetic installation with swap on the disk instead of in memory. One
+# gibibyte, which is enough to be made and mounted and small enough not to
+# spend the run writing it.
+disk: /dev/vda
+install_mode: wipe-all
+offline: true
+
+ucode_package: none
+gpu_driver: none
+
+swap:
+  zram_gb: 0
+  swapfile_gb: 1
+
+work_contexts:
+  - personal
+shared_secret: "oparch end to end"
+
+console_keymap: es
+timezone: Europe/Madrid
+hostname: oparch

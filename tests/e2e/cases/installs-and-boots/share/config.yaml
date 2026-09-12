@@ -1,0 +1,31 @@
+# What the installer is given for "A machine is installed and boots.": the
+# smallest complete answer to every question it asks. Every optional section is
+# absent, and each of them is the subject of a case of its own.
+#
+# The disk is the one the harness attaches to the guest, which it attaches over
+# virtio, so this is where that disk is.
+#
+# The installation takes its packages from the repository the medium carries
+# and reaches for no network, which is what makes a run reproducible: the
+# versions installed are the ones in the image being tested and cannot move
+# under it.
+#
+# The answers are the ones "A machine is installed by hand." gives too, because
+# the two cases install the same machine by different means and are held to the
+# same result. What is written here is taken as it stands: a value in this file
+# is the answer itself, never something a list is narrowed by.
+
+disk: /dev/vda
+install_mode: wipe-all
+offline: true
+
+ucode_package: none
+gpu_driver: none
+
+work_contexts:
+  - personal
+shared_secret: "oparch end to end"
+
+console_keymap: es
+timezone: Europe/Madrid
+hostname: oparch

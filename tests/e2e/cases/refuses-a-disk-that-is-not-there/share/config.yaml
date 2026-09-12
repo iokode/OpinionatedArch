@@ -1,0 +1,21 @@
+# Well-formed in every way but one: `/dev/vdz` is not a disk this machine has.
+# The guest is given one disk and it is `/dev/vda`, so this names a device that
+# cannot be there rather than one that happens not to be.
+disk: /dev/vdz
+install_mode: wipe-all
+offline: true
+
+ucode_package: none
+gpu_driver: none
+
+swap:
+  zram_gb: 2
+  swapfile_gb: 0
+
+work_contexts:
+  - personal
+shared_secret: "oparch end to end"
+
+console_keymap: es
+timezone: Europe/Madrid
+hostname: oparch

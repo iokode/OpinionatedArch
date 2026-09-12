@@ -1,0 +1,22 @@
+# The hermetic installation, answered for a processor that takes microcode.
+# Which vendor is not the point and the guest's own is not consulted: the
+# medium carries both packages so that an installation without a network can
+# answer either way, and this exercises the path for one of them.
+disk: /dev/vda
+install_mode: wipe-all
+offline: true
+
+ucode_package: amd-ucode
+gpu_driver: none
+
+swap:
+  zram_gb: 2
+  swapfile_gb: 0
+
+work_contexts:
+  - personal
+shared_secret: "oparch end to end"
+
+console_keymap: es
+timezone: Europe/Madrid
+hostname: oparch

@@ -1,0 +1,35 @@
+# The hermetic installation with a return message added. The template package
+# and the theme are the project's own, which the medium carries, and there is
+# no logo: a logo is fetched from somewhere, and what this case is for is the
+# drawing rather than the fetching.
+disk: /dev/vda
+install_mode: wipe-all
+offline: true
+
+ucode_package: none
+gpu_driver: none
+
+swap:
+  zram_gb: 2
+  swapfile_gb: 0
+
+work_contexts:
+  - personal
+shared_secret: "oparch end to end"
+
+console_keymap: es
+timezone: Europe/Madrid
+hostname: oparch
+
+return_message:
+  template:
+    origin: default
+  theme:
+    origin: default
+  languages:
+    - es
+    - en
+  fields:
+    owner_name: OpinionatedArch End to End
+    phone: "+376 000 000"
+    email: return@example.invalid
