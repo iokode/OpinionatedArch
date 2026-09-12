@@ -487,7 +487,13 @@ harness_boot_installed_system() {
     harness_say "booting the disk that was installed"
     guest_boot_installed_disk
 
-    if ! guest_expect "[Pp]assphrase" "$WAIT_PASSPHRASE"; then
+    # What is waited for is the hook's own announcement and not the prompt that
+    # follows it. A machine installed with a return message boots Plymouth, and
+    # Plymouth takes the asking: the announcement is still written to this
+    # console and the prompt is not, so a harness waiting for the prompt waits
+    # for a machine that is already asking.
+    if ! guest_expect "A password is required to access the cryptroot volume" \
+            "$WAIT_PASSPHRASE"; then
         harness_say "FAILED: the installed machine never asked for its passphrase"
         return 1
     fi
