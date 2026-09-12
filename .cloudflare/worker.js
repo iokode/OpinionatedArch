@@ -29,7 +29,7 @@ export default {
     const path = new URL(request.url).pathname;
     const target = path.endsWith(".sha256") ? `${latest}.sha256` : latest;
 
-    // Temporary, and deliberately so: this points somewhere else every month,
+    // Temporary, and deliberately so: this points somewhere else every day,
     // and a permanent redirect is one browsers would go on believing long
     // after the image it named had been deleted.
     return Response.redirect(`${IMAGES}/${target}`, 302);

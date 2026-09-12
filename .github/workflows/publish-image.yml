@@ -1,15 +1,16 @@
 name: Publish image
 
-# Monthly, because what ages on this medium ages on Arch's clock rather than on
-# this project's, and Arch's is monthly. Also on request, for the month when
-# something has to be looked at before the first of the next one.
+# Daily, because an installation without a network installs the age of the
+# image it was made from, and nothing about publishing one is expensive now
+# that what is published is only what the end-to-end cases passed. Also on
+# request, for the day when something has to be looked at before tomorrow.
 on:
   schedule:
-    - cron: '0 3 1 * *'
+    - cron: '0 3 * * *'
   workflow_dispatch:
 
 # Two of these would be building the same thing and uploading to the same
-# place, and the second to finish would decide what the month's image is.
+# place, and the second to finish would decide what the day's image is.
 concurrency:
   group: publish-image
   cancel-in-progress: false
@@ -79,7 +80,7 @@ jobs:
       # by different things at different rates, and this one has images
       # deleted out of it, which is not something to do next to a repository
       # whose whole property is that nothing in it disappears.
-      - name: Upload it, and keep the last two
+      - name: Upload it, and keep only it
         env:
           # These names are the same ones the package workflow reads, and they
           # are not the same secrets: what they resolve to is decided by the
@@ -107,8 +108,8 @@ jobs:
           done
 
           # Pruned after the new one is up and not before: an upload that fails
-          # then leaves the two that were there rather than one. It costs a few
-          # minutes with three of them in the bucket, which is what that is
+          # then leaves the one that was there rather than none. It costs a few
+          # minutes with two of them in the bucket, which is what that is
           # worth.
           #
           # Images are named for the minute they were built, so what sorts last
@@ -122,7 +123,7 @@ jobs:
           # disagree about which image is the current one.
           aws s3api list-objects-v2 --endpoint-url "$endpoint" \
               --bucket "$R2_BUCKET" --query 'Contents[].Key' --output json |
-              jq -r '.[] | select(endswith(".iso"))' | LC_ALL=C sort | head -n -2 |
+              jq -r '.[] | select(endswith(".iso"))' | LC_ALL=C sort | head -n -1 |
               while read -r old; do
                   echo "removing $old"
                   aws s3 rm --endpoint-url "$endpoint" "s3://${R2_BUCKET}/$old"

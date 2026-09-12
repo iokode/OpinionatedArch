@@ -1,7 +1,7 @@
 name: Deploy the edge
 
 # When what runs at the edge changes, and only then. It is not tied to the
-# image it points at: that is published every month and this changes almost
+# image it points at: that is published every day and this changes almost
 # never, and a deployment that failed would otherwise take a good image down
 # with it.
 on:
