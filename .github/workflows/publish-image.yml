@@ -4,9 +4,15 @@ name: Publish image
 # image it was made from, and nothing about publishing one is expensive now
 # that what is published is only what the end-to-end cases passed. Also on
 # request, for the day when something has to be looked at before tomorrow.
+#
+# At an unremarkable minute of the middle of the day, and not at the top of an
+# hour, because a schedule here is a request rather than an appointment: it is
+# run when there is room to run it, and the top of every hour is where everyone
+# else asked first. Nothing waits on this, so a late one costs nothing and a
+# skipped one is a day without a new image.
 on:
   schedule:
-    - cron: '0 5 * * *'
+    - cron: '37 12 * * *'
   workflow_dispatch:
 
 # Two of these would be building the same thing and uploading to the same
@@ -80,7 +86,7 @@ jobs:
       # by different things at different rates, and this one has images
       # deleted out of it, which is not something to do next to a repository
       # whose whole property is that nothing in it disappears.
-      - name: Upload it, and keep only it
+      - name: Upload it, and keep the last two
         env:
           # These names are the same ones the package workflow reads, and they
           # are not the same secrets: what they resolve to is decided by the
@@ -108,9 +114,13 @@ jobs:
           done
 
           # Pruned after the new one is up and not before: an upload that fails
-          # then leaves the one that was there rather than none. It costs a few
-          # minutes with two of them in the bucket, which is what that is
+          # then leaves the two that were there rather than one. It costs a few
+          # minutes with three of them in the bucket, which is what that is
           # worth.
+          #
+          # And the one this replaces is left alone, for the reason
+          # docs/decisions/018-installation-iso.md gives: somebody may be half
+          # way through downloading it.
           #
           # Images are named for the minute they were built, so what sorts last
           # is what was built last, and nothing has to read a date out of
@@ -123,7 +133,7 @@ jobs:
           # disagree about which image is the current one.
           aws s3api list-objects-v2 --endpoint-url "$endpoint" \
               --bucket "$R2_BUCKET" --query 'Contents[].Key' --output json |
-              jq -r '.[] | select(endswith(".iso"))' | LC_ALL=C sort | head -n -1 |
+              jq -r '.[] | select(endswith(".iso"))' | LC_ALL=C sort | head -n -2 |
               while read -r old; do
                   echo "removing $old"
                   aws s3 rm --endpoint-url "$endpoint" "s3://${R2_BUCKET}/$old"
