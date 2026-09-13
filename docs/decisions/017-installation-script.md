@@ -10,7 +10,7 @@ OpinionatedArch publishes an installation script: a shell script, run on an Arch
 
 It is served from the project's source repository, at a fixed address, and never from the package repository.
 
-The script carries the fingerprint of the signing key's primary. It fetches the public key, refuses to go on if what it fetched is not that key, trusts it, configures the repository [Package Repository](016-package-repository.md) defines, installs `oparch-installer` from it, and runs it.
+The script carries the fingerprint of the signing key's primary. It fetches the public key, refuses to go on if what it fetched is not that key, trusts it, configures the repository [Package Repository](016-package-repository.md) defines, installs the installer from it, and runs `oparch-installer-interactive`.
 
 An installation made this way needs a network throughout, and gives the target what the repositories hold at that moment. It has nothing of its own to fall back on.
 

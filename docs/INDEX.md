@@ -37,6 +37,7 @@ Every document in this directory, by type. What the types are and what shape eac
   - [Installer Configuration File Format](tools/oparch-installer/001-config-file-format.md)
   - [Inputs and Bootstrap Baseline](tools/oparch-installer/002-inputs-and-bootstrap-baseline.md)
   - [Input Sources](tools/oparch-installer/003-input-sources.md)
+- [oparch-installer-interactive](tools/oparch-installer-interactive/000-command.md)
 - [oparch-return-message-render](tools/oparch-return-message-render/000-command.md)
   - [Return Message Template Package Format](tools/oparch-return-message-render/001-template-package-format.md)
   - [Return Message Values Format](tools/oparch-return-message-render/002-values-format.md)
@@ -47,13 +48,19 @@ Every document in this directory, by type. What the types are and what shape eac
   - [Secret Store Archive](tools/oparch-dotfiles-sync/002-secret-store-archive.md)
 - [oparch-work-context-create](tools/oparch-work-context-create/000-command.md)
 - [oparch-work-context-remove](tools/oparch-work-context-remove/000-command.md)
+- [oparch-work-context-list](tools/oparch-work-context-list/000-command.md)
+- [oparch-work-context-interactive](tools/oparch-work-context-interactive/000-command.md)
 - [oparch-snapshot-system-create](tools/oparch-snapshot-system-create/000-command.md)
 - [oparch-snapshot-work-context-create](tools/oparch-snapshot-work-context-create/000-command.md)
+- [oparch-snapshot-automatic-create](tools/oparch-snapshot-automatic-create/000-command.md)
+- [oparch-snapshot-list](tools/oparch-snapshot-list/000-command.md)
+- [oparch-snapshot-remove](tools/oparch-snapshot-remove/000-command.md)
 - [oparch-snapshot-restore](tools/oparch-snapshot-restore/000-command.md)
+- [oparch-snapshot-interactive](tools/oparch-snapshot-interactive/000-command.md)
 - [oparch-password-rotate](tools/oparch-password-rotate/000-command.md)
 - [oparch-password-rotate-interactive](tools/oparch-password-rotate-interactive/000-command.md)
 
-The first three are written. The rest are specified and not implemented, which [Remaining](state/001-remaining.md) carries as the first work.
+The first four are written, `oparch-installer` and `oparch-installer-interactive` still as one command. The rest are specified and not implemented, which [Remaining](state/001-remaining.md) carries as the first work.
 
 ## Development
 

@@ -28,7 +28,7 @@ Which of the two an installation draws from is settled by whether it has a netwo
 
 ### What the image does
 
-The image starts `oparch-installer` on its own, and leaves it reachable as a command, because the installer can be left and re-entering it is how that is undone.
+The image starts `oparch-installer-interactive` on its own, and leaves it reachable as a command, because the installer can be left and re-entering it is how that is undone.
 
 ## Why
 
