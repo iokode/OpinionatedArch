@@ -6,13 +6,13 @@
 # is looking for.
 
 case_assert() {
-    harness_check "the swap file is on its own subvolume" \
+    guest_check "the swap file is on its own subvolume" \
         "test -f /mnt/swap/swapfile"
 
-    harness_check "it is a swap area, and the size that was asked for" \
+    guest_check "it is a swap area, and the size that was asked for" \
         "test \"\$(blkid -o value -s TYPE /mnt/swap/swapfile)\" = swap \
             && test \"\$(stat -c %s /mnt/swap/swapfile)\" -ge 1073741824"
 
-    harness_check "the machine mounts it at every boot" \
+    guest_check "the machine mounts it at every boot" \
         "grep -q '^/swap/swapfile none swap' /mnt/etc/fstab"
 }

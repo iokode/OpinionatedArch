@@ -9,15 +9,15 @@
 # in it cannot.
 
 case_assert() {
-    harness_check "the values the message is made of are on the machine" \
+    guest_check "the values the message is made of are on the machine" \
         "grep -q 'OpinionatedArch End to End' /mnt/etc/opinionatedarch/return-message.yaml"
 
-    harness_check "the theme is installed" \
+    guest_check "the theme is installed" \
         "test -f /mnt/usr/share/plymouth/themes/opinionatedarch/opinionatedarch.plymouth"
 
-    harness_check "the renderer drew the message into it" \
+    guest_check "the renderer drew the message into it" \
         "test -n \"\$(find /mnt/usr/share/plymouth/themes/opinionatedarch -name '*.png' -size +1k)\""
 
-    harness_check "it is the theme the machine boots with" \
+    guest_check "it is the theme the machine boots with" \
         "grep -q '^Theme=opinionatedarch' /mnt/etc/plymouth/plymouthd.conf"
 }

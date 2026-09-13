@@ -11,11 +11,11 @@ This document is descriptive. What the tools are for is defined in `../tools/`, 
 - `src/return-message/` — the return message: its library under `lib/`, namespace `root.return_message`, which owns the template package format, the values format and the theme format and composes the message from them; and `oparch-return-message-render` under `render/`, with no host, which `baml pack` makes an executable of its own. The installer links the library because it asks for what a package declares, validates the same values in its own configuration file, and reads the theme to know how many languages it may offer.
 - `src/dotfiles/` — the dotfiles: their library under `lib/`, namespace `root.dotfiles`, which parses a map and builds and applies its plan; and `oparch-dotfiles-sync` under `sync/`, with no host either and packed the same way.
 - `tests/e2e/` — the end-to-end harness and the command that runs it, and a directory for each case holding what that case hands the guest.
+- `scripts/` — `install.sh`, the other way an installation is started, from an Arch live environment that already has a network; `vm.sh`, the published image booted in a window with the tools built from the working tree put in place of the ones it carries, for trying a change by hand before it is merged; and `lib/guest.sh`, starting a guest under QEMU and driving it over its serial line, which `vm.sh` and the end-to-end harness share.
 - `packages/` — a `PKGBUILD` for each package the project publishes, the wrapper that goes on `PATH` in place of the interactive installer's binary, the scriptlet that makes pacman trust the signing key, and the script that made that key.
 - `archiso/` — what this project's installation image is, as a difference from `releng`: what it adds, what it drops, what its own repository carries, the file that starts the installer, and the script that assembles all of it and builds.
 - `.cloudflare/` — the Worker that answers with whatever image is newest and with its checksum, and its configuration.
 - `.github/` — three workflows, and the composite action that installs BAML at the versions the host is built against.
-- `install.sh` — the other way an installation is started, from an Arch live environment that already has a network.
 
 The layout and the reason for it are [Repository Layout](../development/002-repository-layout.md); how the last two are used is [Building and Publishing](../development/008-building-and-publishing.md).
 

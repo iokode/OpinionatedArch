@@ -36,7 +36,7 @@ What runs is the installer the image carries, as it was published: its own binar
 
 Three things, kept apart because they change for different reasons.
 
-**The harness**, `tests/e2e/harness.sh`, is the wiring. It starts a guest on the image, drives its serial console, exposes the case's files to it, asserts what is true of any completed installation, boots the disk that was made, and cleans up after itself. It contains no case and asserts nothing that is particular to one.
+**The harness**, `tests/e2e/harness.sh`, is the wiring. It starts a guest on the image, exposes the case's files to it, asserts what is true of any completed installation, boots the disk that was made, and cleans up after itself. Starting a guest and driving its serial console is `scripts/lib/guest.sh`, which the harness sources and `scripts/vm.sh` shares. It contains no case and asserts nothing that is particular to one.
 
 **The runner**, `tests/e2e/run.sh`, is the command. It takes the image, works out which cases to run, and runs each in its own guest, reporting which passed.
 

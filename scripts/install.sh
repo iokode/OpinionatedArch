@@ -5,8 +5,9 @@
 # key, adds the package repository, installs the installer from it, and starts
 # it.
 #
-# It lives at the top level because it is fetched by its address and run, so
-# its path is part of how it is published rather than a place to file it.
+# It is fetched from https://oparch.iokode.dev/install.sh, an address of the
+# project's own that points at this file, so where it is kept here is not part
+# of how it is published.
 #
 # The fingerprint below is the one the signing key's *primary* carries, which
 # is what `pacman-key --lsign-key` signs; trust reaches the subkey that does
