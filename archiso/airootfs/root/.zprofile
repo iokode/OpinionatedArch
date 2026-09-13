@@ -8,5 +8,5 @@
 # own script from it. This runs first and leaves that alone.
 
 if [[ "$(tty)" == /dev/tty1 ]]; then
-    oparch-installer
+    oparch-installer-interactive
 fi

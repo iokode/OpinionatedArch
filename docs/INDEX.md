@@ -60,7 +60,7 @@ Every document in this directory, by type. What the types are and what shape eac
 - [oparch-password-rotate](tools/oparch-password-rotate/000-command.md)
 - [oparch-password-rotate-interactive](tools/oparch-password-rotate-interactive/000-command.md)
 
-The first four are written, `oparch-installer` and `oparch-installer-interactive` still as one command. The rest are specified and not implemented, which [Remaining](state/001-remaining.md) carries as the first work.
+The first four are written. The rest are specified and not implemented, which [Remaining](state/001-remaining.md) carries as the first work.
 
 ## Development
 

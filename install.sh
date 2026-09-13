@@ -55,4 +55,4 @@ printf '\n[oparch]\nSigLevel = Required TrustedOnly\nServer = %s\n' \
 # else the installer calls arrive as its declared dependencies.
 pacman -Sy --noconfirm oparch-installer
 
-exec oparch-installer
+exec oparch-installer-interactive

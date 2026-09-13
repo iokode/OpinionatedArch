@@ -16,6 +16,11 @@ Everything [oparch-installer](../oparch-installer/000-command.md) requires, beca
 
 `iwctl` talks to a daemon, and on a live medium that daemon is running: it is how `releng` is built, and this project's own image is built from it. `ip` is read for the machine's wireless interfaces rather than `iwctl` being asked, because one prints a line per interface and the other prints a table drawn for a person to look at.
 
+And two things of its own:
+
+- **The BAML runtime library.** This tool has a host, so its binary loads a shared library of about 25 MB rather than carrying it. Where it comes from is [Host Bridge](../../development/001-host-bridge.md). Its package carries it and what goes on `PATH` is a wrapper that names it with `BAML_LIBRARY_PATH`, along with `BAML_LIBRARY_DISABLE_DOWNLOAD`, which turns a missing one into a failure instead of a silent download.
+- **Its assets.** The wrapper names those too, at the one place [Oparch Tools](../../decisions/015-oparch-tools.md) keeps them, because this tool's own default is a directory beside its binary and that is not where the project puts them.
+
 ## Input parameters
 
 - `--assets <path>`: Optional. Directory holding installer assets, including the project's return-message template package, read from `<path>/return-message`. Default: `assets`.

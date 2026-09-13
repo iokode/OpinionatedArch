@@ -4,7 +4,7 @@
 
 `oparch-installer` installs OpinionatedArch onto a target disk without asking anything. It runs from the live environment, takes every installation input from a configuration file, and then performs the installation defined in [Installer Inputs and Bootstrap Baseline](002-inputs-and-bootstrap-baseline.md). The format of that file is defined in [Installer Configuration File Format](001-config-file-format.md).
 
-It takes over no terminal. Progress is reported as plain timestamped lines, so the run can be logged and read by a test.
+It takes over no terminal. Progress is reported as plain timestamped lines, so the run can be logged and read by a test. What a command wrote is reported once the command has finished.
 
 Its interactive version is [oparch-installer-interactive](../oparch-installer-interactive/000-command.md), which collects the same inputs through screens and installs through the same library.
 
@@ -20,12 +20,12 @@ What has to be on the live environment before this runs. It is not checked for: 
 
 The Arch live medium already carries most of it: `gptfdisk` for `sgdisk`, `cryptsetup`, `btrfs-progs`, `dosfstools` for `mkfs.fat`, `arch-install-scripts` for `pacstrap`, `arch-chroot` and `genfstab`, `util-linux` for `blkid`, `lsblk`, `mount` and `wipefs`, `parted` for `partprobe`, `systemd` for `udevadm`, `localectl` and `timedatectl`, and `curl` and `tar`.
 
-Four things are not on it, and each has to be there before a run:
+The rest has to be there before a run, whether the medium carries it or not:
 
 - **`git`**, and only when the dotfiles package is taken from a repository. It is cloned with its history, because `/dotfiles` stays the repository [Disk Layout](../../decisions/001-disk-layout.md) restores from.
 - **`fontconfig`**, for `fc-scan`, when the chosen theme carries a font of its own: the family a font file declares is read from the file rather than trusted from the manifest.
-- **The BAML runtime library.** This tool has a host, so its binary loads a shared library of about 25 MB rather than carrying it. Where it comes from is [Host Bridge](../../development/001-host-bridge.md). Its package carries it and what goes on `PATH` is a wrapper that names it with `BAML_LIBRARY_PATH`, along with `BAML_LIBRARY_DISABLE_DOWNLOAD`, which turns a missing one into a failure instead of a silent download.
-- **Its assets.** The wrapper names those too, at the one place [Oparch Tools](../../decisions/015-oparch-tools.md) keeps them, because this tool's own default is a directory beside its binary and that is not where the project puts them.
+- **`age`**, 1.3.1 or later, when the dotfiles map declares secrets: `age-inspect` tells a secret store from any other file, and `age` with its `batchpass` plugin opens it. The plugin is what reads the passphrase from a file descriptor, where `age` alone asks a terminal for one.
+- **Its assets**, at the one place [Oparch Tools](../../decisions/015-oparch-tools.md) keeps them, which is where this tool reads them unless it is told otherwise.
 
 It also needs the two tools it calls by name, findable on `PATH`: `oparch-return-message-render` when a return message was asked for, and `oparch-dotfiles-sync` when a dotfiles package was, which it copies into the target before entering it. What each of those needs is in its own document, and the return message's needs are the ones most often missing from a live medium.
 
@@ -36,6 +36,6 @@ What the *installed* system gets is a different list and is not this one: it is 
 ## Input parameters
 
 - `--config <path>`: Mandatory. File every installation input is taken from.
-- `--assets <path>`: Optional. Directory holding installer assets, including the project's return-message template package, read from `<path>/return-message`. Default: `assets`.
+- `--assets <path>`: Optional. Directory holding installer assets, including the project's return-message template package, read from `<path>/return-message`. Default: `/usr/share/opinionatedarch/assets`.
 
-The exit status is `0` when the installation finished, and non-zero when the configuration file could not be used or when an installation step failed.
+The exit status is `0` when the installation finished, `2` when the command line is wrong or the configuration file cannot be read, and `1` when the configuration file could not be used or when an installation step failed.

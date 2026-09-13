@@ -47,9 +47,11 @@ jobs:
           # The host runs the BAML program embedded in its generated SDK, and
           # only `baml generate` puts a change to baml_src/ there. Building the
           # binary without this step ships the previous program.
-          baml --directory src/installer generate
-          cargo build --release --manifest-path src/installer/host/Cargo.toml
+          baml --directory src/installer/interactive generate
+          cargo build --release --manifest-path src/installer/interactive/host/Cargo.toml
 
+          ( cd src/installer/unattended \
+              && baml pack main --output ./oparch-installer )
           ( cd src/return-message-render \
               && baml pack main --output ./oparch-return-message-render )
           ( cd src/dotfiles-sync \
@@ -96,7 +98,9 @@ jobs:
 
           # The library was fetched and checked when BAML was set up, and its
           # path comes from there rather than being built again here.
-          cp src/installer/host/target/release/oparch-installer \
+          cp src/installer/unattended/oparch-installer \
+              packages/oparch-installer/
+          cp src/installer/interactive/host/target/release/oparch-installer-interactive \
               packages/oparch-installer/
           cp "$BAML_RUNTIME_LIBRARY" packages/oparch-installer/
 

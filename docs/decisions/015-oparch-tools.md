@@ -47,5 +47,5 @@ The language these tools are written in is decided in [BAML as Implementation La
 - Do not put domain logic in the code of an interactive tool: the filesystem changes, account changes, snapshot changes and other system mutations that make up an operation belong to the library of its entity. What an interactive tool does to the system so that it can be used, such as applying a keymap or connecting to a network, is part of the interface and stays in it.
 - Keep exceptions explicit in the affected tool document.
 - A version that has to move backwards can only be corrected with a pacman `epoch`, and a package that is given one keeps it for good.
-- A tool whose own default asset directory is somewhere else has to be given this one. `oparch-installer` is such a tool: its default is a directory beside the binary, and what runs it names this path instead.
+- A tool whose own default asset directory is somewhere else has to be given this one. `oparch-installer-interactive` is such a tool: its default is a directory beside the binary, and what runs it names this path instead.
 

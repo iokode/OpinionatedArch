@@ -16,19 +16,17 @@ Because the host is disposable, the selection criterion is not which host is bes
 
 A host exists to own a terminal and to read a command's output while it is still running. A tool that needs neither has no host and no bridge: `baml.sys` runs commands and `baml.fs` touches files, and `baml pack` turns the tool into the executable it ships as.
 
-Which tools need one is not settled by this document and is not expected to stay as it is. Today `oparch-installer` is the only one that has a host, and `oparch-return-message-render` the first built without one; a terminal interface is the kind of thing more tools will want, and each of them arrives at the same bridge by the same argument.
+Which tools need one is not settled by this document and is not expected to stay as it is. Today `oparch-installer-interactive` is the only one that has a host, and `oparch-return-message-render` the first built without one; a terminal interface is the kind of thing more tools will want, and each of them arrives at the same bridge by the same argument.
 
 A **port** is the boundary between a tool and something outside it: running a command, touching a file, opening an encrypted store, drawing a terminal. It is declared as an interface so that a test can put a stand-in where the machine would be. Every interface in this project is a port today; the word is kept because an interface does not have to be one.
 
 What a tool without a host uses instead are the same `Shell` and `Files` ports every tool is written against, implemented over `baml.sys` and `baml.fs` and living beside the recording doubles in [Repository Layout](002-repository-layout.md). Nothing above the port can tell which implementation is underneath, so the tests do not change and neither does the code being tested.
 
-### Only commands cross the bridge, and one thing that is not one
+### Only commands cross the bridge
 
 A host that exists is given the commands and nothing else. Touching a file is neither of the two things a host is for, so `Files` is implemented over `baml.fs` in every tool, hosted or not, and there is no host-side implementation of it to choose between.
 
-There is one exception, and it is the installer's `Secrets` port: opening the encrypted secret store an installation is handed. It crosses because BAML's standard library carries no cryptography of any kind — no cipher, no hash, no digest — so there is nowhere else for it to happen; and because the obvious alternative, running `age(1)`, is not available to a program. That command takes its passphrase from a terminal and from nowhere else, and given one it prints its prompt over whatever the host is drawing and waits.
-
-What crosses is the decryption alone. What comes out is an archive, and unpacking one is something this project already does through the shell, with the refusal of entries that would land outside where they are put, so the archive is handed back rather than opened on the far side. Being a port is what keeps the exception from spreading: nothing above it can tell what is underneath, so the day BAML grows cryptography, or the day this host is deleted, the implementation moves and the code that calls it does not change.
+Opening the installer's encrypted secret store crossed as well, for as long as there was nowhere else for it to happen: BAML's standard library has no `scrypt` to derive its key with, and `age(1)` took a passphrase from a terminal and from nowhere else. Since `age` 1.3, its `batchpass` plugin takes one from a file descriptor, so the store is opened by running `age` through the shell, as any other command is, and the host is given nothing that is not a command.
 
 ## Why
 

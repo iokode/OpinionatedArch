@@ -7,11 +7,11 @@ This document is descriptive. What the tools are for is defined in `../tools/`, 
 ## Where the code is
 
 - `src/utils/` — the generic BAML, namespace `root.common`: the `Shell` and `Files` ports, the host adapter for commands, their recording doubles, their implementations over `baml.sys` and `baml.fs`, and helpers for text, paths and YAML.
-- `src/installer/` — `oparch-installer`, with its Rust host under `src/installer/host/`.
+- `src/installer/` — the installer: its library under `lib/`, namespace `root.installer`, which holds the installation; `oparch-installer` under `unattended/`, which `baml pack` makes an executable of its own; and `oparch-installer-interactive` under `interactive/`, with its Rust host under `interactive/host/`.
 - `src/return-message-render/` — `oparch-return-message-render`. No host: `baml pack` makes it an executable of its own. It owns namespace `root.return_message`, and with it the template package format, the values format and the theme format, which the installer links from here because it asks for what a package declares, validates the same values in its own configuration file, and reads the theme to know how many languages it may offer.
 - `src/dotfiles-sync/` — `oparch-dotfiles-sync`. No host either, and packed the same way.
 - `tests/e2e/` — the end-to-end harness and the command that runs it, and a directory for each case holding what that case hands the guest.
-- `packages/` — a `PKGBUILD` for each package the project publishes, the wrapper that goes on `PATH` in place of the installer's binary, the scriptlet that makes pacman trust the signing key, and the script that made that key.
+- `packages/` — a `PKGBUILD` for each package the project publishes, the wrapper that goes on `PATH` in place of the interactive installer's binary, the scriptlet that makes pacman trust the signing key, and the script that made that key.
 - `archiso/` — what this project's installation image is, as a difference from `releng`: what it adds, what it drops, what its own repository carries, the file that starts the installer, and the script that assembles all of it and builds.
 - `.cloudflare/` — the Worker that answers with whatever image is newest and with its checksum, and its configuration.
 - `.github/` — three workflows, and the composite action that installs BAML at the versions the host is built against.
@@ -19,11 +19,11 @@ This document is descriptive. What the tools are for is defined in `../tools/`, 
 
 The layout and the reason for it are [Repository Layout](../development/002-repository-layout.md); how the last two are used is [Building and Publishing](../development/008-building-and-publishing.md).
 
-Tests, counted on 2026-09-11: 304 in `src/installer`, 133 in `src/return-message-render`, 85 in `src/dotfiles-sync`, 42 in `src/utils`. Counts move with the work, so treat them as of that date rather than as a fact about the suite. Every suite runs with `baml test` and needs no host, no bridge, no ImageMagick and no privileges. The counts overlap: a suite also runs the tests of every namespace linked into it.
+Tests, counted on 2026-09-13: 214 in `src/installer/lib`, 253 in `src/installer/unattended`, 275 in `src/installer/interactive`, 133 in `src/return-message-render`, 85 in `src/dotfiles-sync`, 42 in `src/utils`. Counts move with the work, so treat them as of that date rather than as a fact about the suite. Every suite runs with `baml test` and needs no host, no bridge, no ImageMagick and no privileges. The counts overlap: a suite also runs the tests of every namespace linked into it.
 
 ## The installer
 
-**Both ways in.** The terminal interface asks ten screens with back navigation, per-answer validation and a note explaining each question, the last of them a summary; `--config` takes the same inputs from a YAML file and reports as plain lines without taking over the terminal. Formats: [Installer Configuration File Format](../tools/oparch-installer/001-config-file-format.md).
+**Both ways in.** `oparch-installer-interactive` asks ten screens with back navigation, per-answer validation and a note explaining each question, the last of them a summary; `oparch-installer` takes the same inputs from a YAML file given with `--config`, and reports as plain lines without taking over the terminal. Both install through one library, so an installation made either way is the same one. Formats: [Installer Configuration File Format](../tools/oparch-installer/001-config-file-format.md).
 
 **The keymap first.** It is the first screen, and `loadkeys` applies it as it is answered, so everything typed afterwards is typed with it — including the two masked answers, the shared secret and the passphrase of the secret store.
 
@@ -39,7 +39,7 @@ Tests, counted on 2026-09-11: 304 in `src/installer`, 133 in `src/return-message
 
 **The bootloader.** GRUB on the EFI partition, and the menu [Bootloader](../decisions/008-bootloader.md) designs, kept in `assets/grub/grub.cfg` and installed exactly as it is — `grub-mkconfig` is not used. What differs by machine is written beside it as `/boot/grub/oparch.cfg`, which the menu's first line reads: the container's UUID, the microcode image, and whether the splash is asked for. The recovery entry keeps its place in the order and says the recovery system is not installed, rather than starting something that is not there.
 
-**The dotfiles phase.** It copies the staged package into `/dotfiles`, leaves that tree as [Dotfiles](../decisions/014-dotfiles.md) requires — the modes, the default ACL, and `/dotfiles` named in git's system `safe.directory` — and then enters the target and runs `oparch-dotfiles-sync` there. The package is judged at the form rather than here: the installer runs the packed tool with `--dry-run` against what it staged, so a package that does not hold what its map declares is refused while there is still someone to ask. A map that declares secrets is given them as one encrypted archive, opened through the host's `Secrets` port into the live system's memory and copied into the target with the owner and modes the map format requires. The reasoning is [Dotfiles Integration Plan](../plans/000-dotfiles-integration.md).
+**The dotfiles phase.** It copies the staged package into `/dotfiles`, leaves that tree as [Dotfiles](../decisions/014-dotfiles.md) requires — the modes, the default ACL, and `/dotfiles` named in git's system `safe.directory` — and then enters the target and runs `oparch-dotfiles-sync` there. The package is judged at the form rather than here: the installer runs the packed tool with `--dry-run` against what it staged, so a package that does not hold what its map declares is refused while there is still someone to ask. A map that declares secrets is given them as one encrypted archive, opened with `age` through the `Secrets` port into the live system's memory and copied into the target with the owner and modes the map format requires. The reasoning is [Dotfiles Integration Plan](../plans/000-dotfiles-integration.md).
 
 ## The tools
 

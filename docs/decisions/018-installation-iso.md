@@ -20,7 +20,7 @@ The `releng` profile already carries most of what an installation calls. On top 
 
 Everything else those tools need arrives as their declared dependencies, and is on the image because they are. What each of them needs is the `Requirements` section of its own document.
 
-The BAML runtime library travels inside `oparch-installer` and the installer is pointed at the copy on the image. It is never downloaded: a library that is not there is a failure of the run and not a fetch.
+The BAML runtime library travels inside the `oparch-installer` package, and `oparch-installer-interactive` is pointed at the copy on the image. It is never downloaded: a library that is not there is a failure of the run and not a fetch.
 
 The image also carries a repository of its own, holding the bootstrap package set an installation puts into the target and the project's own packages, so that a machine can be installed with no network at all. Every signature in it was checked when the image was built, and none is checked again when it is installed from.
 
