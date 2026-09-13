@@ -8,8 +8,8 @@ This document is descriptive. What the tools are for is defined in `../tools/`, 
 
 - `src/utils/` — the generic BAML, namespace `root.common`: the `Shell` and `Files` ports, the host adapter for commands, their recording doubles, their implementations over `baml.sys` and `baml.fs`, and helpers for text, paths and YAML.
 - `src/installer/` — the installer: its library under `lib/`, namespace `root.installer`, which holds the installation; `oparch-installer` under `unattended/`, which `baml pack` makes an executable of its own; and `oparch-installer-interactive` under `interactive/`, with its Rust host under `interactive/host/`.
-- `src/return-message-render/` — `oparch-return-message-render`. No host: `baml pack` makes it an executable of its own. It owns namespace `root.return_message`, and with it the template package format, the values format and the theme format, which the installer links from here because it asks for what a package declares, validates the same values in its own configuration file, and reads the theme to know how many languages it may offer.
-- `src/dotfiles-sync/` — `oparch-dotfiles-sync`. No host either, and packed the same way.
+- `src/return-message/` — the return message: its library under `lib/`, namespace `root.return_message`, which owns the template package format, the values format and the theme format and composes the message from them; and `oparch-return-message-render` under `render/`, with no host, which `baml pack` makes an executable of its own. The installer links the library because it asks for what a package declares, validates the same values in its own configuration file, and reads the theme to know how many languages it may offer.
+- `src/dotfiles/` — the dotfiles: their library under `lib/`, namespace `root.dotfiles`, which parses a map and builds and applies its plan; and `oparch-dotfiles-sync` under `sync/`, with no host either and packed the same way.
 - `tests/e2e/` — the end-to-end harness and the command that runs it, and a directory for each case holding what that case hands the guest.
 - `packages/` — a `PKGBUILD` for each package the project publishes, the wrapper that goes on `PATH` in place of the interactive installer's binary, the scriptlet that makes pacman trust the signing key, and the script that made that key.
 - `archiso/` — what this project's installation image is, as a difference from `releng`: what it adds, what it drops, what its own repository carries, the file that starts the installer, and the script that assembles all of it and builds.
@@ -19,7 +19,7 @@ This document is descriptive. What the tools are for is defined in `../tools/`, 
 
 The layout and the reason for it are [Repository Layout](../development/002-repository-layout.md); how the last two are used is [Building and Publishing](../development/008-building-and-publishing.md).
 
-Tests, counted on 2026-09-13: 214 in `src/installer/lib`, 253 in `src/installer/unattended`, 275 in `src/installer/interactive`, 133 in `src/return-message-render`, 85 in `src/dotfiles-sync`, 42 in `src/utils`. Counts move with the work, so treat them as of that date rather than as a fact about the suite. Every suite runs with `baml test` and needs no host, no bridge, no ImageMagick and no privileges. The counts overlap: a suite also runs the tests of every namespace linked into it.
+Tests, counted on 2026-09-13: 250 in `src/installer/lib`, 289 in `src/installer/unattended`, 311 in `src/installer/interactive`, 129 in `src/return-message/lib`, 134 in `src/return-message/render`, 80 in `src/dotfiles/lib`, 54 in `src/dotfiles/sync`, 42 in `src/utils`. Counts move with the work, so treat them as of that date rather than as a fact about the suite. Every suite runs with `baml test` and needs no host, no bridge, no ImageMagick and no privileges. The counts overlap: a suite also runs the tests of every namespace linked into it.
 
 ## The installer
 

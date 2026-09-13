@@ -1,22 +1,8 @@
 // `oparch-dotfiles-sync`: builds and validates the complete current-machine
 // plan, then applies managed filesystem targets and installs declared packages.
+// What it runs is the dotfiles library; this is its command line.
 //
 // There is no interactive synchronization mode: behavior is declared by the map.
-
-function default_source_root() -> string {
-    "/dotfiles"
-}
-
-/// What the map is called inside a source. The default map is this file at the
-/// top of whatever `--source` is, so pointing the tool at a package somewhere
-/// else needs one option rather than two that have to agree.
-function map_file_name() -> string {
-    "main.dfmap"
-}
-
-function default_map_path() -> string {
-    path_join(default_source_root(), map_file_name())
-}
 
 class Options {
     source: string,
@@ -31,7 +17,7 @@ class Options {
 }
 
 /// Reads the options. Everything before the first one is the invocation itself.
-function parse_options(argv: string[], diag: Diagnostics) -> Options {
+function parse_options(argv: string[], diag: root.dotfiles.Diagnostics) -> Options {
     let args: string[] = [];
     let started = false;
     for (let argument in argv) {
@@ -42,9 +28,9 @@ function parse_options(argv: string[], diag: Diagnostics) -> Options {
     }
 
     let options = Options {
-        source: default_source_root(),
-        map_path: default_map_path(),
-        secrets_root: default_secrets_root(),
+        source: root.dotfiles.default_source_root(),
+        map_path: root.dotfiles.default_map_path(),
+        secrets_root: root.dotfiles.default_secrets_root(),
         hostname: null,
         users: [],
         dry_run: false,
@@ -88,13 +74,13 @@ function parse_options(argv: string[], diag: Diagnostics) -> Options {
     //# a source given without a map means the map inside it, not the one beside
     //# the source nobody asked for
     if (!named_map) {
-        options.map_path = path_join(options.source, map_file_name());
+        options.map_path = root.dotfiles.path_join(options.source, root.dotfiles.map_file_name());
     }
     options
 }
 
 test "the options default to this machine and its own store" {
-    let diag = new_diagnostics();
+    let diag = root.dotfiles.new_diagnostics();
     let options = parse_options(["oparch-dotfiles-sync"], diag);
 
     assert.equal(options.source, "/dotfiles");
@@ -108,7 +94,7 @@ test "the options default to this machine and its own store" {
 }
 
 test "a machine is described by name, and its users one at a time" {
-    let diag = new_diagnostics();
+    let diag = root.dotfiles.new_diagnostics();
     let options = parse_options(
         ["oparch-dotfiles-sync", "--source", "/tmp/oparch/dotfiles",
          "--map", "/tmp/oparch/dotfiles/main.dfmap", "--secrets-root", "/tmp/oparch/secrets",
@@ -125,7 +111,7 @@ test "a machine is described by name, and its users one at a time" {
 }
 
 test "a source given on its own carries its own map" {
-    let diag = new_diagnostics();
+    let diag = root.dotfiles.new_diagnostics();
     let options = parse_options(["oparch-dotfiles-sync", "--source", "/tmp/oparch/dotfiles"], diag);
 
     assert.equal(options.map_path, "/tmp/oparch/dotfiles/main.dfmap");
@@ -137,27 +123,27 @@ test "a source given on its own carries its own map" {
 }
 
 test "an option that takes a value and is given none is reported" {
-    let diag = new_diagnostics();
+    let diag = root.dotfiles.new_diagnostics();
     let _ = parse_options(["oparch-dotfiles-sync", "--hostname"], diag);
 
     assert.equal(diag.errors, ["option '--hostname' requires a value"])
 }
 
 test "an option nobody has heard of is reported rather than ignored" {
-    let diag = new_diagnostics();
+    let diag = root.dotfiles.new_diagnostics();
     let _ = parse_options(["oparch-dotfiles-sync", "--force"], diag);
 
     assert.equal(diag.errors, ["unknown option '--force'"])
 }
 
-function print_errors(diag: Diagnostics) -> null {
+function print_errors(diag: root.dotfiles.Diagnostics) -> null {
     for (let message in diag.errors) {
         baml.io.eprintln(`error: ${message}`);
     }
     null
 }
 
-function describe_target(planned: PlannedTarget) -> string {
+function describe_target(planned: root.dotfiles.PlannedTarget) -> string {
     let details: string[] = [];
     if let mode: string = planned.mode {
         let _ = details.push(`mode ${mode}`);
@@ -173,7 +159,8 @@ function describe_target(planned: PlannedTarget) -> string {
     `${planned.action} ${planned.target} <- ${planned.sources.join(" + ")} [${details.join(" ")}]`
 }
 
-function print_plan(plan: Plan, document: MapDocument, machine: Machine, options: Options) -> null {
+function print_plan(plan: root.dotfiles.Plan, document: root.dotfiles.MapDocument,
+                    machine: root.dotfiles.Machine, options: Options) -> null {
     baml.io
         .println(
             `map ${options.map_path} (format ${document.version.label()}, source ${options.source})`,
@@ -196,35 +183,15 @@ function print_plan(plan: Plan, document: MapDocument, machine: Machine, options
     null
 }
 
-/// What the plan needs from the store: each file once, relative to the store's
-/// root, in a stable order. This is the list an archive of a store has to
-/// satisfy, and an empty one is the answer that no store is needed at all.
-function required_secret_files(plan: Plan) -> string[] {
-    let wanted: string[] = [];
-    for (let planned in plan.targets) {
-        for (let relative in planned.secret_files) {
-            if (!wanted.includes(relative)) {
-                wanted.push(relative);
-            }
-        }
-    }
-    wanted
-        .sort_by_key(
-            (entry) -> {
-                entry
-            },
-        )
-}
-
 function main() -> void {
-    let diag = new_diagnostics();
+    let diag = root.dotfiles.new_diagnostics();
     //# the ports, built once for the whole run: the port keeps the first file
     //# failure, and it has to survive until it is folded into the diagnostics
     let shell = root.common.system_shell();
     let files = root.common.system_files();
     let options = parse_options(baml.sys.argv(), diag);
-    let source_root = path_normalize(options.source);
-    let map_path = path_normalize(options.map_path);
+    let source_root = root.dotfiles.path_normalize(options.source);
+    let map_path = root.dotfiles.path_normalize(options.map_path);
     if (diag.has_errors()) {
         print_errors(diag);
         baml.sys.exit(2);
@@ -232,15 +199,15 @@ function main() -> void {
     //# 1-3: parse the map, validate its version, expand the include graph. A
     //# map that did not load is the end of the run, and saying so here is what
     //# leaves a document rather than maybe-a-document to everything below
-    let document = load_map_document(files, map_path, source_root, diag) ?? {
+    let document = root.dotfiles.load_map_document(files, map_path, source_root, diag) ?? {
         print_errors(diag);
         baml.sys.exit(1)
     };
     //# 4: resolve the hostname and the users, here or as given
-    let machine = detect_machine(shell, files, options.hostname, options.users, diag);
+    let machine = root.dotfiles.detect_machine(shell, files, options.hostname, options.users, diag);
     //# 5-11: selectors, placeholders, paths, values, secrets, conflicts, packages
-    let plan = build_plan(files, document, machine, source_root, options.secrets_root,
-                          !options.list_secrets, diag);
+    let plan = root.dotfiles.build_plan(files, document, machine, source_root, options.secrets_root,
+                                        !options.list_secrets, diag);
     if (diag.has_errors()) {
         print_errors(diag);
         baml.sys.exit(1);
@@ -250,7 +217,7 @@ function main() -> void {
     //# comes before the dry run because it is a different question: not what
     //# this machine would do, but what it is waiting for.
     if (options.list_secrets) {
-        for (let relative in required_secret_files(plan)) {
+        for (let relative in root.dotfiles.required_secret_files(plan)) {
             baml.io.println(relative);
         }
         return;
@@ -261,24 +228,24 @@ function main() -> void {
         return;
     }
 
-    let catalog = Catalog {
+    let catalog = root.dotfiles.Catalog {
         values: document.values,
         secrets: document.secrets,
         secrets_root: options.secrets_root,
     };
-    let state_root = default_state_root();
+    let state_root = root.dotfiles.default_state_root();
     //# renders are staged and validated before any managed target changes
-    let staged = stage_renders(shell, files, plan, catalog, machine, state_root, diag);
-    absorb_file_failure(files, diag);
+    let staged = root.dotfiles.stage_renders(shell, files, plan, catalog, machine, state_root, diag);
+    root.dotfiles.absorb_file_failure(files, diag);
     if (diag.has_errors()) {
         print_errors(diag);
         baml.sys.exit(1);
     }
     //# application order: remove stale targets, apply targets, install packages
-    let removed = remove_stale_targets(shell, files, plan, state_root, diag);
-    let applied = apply_targets(shell, files, plan, staged, diag);
-    let installed = install_packages(shell, plan, diag);
-    write_sync_state(
+    let removed = root.dotfiles.remove_stale_targets(shell, files, plan, state_root, diag);
+    let applied = root.dotfiles.apply_targets(shell, files, plan, staged, diag);
+    let installed = root.dotfiles.install_packages(shell, plan, diag);
+    root.dotfiles.write_sync_state(
         shell,
         files,
         state_root,
@@ -299,7 +266,7 @@ function main() -> void {
         baml.io.println(`aur-packages not applied: ${plan.aur_packages.join(" ")}`);
     }
     //# whatever the port recorded while the targets were applied
-    absorb_file_failure(files, diag);
+    root.dotfiles.absorb_file_failure(files, diag);
     if (diag.has_errors()) {
         print_errors(diag);
         baml.sys.exit(1);

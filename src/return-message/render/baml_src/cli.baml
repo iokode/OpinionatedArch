@@ -34,11 +34,6 @@ function default_output_dir() -> string {
     "/usr/share/plymouth/themes/opinionatedarch"
 }
 
-/// Where the images are built before any of them is installed.
-function staging_dir() -> string {
-    "/tmp/oparch-return-message"
-}
-
 function option_names() -> string[] {
     ["--config", "--assets", "--output", "--template-package", "--theme", "--logo"]
 }

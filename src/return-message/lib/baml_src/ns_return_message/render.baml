@@ -1,13 +1,8 @@
-// oparch-return-message-render.
-//
-// Builds the three images the boot splash shows and installs them into the
-// theme, from a template package, the values that fill it and a theme. The
-// command is documented in
+// Composing the pre-boot return message: the three images the boot splash
+// shows, drawn from a template package, the values that fill it and a theme,
+// and installed into the Plymouth theme with the script that places them.
+// `oparch-return-message-render` is the command that runs it, documented in
 // `docs/tools/oparch-return-message-render/000-command.md`.
-//
-// There is no host program. Nothing here needs a terminal interface or the
-// output of a command while it is still running, which is all a host was ever
-// for, so `baml pack` turns this into the executable itself.
 
 function message_image() -> string {
     "return-message.png"
@@ -23,6 +18,11 @@ function mask_image() -> string {
 
 function script_file() -> string {
     "opinionatedarch.script"
+}
+
+/// Where the images are built before any of them is installed.
+function staging_dir() -> string {
+    "/tmp/oparch-return-message"
 }
 
 /// The body of the Plymouth script, in the project's assets. It is read from
@@ -327,6 +327,24 @@ function install_script(files: root.common.Files, screen: root.return_message.Sc
     files.failure() ?? ""
 }
 
+/// What a message is composed from, and where it goes.
+class RenderRequest {
+    /// The values file.
+    config: string,
+    assets: string,
+    output: string,
+    /// The template package to compose. Empty means the project's own, inside
+    /// `assets`. Like every path here it is a directory that already exists:
+    /// obtaining one is the caller's job, as decided in
+    /// `docs/tools/oparch-installer/003-input-sources.md`.
+    template_package: string,
+    /// The theme to compose it with. Empty means the project's own.
+    theme: string,
+    /// The logo file to compose in. Empty means the message carries no logo:
+    /// the tool is given a file, and downloading one is the installer's job.
+    logo: string,
+}
+
 /// Everything read and checked, before anything is drawn.
 class Prepared {
     message: root.return_message.ReturnMessageConfig,
@@ -336,33 +354,21 @@ class Prepared {
 }
 
 /// The template package to compose: the one given, or the project's own.
-function package_directory(options: Options) -> string {
-    if (options.template_package == "") {
-        root.return_message.default_package_directory(options.assets)
+function package_directory(request: RenderRequest) -> string {
+    if (request.template_package == "") {
+        root.return_message.default_package_directory(request.assets)
     } else {
-        options.template_package
+        request.template_package
     }
 }
 
 /// The theme to compose it with: the one given, or the project's own.
-function theme_directory(options: Options) -> string {
-    if (options.theme == "") {
-        root.return_message.default_theme_directory(options.assets)
+function theme_directory(request: RenderRequest) -> string {
+    if (request.theme == "") {
+        root.return_message.default_theme_directory(request.assets)
     } else {
-        options.theme
+        request.theme
     }
-}
-
-test "a package and a theme default to the project's own, inside the asset dir" {
-    let options = default_options();
-    options.assets = "/assets";
-    assert.equal(package_directory(options), "/assets/return-message");
-    assert.equal(theme_directory(options), "/assets/return-message-theme");
-
-    options.template_package = "/home/ivan/andorra";
-    options.theme = "/home/ivan/andorra-dark";
-    assert.equal(package_directory(options), "/home/ivan/andorra");
-    assert.equal(theme_directory(options), "/home/ivan/andorra-dark")
 }
 
 /// Reads the values, the package and the theme, and checks each against the
@@ -370,7 +376,7 @@ test "a package and a theme default to the project's own, inside the asset dir" 
 /// font its icons are drawn with, and fontconfig only finds it if the commands
 /// that draw are told where the theme is. Which theme that is, is what this
 /// answers, so drawing cannot start until it has.
-function prepare(shell: root.common.Shell, files: root.common.Files, options: Options) -> Prepared {
+function prepare(shell: root.common.Shell, files: root.common.Files, request: RenderRequest) -> Prepared {
     let nothing = Prepared {
         message: root.return_message.empty_return_message(),
         loaded: root.return_message.LoadedPackage {
@@ -380,9 +386,9 @@ function prepare(shell: root.common.Shell, files: root.common.Files, options: Op
         error: "",
     };
 
-    let text = files.read(options.config);
+    let text = files.read(request.config);
     if (text == null) {
-        nothing.error = `Cannot read the return message configuration: ${options.config}`;
+        nothing.error = `Cannot read the return message configuration: ${request.config}`;
         return nothing;
     }
 
@@ -394,13 +400,13 @@ function prepare(shell: root.common.Shell, files: root.common.Files, options: Op
 
     //# both are directories that are already there: this tool is given them,
     //# and where they came from is the caller's business
-    let loaded = root.return_message.load_package(files, package_directory(options));
+    let loaded = root.return_message.load_package(files, package_directory(request));
     if (loaded.error != "") {
         nothing.error = loaded.error;
         return nothing;
     }
 
-    let themed = root.return_message.load_theme(shell, files, theme_directory(options));
+    let themed = root.return_message.load_theme(shell, files, theme_directory(request));
     if (themed.error != "") {
         nothing.error = themed.error;
         return nothing;
@@ -421,13 +427,13 @@ function prepare(shell: root.common.Shell, files: root.common.Files, options: Op
         return prepared;
     }
 
-    if (options.logo != "") {
+    if (request.logo != "") {
         if (themed.theme.logo == null) {
             prepared.error = "The theme draws no logo, and one was given.";
             return prepared;
         }
-        if (!files.exists(options.logo)) {
-            prepared.error = `The logo is not there: ${options.logo}`;
+        if (!files.exists(request.logo)) {
+            prepared.error = `The logo is not there: ${request.logo}`;
             return prepared;
         }
     }
@@ -436,9 +442,9 @@ function prepare(shell: root.common.Shell, files: root.common.Files, options: Op
 
 /// Draws what `prepare` read, and installs it if every step worked.
 function draw_and_install(shell: root.common.Shell, files: root.common.Files,
-                          prepared: Prepared, options: Options) -> string {
+                          prepared: Prepared, request: RenderRequest) -> string {
     let drawn = draw_all(shell, files, prepared.theme, prepared.loaded, prepared.message,
-                         options.logo, staging_dir());
+                         request.logo, staging_dir());
     if (drawn != "") {
         return drawn;
     }
@@ -449,47 +455,17 @@ function draw_and_install(shell: root.common.Shell, files: root.common.Files,
 
     //# read before anything is installed, so a body that is not there stops the
     //# tool while the machine still boots with what it had
-    let path = script_body_path(options.assets);
+    let path = script_body_path(request.assets);
     let body = files.read(path);
     if (body == null) {
         return `Cannot read the Plymouth script: ${path}`;
     }
 
-    let installed = install_images(shell, files, prepared.theme, staging_dir(), options.output);
+    let installed = install_images(shell, files, prepared.theme, staging_dir(), request.output);
     if (installed != "") {
         return installed;
     }
-    install_script(files, prepared.theme.screen, body, options.output)
-}
-
-/// ENTRYPOINT. `baml pack main` turns this file into the executable.
-function main() -> null {
-    let options = parse_options(baml.sys.argv());
-    if (options.error != "") {
-        baml.io.eprintln(options.error);
-        return baml.sys.exit(2);
-    }
-
-    let files = root.common.system_files();
-    let prepared = prepare(root.common.system_shell(), files, options);
-    if (prepared.error != "") {
-        baml.io.eprintln(prepared.error);
-        return baml.sys.exit(1);
-    }
-
-    //# fontconfig looks in `$XDG_DATA_HOME/fonts`, so pointing it at the theme
-    //# is what makes a font the theme carries the font that gets drawn with,
-    //# instead of whatever fontconfig would have substituted in silence
-    let drawing = root.common.with_env(root.common.system_shell(),
-                                       { "XDG_DATA_HOME": prepared.theme.directory });
-    let problem = draw_and_install(drawing, files, prepared, options);
-    if (problem != "") {
-        baml.io.eprintln(problem);
-        return baml.sys.exit(1);
-    }
-
-    baml.io.println(`Wrote the return message into ${options.output}`);
-    baml.sys.exit(0)
+    install_script(files, prepared.theme.screen, body, request.output)
 }
 
 // -------------------------------------------------------------------- tests
@@ -528,21 +504,39 @@ function test_shell() -> root.common.RecordingShell {
     shell
 }
 
-function test_options() -> Options {
-    let options = default_options();
-    options.assets = "/assets";
-    options
+/// The request the command makes when it is told nothing but where the assets
+/// are.
+function test_request() -> RenderRequest {
+    RenderRequest {
+        config: "/etc/opinionatedarch/return-message.yaml",
+        assets: "/assets",
+        output: "/usr/share/plymouth/themes/opinionatedarch",
+        template_package: "",
+        theme: "",
+        logo: "",
+    }
+}
+
+test "a package and a theme default to the project's own, inside the asset dir" {
+    let request = test_request();
+    assert.equal(package_directory(request), "/assets/return-message");
+    assert.equal(theme_directory(request), "/assets/return-message-theme");
+
+    request.template_package = "/home/ivan/andorra";
+    request.theme = "/home/ivan/andorra-dark";
+    assert.equal(package_directory(request), "/home/ivan/andorra");
+    assert.equal(theme_directory(request), "/home/ivan/andorra-dark")
 }
 
 /// The two steps the tool takes, for a test that cares about the result rather
 /// than about which of them produced it.
 function rendered(shell: root.common.RecordingShell, files: root.common.RecordingFiles,
-                  options: Options) -> string {
-    let prepared = prepare(shell, files, options);
+                  request: RenderRequest) -> string {
+    let prepared = prepare(shell, files, request);
     if (prepared.error != "") {
         return prepared.error;
     }
-    draw_and_install(shell, files, prepared, options)
+    draw_and_install(shell, files, prepared, request)
 }
 
 function one_language_values() -> string {
@@ -553,7 +547,7 @@ test "the message is drawn from the theme and installed where the splash reads i
     let files = test_files(one_language_values());
     let shell = test_shell();
 
-    assert.equal(rendered(shell, files, test_options()), "");
+    assert.equal(rendered(shell, files, test_request()), "");
 
     //# the markup is this tool's, with the value in the style its kind asks for
     let markup = files.written.get("/tmp/oparch-return-message/body-es-1.markup") ?? "";
@@ -572,7 +566,7 @@ test "each paragraph is drawn on its own and joined by the theme's gap" {
     let files = test_files(one_language_values());
     let shell = test_shell();
 
-    assert.equal(rendered(shell, files, test_options()), "");
+    assert.equal(rendered(shell, files, test_request()), "");
     assert.is_true(files.written.get("/tmp/oparch-return-message/body-es-0.markup") != null);
     assert.is_true(files.written.get("/tmp/oparch-return-message/body-es-1.markup") != null);
     assert.is_true(shell.commands.join("\n").includes("-splice 0x64"))
@@ -587,17 +581,17 @@ test "a number of languages the theme does not arrange is refused before drawing
                     .replace("  \"4\": [[1, 1], [1, 1]]\n", ""));
     let shell = test_shell();
 
-    assert.equal(rendered(shell, files, test_options()),
+    assert.equal(rendered(shell, files, test_request()),
                  "The theme lays out 1 languages, and 2 were selected.");
     assert.equal(shell.commands, [])
 }
 
 test "a values file that is not there stops before anything is drawn" {
-    let options = test_options();
-    options.config = "/etc/opinionatedarch/nowhere.yaml";
+    let request = test_request();
+    request.config = "/etc/opinionatedarch/nowhere.yaml";
     let shell = test_shell();
 
-    assert.equal(rendered(shell, test_files(one_language_values()), options),
+    assert.equal(rendered(shell, test_files(one_language_values()), request),
                  "Cannot read the return message configuration: /etc/opinionatedarch/nowhere.yaml");
     assert.equal(shell.commands, [])
 }
@@ -610,7 +604,7 @@ test "a drawing that fails installs nothing" {
     let _ = shell.exit_codes.set(
         `magick ${mask_args(theme, "/tmp/oparch-return-message/password-mask.png").join(" ")}`, 1);
 
-    assert.equal(rendered(shell, files, test_options()),
+    assert.equal(rendered(shell, files, test_request()),
                  "Drawing the password mask failed with exit code 1.");
     assert.is_true(!shell.commands.join("\n").includes("cp "))
 }
@@ -621,20 +615,20 @@ test "a logo is refused when the theme draws none" {
                 root.return_message.sample_theme()
                     .replace("logo: { width: 1200, gap: 120, position: above }\n", ""));
     files.write("/tmp/logo.png", "");
-    let options = test_options();
-    options.logo = "/tmp/logo.png";
+    let request = test_request();
+    request.logo = "/tmp/logo.png";
 
-    assert.equal(rendered(test_shell(), files, options), "The theme draws no logo, and one was given.")
+    assert.equal(rendered(test_shell(), files, request), "The theme draws no logo, and one was given.")
 }
 
 test "a logo the theme does draw is fitted to its box and put where it says" {
     let files = test_files(one_language_values());
     files.write("/tmp/logo.png", "");
-    let options = test_options();
-    options.logo = "/tmp/logo.png";
+    let request = test_request();
+    request.logo = "/tmp/logo.png";
     let shell = test_shell();
 
-    assert.equal(rendered(shell, files, options), "");
+    assert.equal(rendered(shell, files, request), "");
     assert.is_true(shell.commands.join("\n").includes("-resize 1200x"));
     //# above, so the logo comes first
     assert.is_true(shell.commands.join("\n").includes(
@@ -646,7 +640,7 @@ test "a file that could not be written is noticed before anything is installed" 
     files.fails_with = "cannot write /tmp/oparch-return-message/body-es-0.markup: read-only";
     let shell = test_shell();
 
-    assert.equal(rendered(shell, files, test_options()),
+    assert.equal(rendered(shell, files, test_request()),
                  "cannot write /tmp/oparch-return-message/body-es-0.markup: read-only");
     assert.is_true(!shell.commands.join("\n").includes("cp "))
 }
@@ -658,7 +652,7 @@ function installed_script() -> string {
 test "the script the splash runs is the theme's numbers and then the body" {
     let files = test_files(one_language_values());
 
-    assert.equal(rendered(test_shell(), files, test_options()), "");
+    assert.equal(rendered(test_shell(), files, test_request()), "");
 
     //# the panel colour of the sample theme, #12202C, as fractions
     assert.equal(files.written.get(installed_script()),
@@ -685,10 +679,10 @@ test "a colour becomes three fractions of one" {
 test "running the tool again writes the same script, not a second prelude" {
     let files = test_files(one_language_values());
 
-    assert.equal(rendered(test_shell(), files, test_options()), "");
+    assert.equal(rendered(test_shell(), files, test_request()), "");
     let once = files.written.get(installed_script()) ?? "";
 
-    assert.equal(rendered(test_shell(), files, test_options()), "");
+    assert.equal(rendered(test_shell(), files, test_request()), "");
     assert.equal(files.written.get(installed_script()), once)
 }
 
@@ -701,7 +695,7 @@ test "a background image the theme carries is announced to the script and travel
     files.write("/assets/return-message-theme/art.png", "");
     let shell = test_shell();
 
-    assert.equal(rendered(shell, files, test_options()), "");
+    assert.equal(rendered(shell, files, test_request()), "");
     assert.is_true((files.written.get(installed_script()) ?? "").includes("has_background_image = 1;\n"));
     assert.is_true(shell.commands.includes(
         "cp /assets/return-message-theme/art.png"
@@ -716,22 +710,22 @@ test "a drawing that fails leaves the script the machine already boots with alon
     let _ = shell.exit_codes.set(
         `magick ${mask_args(theme, "/tmp/oparch-return-message/password-mask.png").join(" ")}`, 1);
 
-    assert.equal(rendered(shell, files, test_options()),
+    assert.equal(rendered(shell, files, test_request()),
                  "Drawing the password mask failed with exit code 1.");
     assert.is_true(files.written.get(installed_script()) == null)
 }
 
 test "assets without the body of the script install nothing at all" {
     let files = test_files(one_language_values());
-    let options = test_options();
-    options.assets = "/elsewhere";
+    let request = test_request();
+    request.assets = "/elsewhere";
     files.write("/elsewhere/return-message/manifest.yaml", root.return_message.sample_manifest());
     files.write("/elsewhere/return-message/es.txt", "Pertenece a {{owner_name}}.\n");
     files.write("/elsewhere/return-message/ca.txt", "Pertany a {{owner_name}}.\n");
     files.write("/elsewhere/return-message-theme/manifest.yaml", root.return_message.sample_theme());
     let shell = test_shell();
 
-    assert.equal(rendered(shell, files, options),
+    assert.equal(rendered(shell, files, request),
                  "Cannot read the Plymouth script:"
                      + " /elsewhere/plymouth/opinionatedarch/opinionatedarch.script");
     assert.is_true(!shell.commands.join("\n").includes("cp "));

@@ -52,9 +52,9 @@ jobs:
 
           ( cd src/installer/unattended \
               && baml pack main --output ./oparch-installer )
-          ( cd src/return-message-render \
+          ( cd src/return-message/render \
               && baml pack main --output ./oparch-return-message-render )
-          ( cd src/dotfiles-sync \
+          ( cd src/dotfiles/sync \
               && baml pack main --output ./oparch-dotfiles-sync )
 
       - name: Work out what the repository does not already hold
@@ -104,10 +104,10 @@ jobs:
               packages/oparch-installer/
           cp "$BAML_RUNTIME_LIBRARY" packages/oparch-installer/
 
-          cp src/return-message-render/oparch-return-message-render \
+          cp src/return-message/render/oparch-return-message-render \
               packages/oparch-return-message-render/
 
-          cp src/dotfiles-sync/oparch-dotfiles-sync \
+          cp src/dotfiles/sync/oparch-dotfiles-sync \
               packages/oparch-dotfiles-sync/
 
       - name: Build the packages
