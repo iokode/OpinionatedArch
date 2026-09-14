@@ -11,7 +11,7 @@ The image carries the installer, everything it calls, and the packages it puts i
 
 There is a second way in, for a machine already running an Arch live environment with a network on it: `curl -fsSL https://oparch.iokode.dev/install.sh | bash`, which fetches what the image carries and then starts the same installer. It wants a network from the first step to the last, and what it is is [Installation Script](../decisions/017-installation-script.md).
 
-The command and its options are [oparch-installer](../tools/oparch-installer/000-command.md).
+The command and its options are [oparch-installer](../tools/installer/unattended/000-command.md).
 
 ## Installation Flow
 
@@ -40,7 +40,7 @@ See [Disk Layout](../decisions/001-disk-layout.md).
 
 The keymap is asked first, and applied to the console at once, so that everything after it is typed with it. The network comes next and is the one screen that may not appear: a machine that already reaches the package repository is not stopped to be told so, and one that does not is offered a Wi-Fi network, another look, or — on a medium carrying a repository of its own, which this project's image is — going on without one and installing from what the medium holds. The rest cover the target disk and install mode, microcode and GPU driver, swap sizes, the work contexts, the shared secret, timezone, hostname, an optional public dotfiles package with the encrypted secret store its map may need, and the optional pre-boot return message with its ownership fields, languages, and logo.
 
-The complete prompt list, the bootstrap package set, and the services enabled before first boot are in [Installer Inputs and Bootstrap Baseline](../tools/oparch-installer/002-inputs-and-bootstrap-baseline.md).
+The complete prompt list, the bootstrap package set, and the services enabled before first boot are in [Installer Inputs and Bootstrap Baseline](../tools/installer/unattended/002-inputs-and-bootstrap-baseline.md).
 
 ## Baseline Assumption
 

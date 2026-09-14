@@ -1,5 +1,5 @@
 # The answers scripts/vm.sh installs a machine with, as oparch-installer reads
-# them; the format is docs/tools/oparch-installer/001-config-file-format.md.
+# them; the format is docs/tools/installer/unattended/001-config-file-format.md.
 #
 # The disk is the one vm.sh attaches to its guest, over virtio. The machine is
 # installed over the network, because the debug image carries no repository of

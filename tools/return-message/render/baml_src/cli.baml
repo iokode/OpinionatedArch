@@ -1,5 +1,5 @@
 // The command line, as documented in
-// `docs/tools/oparch-return-message-render/000-command.md`.
+// `docs/tools/return-message/render/000-command.md`.
 //
 // The options are read from `argv` rather than declared as parameters of the
 // entry point, because a packaged entry point makes every declared parameter
@@ -12,7 +12,7 @@ class Options {
     /// The template package to compose. Empty means the project's own, inside
     /// `assets`. Like every path here it is a directory that already exists:
     /// obtaining one is the caller's job, as decided in
-    /// `docs/tools/oparch-installer/003-input-sources.md`.
+    /// `docs/tools/installer/unattended/003-input-sources.md`.
     template_package: string,
     /// The theme to compose it with. Empty means the project's own.
     theme: string,

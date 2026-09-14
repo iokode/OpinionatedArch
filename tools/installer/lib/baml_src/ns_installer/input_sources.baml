@@ -3,7 +3,7 @@
 // The dotfiles package, the return message's template package and its theme are
 // not values: they are content held elsewhere. Bringing it here belongs to the
 // installer and to nothing else, as decided in
-// `docs/tools/oparch-installer/003-input-sources.md` — `oparch-return-message-render`
+// `docs/tools/installer/unattended/003-input-sources.md` — `oparch-return-message-render`
 // is handed directories and resolves none of this.
 //
 // Every origin but the project's own ends in the same place: a directory under

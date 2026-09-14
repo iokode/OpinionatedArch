@@ -1,5 +1,5 @@
 // Reading a return-message theme, as defined in
-// `docs/tools/oparch-return-message-render/003-theme-format.md`.
+// `docs/tools/return-message/render/003-theme-format.md`.
 //
 // A theme decides everything visible except the words and the logo. Parsing is
 // pure: the manifest arrives as text. The one thing that cannot be decided from

@@ -2,7 +2,7 @@
 
 End-to-end tests boot this project's installation image under QEMU and let the installer inside it build a machine on a disposable disk. Everything below the installer — `pacstrap`, `arch-chroot`, `cryptsetup`, `sgdisk` — is the genuine article, and the result is verified by booting the disk that was just installed.
 
-This document describes the harness and the cases it runs. It does not describe the installer, which is documented in [oparch-installer](../tools/oparch-installer/000-command.md).
+This document describes the harness and the cases it runs. It does not describe the installer, which is documented in [oparch-installer](../tools/installer/unattended/000-command.md).
 
 The **harness** is neither the thing under test nor the assertions: it is what makes running them possible at all. The word is the one used for a wiring harness, the thing that connects and drives, and not for anything to do with the tools this project is written with.
 

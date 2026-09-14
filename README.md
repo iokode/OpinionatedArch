@@ -39,7 +39,7 @@ It fetches the installer with its dependencies and runs it.
 
 ### Installer
 
-See [Installation Overview](docs/general/002-installation-overview.md) for what it asks and what it does, and [oparch-installer](docs/tools/oparch-installer/000-command.md) for the installer tool itself.
+See [Installation Overview](docs/general/002-installation-overview.md) for what it asks and what it does, and [oparch-installer](docs/tools/installer/unattended/000-command.md) for the installer tool itself.
 
 ## Repository layout
 

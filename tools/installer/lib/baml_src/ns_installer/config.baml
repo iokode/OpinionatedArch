@@ -1,7 +1,7 @@
 // Everything the installer collects before it touches the disk.
 //
 // The shape mirrors the configuration file defined in
-// `docs/tools/oparch-installer/001-config-file-format.md`, so that there is one
+// `docs/tools/installer/unattended/001-config-file-format.md`, so that there is one
 // vocabulary rather than a model and a translation layer between it and the
 // file.
 

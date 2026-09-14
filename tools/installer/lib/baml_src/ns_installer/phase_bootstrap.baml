@@ -20,7 +20,7 @@ function packaged_netboot_binary() -> string {
     "/usr/share/ipxe/x86_64/ipxe-arch.efi"
 }
 
-/// The package set from `docs/tools/oparch-installer/002-inputs-and-bootstrap-baseline.md`,
+/// The package set from `docs/tools/installer/unattended/002-inputs-and-bootstrap-baseline.md`,
 /// plus the packages the selected hardware and options require.
 function bootstrap_packages(config: InstallConfig) -> string[] {
     //# the last four are every tool this project ships except the installer,

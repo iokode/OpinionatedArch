@@ -18,7 +18,7 @@ logo:
   location: "https://example.invalid/logo.png"
 ```
 
-The template package, the theme and the logo are not resolved from that file: each reaches the tool as a path it is given. Working out where they come from — a directory, an archive, a repository — belongs to whoever calls it, as decided in [Installer Input Sources](../oparch-installer/003-input-sources.md).
+The template package, the theme and the logo are not resolved from that file: each reaches the tool as a path it is given. Working out where they come from — a directory, an archive, a repository — belongs to whoever calls it, as decided in [Installer Input Sources](../../installer/unattended/003-input-sources.md).
 
 It writes three images into `/usr/share/plymouth/themes/opinionatedarch/`:
 
@@ -34,9 +34,9 @@ Beside them it writes `opinionatedarch.script`, the script the splash runs: the 
 
 What the three look like — typography, colours, panels, spacing and the arrangement of the languages — comes from a theme, given to the tool as a directory and defined in [Return Message Theme Format](003-theme-format.md). The tool composes; the theme decides how.
 
-The prompt is in English because the system's interface is English, as decided in [Localization and Time](../../decisions/005-localization-and-time.md). A template package translates what a finder reads, not what the owner reads.
+The prompt is in English because the system's interface is English, as decided in [Localization and Time](../../../decisions/005-localization-and-time.md). A template package translates what a finder reads, not what the owner reads.
 
-How many languages may be selected, and how they are arranged, is the theme's: it declares an arrangement for each number it accepts. What that arrangement should aim for is argued in [Pre-Boot Ownership Message](../../decisions/009-preboot-ownership-message.md) — a composition closer to the shape of a screen than to a column, because a tall composition on a wide screen is limited by its height and ends up small.
+How many languages may be selected, and how they are arranged, is the theme's: it declares an arrangement for each number it accepts. What that arrangement should aim for is argued in [Pre-Boot Ownership Message](../../../decisions/009-preboot-ownership-message.md) — a composition closer to the shape of a screen than to a column, because a tall composition on a wide screen is limited by its height and ends up small.
 
 ## Why is needed
 
@@ -44,7 +44,7 @@ The message has to exist as an image before the initramfs is built, and it has t
 
 Rendering it during installation only would mean that changing a phone number requires reinstalling. A tool that owns the rendering can be run again on an installed system, and the installer is one of its callers rather than its only one.
 
-Building an image, rather than having the boot splash draw text, is decided in [Pre-Boot Ownership Message](../../decisions/009-preboot-ownership-message.md). The short of it: the splash draws with one font and no fallback, so any writing system that font does not cover renders as blanks, and it cannot justify, wrap or emphasise.
+Building an image, rather than having the boot splash draw text, is decided in [Pre-Boot Ownership Message](../../../decisions/009-preboot-ownership-message.md). The short of it: the splash draws with one font and no fallback, so any writing system that font does not cover renders as blanks, and it cannot justify, wrap or emphasise.
 
 ## Requirements
 
@@ -55,7 +55,7 @@ What has to be installed where this runs. None of it is on the official Arch liv
 - **The font family the theme names**, and a fallback for what it does not cover. The project's own theme names `Noto Sans`, and takes its icons from Noto Sans Symbols through fontconfig's substitution, so `noto-fonts` covers both. A theme that names another family needs that one instead.
 - **`fontconfig`**, for `fc-scan`, when the theme carries a font of its own: the family a font file declares is read from the file rather than trusted from the manifest.
 
-There is no BAML runtime library in this list. This tool has no host, so `baml pack` makes it a standalone binary — the distinction is [Host Bridge](../../development/001-host-bridge.md).
+There is no BAML runtime library in this list. This tool has no host, so `baml pack` makes it a standalone binary — the distinction is [Host Bridge](../../../development/001-host-bridge.md).
 
 The commands are called by name and nothing checks for them first. What a missing one produces is the exit status of a command that is not there, reported as the drawing step that failed.
 

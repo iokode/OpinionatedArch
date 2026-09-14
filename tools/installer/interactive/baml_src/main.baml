@@ -3,7 +3,7 @@
 // Asks every installation input through a terminal interface, one screen at a
 // time, and then installs through the library `oparch-installer` is built on.
 // The command is documented in
-// `docs/tools/oparch-installer-interactive/000-command.md`.
+// `docs/tools/installer/interactive/000-command.md`.
 //
 // A terminal interface is what BAML's standard library does not draw, so this
 // tool has a host, as `docs/development/001-host-bridge.md` decides: the host

@@ -35,7 +35,7 @@ Installs a machine from the debug image and boots it in a window, with the tools
 4. The renderer, the dotfiles tool and the assets from the image are copied over the ones the installation took from the published repository.
 5. The live system powers off, and a window opens on the installed disk.
 
-`scripts/vm-config.yaml` is a configuration file in the format [Installer Configuration File Format](../tools/oparch-installer/001-config-file-format.md) defines, and the machine is whatever it answers: its work contexts, its shared secret, its keymap, timezone and hostname. The disk asks for the shared secret, and every work context logs in with it. Before the window opens on the installed disk, `vm.sh` says which secret and which work contexts those are.
+`scripts/vm-config.yaml` is a configuration file in the format [Installer Configuration File Format](../tools/installer/unattended/001-config-file-format.md) defines, and the machine is whatever it answers: its work contexts, its shared secret, its keymap, timezone and hostname. The disk asks for the shared secret, and every work context logs in with it. Before the window opens on the installed disk, `vm.sh` says which secret and which work contexts those are.
 
 What it keeps is in `~/.cache/oparch-vm`: the image, the disk and its firmware variables, and what the live system wrote on its serial line, where a failed installation leaves the installer's output.
 

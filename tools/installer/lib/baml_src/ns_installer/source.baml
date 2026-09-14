@@ -1,5 +1,5 @@
 // Where content that is not a value comes from, as specified in
-// `docs/tools/oparch-installer/003-input-sources.md`.
+// `docs/tools/installer/unattended/003-input-sources.md`.
 //
 // Some inputs are not answers but content held elsewhere: a package of files,
 // or a single file. What they have in common is that the place they come from

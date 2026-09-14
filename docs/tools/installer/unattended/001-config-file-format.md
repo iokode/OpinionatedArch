@@ -2,11 +2,11 @@
 
 ## Context
 
-`oparch-installer` takes every installation input from a file, through `--config <path>`. That file has to express exactly what the screens of [oparch-installer-interactive](../oparch-installer-interactive/000-command.md) collect, so that an installation performed either way is the same installation.
+`oparch-installer` takes every installation input from a file, through `--config <path>`. That file has to express exactly what the screens of [oparch-installer-interactive](../../installer/interactive/000-command.md) collect, so that an installation performed either way is the same installation.
 
 The return message is defined by a template package that declares its own fields, so the file must be able to carry values whose names the installer does not know in advance.
 
-The inputs themselves are decided in [Installer Inputs and Bootstrap Baseline](002-inputs-and-bootstrap-baseline.md), and the return message in [Pre-Boot Ownership Message](../../decisions/009-preboot-ownership-message.md). This document defines how they are written down.
+The inputs themselves are decided in [Installer Inputs and Bootstrap Baseline](002-inputs-and-bootstrap-baseline.md), and the return message in [Pre-Boot Ownership Message](../../../decisions/009-preboot-ownership-message.md). This document defines how they are written down.
 
 ## Specification
 
@@ -84,9 +84,9 @@ return_message:
 | `secret_store` | The encrypted secret store, read only alongside `dotfiles` | no |
 | `secret_store.archive` | Source of the `.dfsec` file, as a file source | yes, within `secret_store` |
 | `secret_store.passphrase` | Non-empty string, what opens the archive | yes, within `secret_store` |
-| `return_message` | The return message values, as defined in [Return Message Values Format](../oparch-return-message-render/002-values-format.md) | no |
+| `return_message` | The return message values, as defined in [Return Message Values Format](../../return-message/render/002-values-format.md) | no |
 | `return_message.template` | Source of the template package | no, defaults to the project's package |
-| `return_message.theme` | Source of the theme, as defined in [Return Message Theme Format](../oparch-return-message-render/003-theme-format.md) | no, defaults to the project's theme |
+| `return_message.theme` | Source of the theme, as defined in [Return Message Theme Format](../../return-message/render/003-theme-format.md) | no, defaults to the project's theme |
 
 A key outside this list is an error, reported as `Unknown key in config file: <key>`. Unknown keys are refused rather than ignored, so a misspelled key cannot silently drop a setting. Inside `return_message` the same rule applies, with the keys that document defines plus the two above, and inside `return_message.fields` it does not apply at all: the names there are the template's.
 
@@ -154,7 +154,7 @@ The first problem found stops the run, and nothing is executed.
 - Lists are written as YAML sequences because the previous format had to encode them as comma-separated strings, which needed its own parsing and its own errors for something the file format already expresses.
 - A missing section means the feature is off, rather than a separate key saying so, because two ways of expressing the same thing can disagree; a file that says the return message is disabled while carrying its fields has no obvious meaning, and the previous format had to define which one won.
 - Unknown keys are refused because a configuration file is written by hand; a silently ignored key would install something other than what the file describes.
-- `offline` is written down because installing without a network is an answer and never an outcome, as [Installation ISO](../../decisions/018-installation-iso.md) requires: no run decides on its own that a network it failed to reach is a network it did not need. The interactive screen asks that in front of someone, and a file is read where there is nobody to ask, so what the screen would have collected has to be in it. Absent means with a network, because a file written on a machine that has one has nothing to declare, and the one that has to say something is the unusual one.
+- `offline` is written down because installing without a network is an answer and never an outcome, as [Installation ISO](../../../decisions/018-installation-iso.md) requires: no run decides on its own that a network it failed to reach is a network it did not need. The interactive screen asks that in front of someone, and a file is read where there is nobody to ask, so what the screen would have collected has to be in it. Absent means with a network, because a file written on a machine that has one has nothing to declare, and the one that has to say something is the unusual one.
 - The return message section is the values format rather than a copy of it, because the same values are read by `oparch-return-message-render` on an installed system; two shapes for one thing drift apart. It adds `template` and `theme`, which that format does not carry: the renderer is handed directories and resolves nothing, so naming where they come from is the caller's business and this file is where the caller is told.
 - A source is written as an origin and a location, in the same shape the screens ask for, so that an installation performed either way is the same installation and the file can express every origin a picker can.
 - A text value YAML would read as a number is refused rather than converted, because converting it back to text gives the number's canonical form and not what was written: `+376000000` loses its `+`, and `1.10` its trailing zero, with nothing failing. A quoted value is one keystroke; a phone number that silently loses its country prefix is discovered when someone cannot call it.

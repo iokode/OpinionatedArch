@@ -14,8 +14,8 @@ license=('BSD-2-Clause')
 # is left starts, finds no program inside itself, and says so.
 options=('!debug' '!strip')
 
-# What the Requirements sections of docs/tools/oparch-installer/000-command.md
-# and docs/tools/oparch-installer-interactive/000-command.md name. The two tools
+# What the Requirements sections of docs/tools/installer/unattended/000-command.md
+# and docs/tools/installer/interactive/000-command.md name. The two tools
 # are there because the installer calls them by name and needs them on PATH;
 # the rest are what it calls without checking whether they are present, which is
 # what lets a live environment be given rather than examined.

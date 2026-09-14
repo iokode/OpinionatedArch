@@ -37,7 +37,7 @@ Section order:
 
 ## Tool
 
-Documents defining one tool each. Every tool has its own directory, named after the command, and its documents are numbered inside it: `tools/<tool-name>/<number>-<name>.md`.
+Documents defining one tool each. They are laid out the way the sources of the tools are, as [Repository Layout](development/002-repository-layout.md) lays those out: a directory for each entity, named after it, and inside it a directory for each tool, named after what follows the entity in the tool's name. `oparch-snapshot-restore` is `tools/snapshot/restore/`, and the installer's two are `tools/installer/unattended/` and `tools/installer/interactive/`. A tool's documents are numbered inside its directory: `tools/<entity>/<tool>/<number>-<name>.md`.
 
 The first document of a tool is its command document, `000-command.md`, with this section order:
 

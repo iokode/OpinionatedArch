@@ -37,13 +37,13 @@ The installer asks for:
 17. if a secret store is given: the passphrase that opens it, asked once and asked again when it does not
 18. pre-boot return message inclusion (`yes/no`)
 19. if return message is enabled: where the template package comes from, the project's own among the origins, as [Installer Input Sources](003-input-sources.md) defines a package source
-20. if return message is enabled: where the theme comes from, the project's own among the origins, as the same document defines it and [Return Message Themes](../oparch-return-message-render/004-themes.md) decides it
+20. if return message is enabled: where the theme comes from, the project's own among the origins, as the same document defines it and [Return Message Themes](../../return-message/render/004-themes.md) decides it
 21. if return message is enabled: a value for each field the template package declares. The project's own package declares owner name, phone, email and return address
 22. if return message is enabled: return-message languages, selecting as many as the theme accepts
 23. if return message is enabled: logo inclusion (`yes/no`)
 24. if logo is enabled: where the logo file comes from, as [Installer Input Sources](003-input-sources.md) defines a file source (retry or explicit continue-without-logo when it cannot be obtained)
 
-What the network question asks is decided by what the installation needs: the repository is asked directly rather than a route or a name server, because a machine behind a captive portal has both of those and none of what it is about to download. Going on without a network is an answer given here and never an outcome arrived at, which is what [Installation ISO](../../decisions/018-installation-iso.md) requires of it. It is what sends the bootstrap to the repository the medium carries, and it is offered only on a medium that carries one: the official Arch image does not, and an answer that erases a disk before finding out there is nothing to install from is worse than an answer that was never offered. A configuration file says the same thing by asking for it, and is refused in the same way and at the same moment as any other value the live system cannot honour.
+What the network question asks is decided by what the installation needs: the repository is asked directly rather than a route or a name server, because a machine behind a captive portal has both of those and none of what it is about to download. Going on without a network is an answer given here and never an outcome arrived at, which is what [Installation ISO](../../../decisions/018-installation-iso.md) requires of it. It is what sends the bootstrap to the repository the medium carries, and it is offered only on a medium that carries one: the official Arch image does not, and an answer that erases a disk before finding out there is nothing to install from is worse than an answer that was never offered. A configuration file says the same thing by asking for it, and is refused in the same way and at the same moment as any other value the live system cannot honour.
 
 Whether a package needs secrets at all is not asked: the installer asks the tool, which answers by building the plan the installation will carry out.
 
@@ -51,7 +51,7 @@ Whether a package needs secrets at all is not asked: the installer asks the tool
 
 `wipe-all` repartitions the target disk and destroys everything that was on it.
 
-`keep-homes` keeps the `home/@<work-context>` subvolumes selected from the ones already there, and rebuilds the rest of the layout around them. Each preserved home returns to the work context of the same name, and the contexts named in prompt 10 are created beside them. The layout both modes arrive at is the one [Disk Layout](../../decisions/001-disk-layout.md) fixes; nothing of the mode survives in the installed system.
+`keep-homes` keeps the `home/@<work-context>` subvolumes selected from the ones already there, and rebuilds the rest of the layout around them. Each preserved home returns to the work context of the same name, and the contexts named in prompt 10 are created beside them. The layout both modes arrive at is the one [Disk Layout](../../../decisions/001-disk-layout.md) fixes; nothing of the mode survives in the installed system.
 
 ### Temporary Paths for Installer Staging
 
@@ -64,9 +64,9 @@ When a public dotfiles package is enabled, the installer puts its content into `
 
 It is the last thing the installation does, and it is judged long before it: the package is brought to the staging path while the form is still being answered, and `oparch-dotfiles-sync` is asked what it makes of it, for the hostname and the work contexts this installation is creating. A package it will not apply is refused there, with the disk untouched.
 
-What `/dotfiles` is left as — its modes, the default ACL that keeps them true, and the `safe.directory` entry that lets git work in a tree it does not own — is decided in [Dotfiles](../../decisions/014-dotfiles.md).
+What `/dotfiles` is left as — its modes, the default ACL that keeps them true, and the `safe.directory` entry that lets git work in a tree it does not own — is decided in [Dotfiles](../../../decisions/014-dotfiles.md).
 
-A map that declares secrets is given them as one encrypted store, defined in [Secret Store Archive](../oparch-dotfiles-sync/002-secret-store-archive.md). It is opened into the live staging path, which is memory, and copied into the target with the owner and modes the map format requires, before the tool runs.
+A map that declares secrets is given them as one encrypted store, defined in [Secret Store Archive](../../dotfiles/sync/002-secret-store-archive.md). It is opened into the live staging path, which is memory, and copied into the target with the owner and modes the map format requires, before the tool runs.
 
 ### Bootstrap Package List
 
@@ -94,15 +94,15 @@ Installed with `pacstrap`:
 - `nvidia-open` (if GPU driver is `nvidia-open`)
 - `plymouth` (if pre-boot return message is enabled)
 
-The four this project publishes are every tool it ships except `oparch-installer`, which runs from a live environment and has no use on a machine that is installed, together with the keyring that lets the rest be updated from where they came from. What that is, and why the repository sits above the official ones on the installed system, is [Package Repository](../../decisions/016-package-repository.md); the installation writes it into the target as the published repository and never as the one the medium carries, which will not be there once the machine is running.
+The four this project publishes are every tool it ships except `oparch-installer`, which runs from a live environment and has no use on a machine that is installed, together with the keyring that lets the rest be updated from where they came from. What that is, and why the repository sits above the official ones on the installed system, is [Package Repository](../../../decisions/016-package-repository.md); the installation writes it into the target as the published repository and never as the one the medium carries, which will not be there once the machine is running.
 
-They come from the repositories the live environment is configured with, this project's first, the official ones after it and the medium's own last; or, when the installation was told it has no network, from the medium's own configuration, which names the repository the medium carries and nothing else. Which of the two an installation draws from is settled in [Installation ISO](../../decisions/018-installation-iso.md), and the answer that settles it is prompt 2.
+They come from the repositories the live environment is configured with, this project's first, the official ones after it and the medium's own last; or, when the installation was told it has no network, from the medium's own configuration, which names the repository the medium carries and nothing else. Which of the two an installation draws from is settled in [Installation ISO](../../../decisions/018-installation-iso.md), and the answer that settles it is prompt 2.
 
 Where they are looked for is not where they come from. The medium's own repository is also named as a package cache, so a package whose exact version is already on the medium is taken from there instead of being fetched, and only what the machine does not already have is downloaded. What is fetched is kept in the target's cache; the live environment's own directories are memory, and a bootstrap is more of it than a small machine has.
 
 ### Netboot Recovery Binary
 
-The `Arch Netboot` entry required by [Bootloader](../../decisions/008-bootloader.md) chainloads `/EFI/OpinionatedArch/netbootx64.efi` on the EFI system partition.
+The `Arch Netboot` entry required by [Bootloader](../../../decisions/008-bootloader.md) chainloads `/EFI/OpinionatedArch/netbootx64.efi` on the EFI system partition.
 
 That file is copied from the `ipxe` package, which `pacstrap` installs into the target as `/usr/share/ipxe/x86_64/ipxe-arch.efi`. It is not downloaded, and it is not staged in the live environment.
 

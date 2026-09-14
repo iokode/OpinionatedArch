@@ -1,5 +1,5 @@
 // The values that fill a return message, as defined in
-// `docs/tools/oparch-return-message-render/002-values-format.md`.
+// `docs/tools/return-message/render/002-values-format.md`.
 //
 // The same shape appears twice: as the `return_message` section of the
 // installer's configuration file, and as the whole of
@@ -325,7 +325,7 @@ test "check_values requires what the package marks required" {
 
 /// How many languages may be shown is the theme's, since the theme is what has
 /// an arrangement for each number, as decided in
-/// `docs/tools/oparch-return-message-render/004-themes.md`.
+/// `docs/tools/return-message/render/004-themes.md`.
 function check_language_count(theme: Theme, message: ReturnMessageConfig) -> string {
     if (arrangement_for(theme, message.languages.length()) != null) {
         return "";

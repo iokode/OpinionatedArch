@@ -1,5 +1,5 @@
 // The configuration file an unattended installation is read from, as defined
-// in `docs/tools/oparch-installer/001-config-file-format.md`: the same
+// in `docs/tools/installer/unattended/001-config-file-format.md`: the same
 // InstallConfig the interactive form collects.
 //
 // Parsing is pure and lives here. What needs the live system is the library's
@@ -265,7 +265,7 @@ function return_message_source_keys() -> string[] {
 }
 
 /// The section is the values format of
-/// `docs/tools/oparch-return-message-render/002-values-format.md`, embedded,
+/// `docs/tools/return-message/render/002-values-format.md`, embedded,
 /// plus the two keys above. The values are read by the code that owns that
 /// format, so that the installer and the renderer cannot disagree about what a
 /// values file means; the two origins are read here, because they are ours.

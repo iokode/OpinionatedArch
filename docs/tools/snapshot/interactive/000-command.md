@@ -4,7 +4,7 @@
 
 `oparch-snapshot-interactive` is the interactive interface for the snapshots of the machine. It lists them and narrows the list down, creates a manual snapshot, removes one and restores one, carrying each operation out through the snapshot library, which the snapshot command-line tools are built on too.
 
-It runs on the installed system and on the recovery system, and it restores only from the recovery system, as [Snapshots](../../decisions/004-snapshots.md) decides.
+It runs on the installed system and on the recovery system, and it restores only from the recovery system, as [Snapshots](../../../decisions/004-snapshots.md) decides.
 
 ## Why is needed
 

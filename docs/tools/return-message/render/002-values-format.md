@@ -38,9 +38,9 @@ logo:
 
 A key outside this list is an error. Inside `fields` this does not apply: the names there belong to the package, as defined in [Return Message Template Package Format](001-template-package-format.md).
 
-The file does not name the template package or the theme. They reach the renderer as directories, through the `--template-package` and `--theme` of [oparch-return-message-render](000-command.md), resolved by whoever calls it — as decided in [Installer Input Sources](../oparch-installer/003-input-sources.md).
+The file does not name the template package or the theme. They reach the renderer as directories, through the `--template-package` and `--theme` of [oparch-return-message-render](000-command.md), resolved by whoever calls it — as decided in [Installer Input Sources](../../installer/unattended/003-input-sources.md).
 
-Text values are quoted, and a value YAML would read as something other than text is refused, as in [Installer Configuration File Format](../oparch-installer/001-config-file-format.md). A field value written as `+376000000` would come back without its `+`, so it is refused rather than converted.
+Text values are quoted, and a value YAML would read as something other than text is refused, as in [Installer Configuration File Format](../../installer/unattended/001-config-file-format.md). A field value written as `+376000000` would come back without its `+`, so it is refused rather than converted.
 
 Without `logo`, the message carries no logo. There is no separate key stating whether one is included.
 
