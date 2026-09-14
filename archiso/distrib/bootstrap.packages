@@ -36,5 +36,6 @@ oparch-return-message-render
 oparch-dotfiles-sync
 oparch-work-context-list
 oparch-work-context-create
+oparch-snapshot-system-create
 oparch-assets
 oparch-keyring

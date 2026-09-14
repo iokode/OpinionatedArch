@@ -51,6 +51,9 @@ Every document in this directory, by type. What the types are and what shape eac
 - [oparch-work-context-list](tools/work-context/list/000-command.md)
 - [oparch-work-context-interactive](tools/work-context/interactive/000-command.md)
 - [oparch-snapshot-system-create](tools/snapshot/system-create/000-command.md)
+  - [Snapshot Labels File Format](tools/snapshot/system-create/001-labels-file-format.md)
+  - [Boot Artifacts Table Format](tools/snapshot/system-create/002-boot-table-format.md)
+  - [Snapshot Storage Lock](tools/snapshot/system-create/003-storage-lock.md)
 - [oparch-snapshot-work-context-create](tools/snapshot/work-context-create/000-command.md)
 - [oparch-snapshot-automatic-create](tools/snapshot/automatic-create/000-command.md)
 - [oparch-snapshot-list](tools/snapshot/list/000-command.md)
@@ -60,7 +63,7 @@ Every document in this directory, by type. What the types are and what shape eac
 - [oparch-password-rotate](tools/password/rotate/000-command.md)
 - [oparch-password-rotate-interactive](tools/password/rotate-interactive/000-command.md)
 
-The first four, `oparch-work-context-create` and `oparch-work-context-list` are written. The rest are specified and not implemented, which [Remaining](state/001-remaining.md) carries as the first work.
+The first four, `oparch-work-context-create`, `oparch-work-context-list` and `oparch-snapshot-system-create` are written. The rest are specified and not implemented, which [Remaining](state/001-remaining.md) carries as the first work.
 
 ## Development
 

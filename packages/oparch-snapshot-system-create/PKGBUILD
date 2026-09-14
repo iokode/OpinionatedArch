@@ -1,0 +1,30 @@
+pkgname=oparch-snapshot-system-create
+pkgver=0.1.0dev1
+pkgrel=1
+pkgdesc="Takes a manual snapshot of the system, with its boot artifacts and its justification"
+arch=('x86_64')
+url='https://github.com/iokode/OpinionatedArch'
+license=('BSD-2-Clause')
+
+# No separate package of debug symbols, which makepkg would otherwise make and
+# the repository would then hold alongside every tool it publishes.
+#
+# And nothing is stripped. `baml pack` leaves the program this tool runs in
+# sections of the binary it produces, and `strip` takes them out: what is left
+# starts, finds no program inside itself, and says so.
+options=('!debug' '!strip')
+
+# What the Requirements section of
+# docs/tools/snapshot/system-create/000-command.md names.
+depends=('btrfs-progs' 'coreutils' 'util-linux')
+
+# Built by the workflow and left beside this file. There is no build() here:
+# the toolchain that produces this binary is not an Arch package, so makepkg
+# cannot compile it and only packages what it is handed.
+source=('oparch-snapshot-system-create')
+sha256sums=('SKIP')
+
+package() {
+    install -Dm755 "${srcdir}/oparch-snapshot-system-create" \
+        "${pkgdir}/usr/bin/oparch-snapshot-system-create"
+}
