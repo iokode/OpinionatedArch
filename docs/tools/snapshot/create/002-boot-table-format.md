@@ -41,9 +41,9 @@ system/manual/@1778764800 2c6d281a7198da35893e6b5bfcb1fc2d3499169c27055adc474306
 system/automatic/@1778847600 2d07898b568b0949d5863b8d4949b3f2d505c9c36e80426d72897a66c41f46be
 ```
 
-A set is stored before its snapshot is taken, and the line pairing the two is added once the snapshot has been. [oparch-snapshot-create](000-command.md) and [oparch-snapshot-interactive](../interactive/000-command.md) add one for each system snapshot they take.
+A set is stored before its snapshot is taken, and the line pairing the two is added once the snapshot has been. [oparch-snapshot-create](000-command.md) adds one for each system snapshot it takes.
 
-A line is removed when its snapshot is deleted. Every directory under `@snapshots/boot` that no line points at is then deleted. [oparch-snapshot-create](000-command.md) does both for the automatic system snapshots it deletes, and [oparch-snapshot-remove](../remove/000-command.md) and [oparch-snapshot-interactive](../interactive/000-command.md) for each system snapshot they remove.
+A line is removed when its snapshot is deleted. Every directory under `@snapshots/boot` that no line points at is then deleted. [oparch-snapshot-create](000-command.md) does both for the automatic system snapshots it deletes, and [oparch-snapshot-remove](../remove/000-command.md) for the system snapshot it removes.
 
 ### Writing them
 

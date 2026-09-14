@@ -4,39 +4,35 @@
 // went.
 
 /// What narrows the list of snapshots. The scope, the work context and the two
-/// moments are the library's filter; the kind and the text narrow what the
-/// library describes.
+/// moments are the library's filter; the kind narrows what the library
+/// describes.
 class Narrowing {
     filter: root.snapshot.SnapshotFilter,
     /// "" for both kinds, or the one kept.
     kind: string,
-    /// "" for any justification, or text the justification has to contain,
-    /// whatever its case.
-    text: string,
 }
 
 function no_narrowing() -> Narrowing {
     Narrowing {
         filter: root.snapshot.SnapshotFilter { scope: "", work_context: "", since: null, until: null },
         kind: "",
-        text: "",
     }
 }
 
 function is_narrowed(narrowing: Narrowing) -> bool {
     narrowing.filter.scope != "" || narrowing.filter.since != null || narrowing.filter.until != null
-        || narrowing.kind != "" || narrowing.text != ""
+        || narrowing.kind != ""
 }
 
-/// Whether a snapshot the library described is one the kind and the text keep.
+/// Whether a snapshot the library described is of the kind kept.
 function kept(snapshot: root.snapshot.DescribedSnapshot, narrowing: Narrowing) -> bool {
-    if (narrowing.kind == root.snapshot.manual_kind() && !snapshot.is_manual) {
-        return false;
+    if (narrowing.kind == root.snapshot.manual_kind()) {
+        return snapshot.is_manual;
     }
-    if (narrowing.kind == root.snapshot.automatic_kind() && snapshot.is_manual) {
-        return false;
+    if (narrowing.kind == root.snapshot.automatic_kind()) {
+        return !snapshot.is_manual;
     }
-    narrowing.text == "" || snapshot.justification.to_lower_case().includes(narrowing.text.to_lower_case())
+    true
 }
 
 // ------------------------------------------------------------ how it reads
@@ -164,7 +160,7 @@ function criteria(narrowing: Narrowing) -> string[] {
     if (narrowing.filter.scope == "home") {
         names.push("work context");
     }
-    names.concat(["since", "until", "kind", "text"])
+    names.concat(["since", "until", "kind"])
 }
 
 /// How a criterion is offered: what it is, and what it narrows to now.
@@ -189,12 +185,8 @@ function criterion_option(narrowing: Narrowing, name: string) -> string {
         }
         return "Taken until: no bound";
     }
-    if (name == "kind") {
-        let kind = if (narrowing.kind == "") { "automatic and manual" } else { narrowing.kind };
-        return `Kind: ${kind}`;
-    }
-    let text = if (narrowing.text == "") { "anything" } else { narrowing.text };
-    `Justification contains: ${text}`
+    let kind = if (narrowing.kind == "") { "automatic and manual" } else { narrowing.kind };
+    `Kind: ${kind}`
 }
 
 /// The screen that narrows the list, and the one asking each criterion. What
@@ -232,10 +224,7 @@ function narrow_by(files: root.common.Files, screens: Screens, narrowing: Narrow
     if (name == "since" || name == "until") {
         return narrow_moment(screens, narrowing, name);
     }
-    if (name == "kind") {
-        return narrow_kind(screens, narrowing);
-    }
-    narrow_text(screens, narrowing)
+    narrow_kind(screens, narrowing)
 }
 
 /// Either scope, or both. A scope that is not the home narrows to no work
@@ -320,16 +309,6 @@ function narrow_kind(screens: Screens, narrowing: Narrowing) -> bool {
         narrowing.kind = kinds.at(index) ?? "";
     }
     choice.leave
-}
-
-function narrow_text(screens: Screens, narrowing: Narrowing) -> bool {
-    let typed = screens.text("Justification",
-                             "Text the justification of a snapshot shown contains, whatever its case. Empty for any.",
-                             narrowing.text);
-    if let given: string = typed.value {
-        narrowing.text = given;
-    }
-    typed.leave
 }
 
 // -------------------------------------------------------------- creating
@@ -492,7 +471,7 @@ test "the list is narrowed to a scope and then to a work context of it" {
     assert.equal(screens.shown.get("Work context"), ["Every work context", "personal", "work"]);
     assert.equal(screens.shown.get("Narrow the list"), [
         "Scope: home", "Work context: work", "Taken since: no bound", "Taken until: no bound",
-        "Kind: automatic and manual", "Justification contains: anything",
+        "Kind: automatic and manual",
     ]);
     assert.equal(rows_shown(screens), [
         "2026-05-14T13:25:00  home    work  manual     before the Import of the archive",
@@ -507,7 +486,7 @@ test "the system scope offers no work context to narrow to" {
 
     assert.equal(screens.shown.get("Narrow the list"), [
         "Scope: system", "Taken since: no bound", "Taken until: no bound",
-        "Kind: automatic and manual", "Justification contains: anything",
+        "Kind: automatic and manual",
     ]);
     assert.equal(rows_shown(screens), [
         "2026-05-14T12:20:00  system  automatic",
@@ -547,25 +526,13 @@ test "an empty bound is no bound" {
     assert.equal(rows_shown(screens).length(), 4)
 }
 
-test "the list is narrowed to a kind, and to text in the justification whatever its case" {
+test "the list is narrowed to a kind" {
     let shell = machine_shell();
-    let screens = scripted([
-        "Narrow the list", "Kind:", "manual", "Justification contains", "IMPORT", "<back>",
-    ]);
+    let screens = scripted(["Narrow the list", "Kind:", "manual", "<back>"]);
 
     browse(shell, machine_files(), root.snapshot.recording_lock(shell), screens);
 
-    assert.equal(rows_shown(screens), [
-        "2026-05-14T13:25:00  home    work  manual     before the Import of the archive",
-    ])
-}
-
-test "an automatic snapshot has no justification for text to be found in" {
-    let shell = machine_shell();
-    let screens = scripted(["Narrow the list", "Justification contains", "a", "<back>"]);
-
-    browse(shell, machine_files(), root.snapshot.recording_lock(shell), screens);
-
+    assert.equal(screens.shown.get("Kind"), ["Automatic and manual", "automatic", "manual"]);
     assert.equal(rows_shown(screens), [
         "2026-05-14T13:20:00  system        manual     before a kernel upgrade",
         "2026-05-14T13:25:00  home    work  manual     before the Import of the archive",
