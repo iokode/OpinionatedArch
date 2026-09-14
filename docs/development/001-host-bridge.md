@@ -22,6 +22,12 @@ A **port** is the boundary between a tool and something outside it: running a co
 
 What a tool without a host uses instead are the same `Shell` and `Files` ports every tool is written against, implemented over `baml.sys` and `baml.fs` and living beside the recording doubles in [Repository Layout](002-repository-layout.md). Nothing above the port can tell which implementation is underneath, so the tests do not change and neither does the code being tested.
 
+### What every host shares
+
+What a host does is the same whichever tool it serves: it takes the terminal over, draws the frame a screen sits in, asks through a small set of widgets, and runs the commands it is handed. That is one Rust crate, `tools/utils/host/`, and every host depends on it. A tool's host keeps only what is its own — for the installer, the log of an installation and the pane it is drawn in, the review screen, removable media, and pacman's output read while it runs.
+
+The crate depends on no generated SDK. What a tool adds to the state every screen is drawn from, the keys on its status bar and the keys it answers everywhere reach the crate through one trait the tool's host implements, and a command's result is put into the tool's own SDK type in the tool's host.
+
 ### Only commands cross the bridge
 
 A host that exists is given the commands and nothing else. Touching a file is neither of the two things a host is for, so `Files` is implemented over `baml.fs` in every tool, hosted or not, and there is no host-side implementation of it to choose between.
@@ -34,6 +40,7 @@ Opening the installer's encrypted secret store crossed as well, for as long as t
 - A tool that needs neither of those has no host because a host is then pure cost: a second language, a generated SDK, a build step and a runtime library, all to forward calls that `baml.sys` and `baml.fs` already make. It would also be cost paid for something already scheduled for deletion.
 - The port is kept even where there is no host to hide, because what the ports buy is the recording doubles: a tool that called `baml.sys.exec` directly could only be tested by running the commands for real.
 - One bridge target is chosen for the project rather than per tool, because the reasons below are properties of the boundary and not of any one tool; a second target would mean a second set of them to keep in mind, for no gain.
+- Every host is built on one crate because what a host does for the terminal and for a command reads the same in each, and a copy of it per tool is copies that drift: a key that means one thing in one tool and another in the next, or a fix to taking the terminal back that reaches one of them. The crate knows no SDK because each SDK is generated from one tool's BAML, and a crate built on one would be built on that tool.
 - The bridge is treated as disposable because BAML's standard library will cover this ground; if the host is designed as a permanent component, its constraints get baked into code that outlives it.
 - `rust` is chosen over `go` because Go has no sum types, so a BAML union reaches the Go SDK as `any`. Working around that means flattening unions into tagged classes *in BAML* — permanent code written to serve a disposable host. Rust receives a generated `enum` and needs no such workaround.
 - `rust`'s own limitations are accepted because they land entirely on the host side: function-type aliases cannot cross the boundary (inline closure types work), and reentrant calls must use the `_async` API. Neither deforms the BAML data model.
