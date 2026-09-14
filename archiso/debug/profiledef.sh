@@ -24,6 +24,7 @@ file_permissions=(
   ["/usr/bin/oparch-return-message-render"]="0:0:755"
   ["/usr/bin/oparch-dotfiles-sync"]="0:0:755"
   ["/usr/bin/oparch-work-context-list"]="0:0:755"
+  ["/usr/bin/oparch-work-context-create"]="0:0:755"
   ["/usr/lib/oparch/oparch-installer-interactive"]="0:0:755"
   ["/usr/lib/oparch/libbaml_cffi-x86_64-unknown-linux-gnu.so"]="0:0:755"
 )

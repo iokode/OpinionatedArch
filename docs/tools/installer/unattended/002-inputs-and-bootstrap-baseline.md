@@ -88,6 +88,7 @@ Installed with `pacstrap`:
 - `oparch-return-message-render`
 - `oparch-dotfiles-sync`
 - `oparch-work-context-list`
+- `oparch-work-context-create`
 - `oparch-keyring`
 - `zram-generator` (if the zram swap size is greater than zero)
 - `intel-ucode` (if selected as the ucode package)
@@ -95,7 +96,7 @@ Installed with `pacstrap`:
 - `nvidia-open` (if GPU driver is `nvidia-open`)
 - `plymouth` (if pre-boot return message is enabled)
 
-The five this project publishes are every tool it ships except `oparch-installer`, which runs from a live environment and has no use on a machine that is installed, together with the keyring that lets the rest be updated from where they came from. What that is, and why the repository sits above the official ones on the installed system, is [Package Repository](../../../decisions/016-package-repository.md); the installation writes it into the target as the published repository and never as the one the medium carries, which will not be there once the machine is running.
+The six this project publishes are every tool it ships except `oparch-installer`, which runs from a live environment and has no use on a machine that is installed, together with the keyring that lets the rest be updated from where they came from. What that is, and why the repository sits above the official ones on the installed system, is [Package Repository](../../../decisions/016-package-repository.md); the installation writes it into the target as the published repository and never as the one the medium carries, which will not be there once the machine is running.
 
 They come from the repositories the live environment is configured with, this project's first, the official ones after it and the medium's own last; or, when the installation was told it has no network, from the medium's own configuration, which names the repository the medium carries and nothing else. Which of the two an installation draws from is settled in [Installation ISO](../../../decisions/018-installation-iso.md), and the answer that settles it is prompt 2.
 

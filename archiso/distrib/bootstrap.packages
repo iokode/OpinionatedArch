@@ -35,5 +35,6 @@ plymouth
 oparch-return-message-render
 oparch-dotfiles-sync
 oparch-work-context-list
+oparch-work-context-create
 oparch-assets
 oparch-keyring
