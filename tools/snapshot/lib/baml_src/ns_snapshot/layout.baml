@@ -40,6 +40,23 @@ function system_snapshot_path(kind: string, name: string) -> string {
     `system/${kind}/${name}`
 }
 
+/// The home a snapshot of a work context's scope is taken of: the subvolume
+/// `home/@<work-context>`, mounted at the context's home.
+function home_directory(work_context: string) -> string {
+    `/home/${work_context}`
+}
+
+/// Where a snapshot of a work context's home of a kind goes, inside
+/// `@snapshots`.
+function home_snapshot_path(work_context: string, kind: string, name: string) -> string {
+    `home/${work_context}/${kind}/${name}`
+}
+
+test "a snapshot of a home is under that context's directory of its kind" {
+    assert.equal(home_directory("work"), "/home/work");
+    assert.equal(home_snapshot_path("work", manual_kind(), "@1778765100"), "home/work/manual/@1778765100")
+}
+
 test "a system snapshot is under the system directory of its kind" {
     assert.equal(system_snapshot_path(manual_kind(), "@1778764800"), "system/manual/@1778764800");
     assert.equal(in_snapshots("system/manual/@1778764800"), "/snapshots/system/manual/@1778764800")

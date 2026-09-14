@@ -62,6 +62,8 @@ jobs:
               && baml pack main --output ./oparch-work-context-create )
           ( cd tools/snapshot/system-create \
               && baml pack main --output ./oparch-snapshot-system-create )
+          ( cd tools/snapshot/work-context-create \
+              && baml pack main --output ./oparch-snapshot-work-context-create )
 
       - name: Work out what the repository does not already hold
         run: |
@@ -125,6 +127,9 @@ jobs:
 
           cp tools/snapshot/system-create/oparch-snapshot-system-create \
               packages/oparch-snapshot-system-create/
+
+          cp tools/snapshot/work-context-create/oparch-snapshot-work-context-create \
+              packages/oparch-snapshot-work-context-create/
 
       - name: Build the packages
         run: |

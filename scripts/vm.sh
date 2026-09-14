@@ -143,6 +143,8 @@ install_machine() {
             && install -m 755 /usr/bin/oparch-work-context-list /mnt/usr/bin/oparch-work-context-list \
             && install -m 755 /usr/bin/oparch-work-context-create /mnt/usr/bin/oparch-work-context-create \
             && install -m 755 /usr/bin/oparch-snapshot-system-create /mnt/usr/bin/oparch-snapshot-system-create \
+            && install -m 755 /usr/bin/oparch-snapshot-work-context-create \
+                /mnt/usr/bin/oparch-snapshot-work-context-create \
             && rm -rf /mnt/usr/share/opinionatedarch/assets \
             && cp -r /usr/share/opinionatedarch/assets /mnt/usr/share/opinionatedarch/assets" || return 1
 

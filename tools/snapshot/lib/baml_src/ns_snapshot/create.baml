@@ -88,6 +88,120 @@ function take_system_snapshot_holding_lock(shell: root.common.Shell, files: root
     Taken { path: path, error: "" }
 }
 
+/// Takes a snapshot of the home of a work context: the subvolume mounted at
+/// its home, which is what makes it a scope of its own.
+///
+/// A manual snapshot is labelled once it has been taken, and holds the lock
+/// from before the moment is read until its label is written. An automatic one
+/// writes nothing the lock covers, so it does not take it.
+function take_home_snapshot(shell: root.common.Shell, files: root.common.Files, lock: SnapshotLock,
+                            work_context: string, kind: string, justification: string) -> Taken {
+    if (kind != manual_kind()) {
+        return take_home_snapshot_holding_lock(shell, files, work_context, kind, justification);
+    }
+    let refused = check_justification(justification);
+    if (refused != "") {
+        return Taken { path: "", error: refused };
+    }
+    let locked = lock.acquire();
+    if (locked != "") {
+        return Taken { path: "", error: locked };
+    }
+    let taken = take_home_snapshot_holding_lock(shell, files, work_context, kind, justification);
+    lock.release();
+    taken
+}
+
+/// The snapshot of a home itself, once whatever lock it needs is held.
+function take_home_snapshot_holding_lock(shell: root.common.Shell, files: root.common.Files,
+                                         work_context: string, kind: string, justification: string) -> Taken {
+    let moment = read_moment(shell);
+    if (moment.error != "") {
+        return Taken { path: "", error: moment.error };
+    }
+    let relative = home_snapshot_path(work_context, kind, snapshot_name(moment.seconds));
+    let path = in_snapshots(relative);
+
+    let snapshot = failed(shell.capture("btrfs",
+                              ["subvolume", "snapshot", "-r", home_directory(work_context), path]),
+                          `taking the snapshot ${path}`);
+    if (snapshot != "") {
+        return Taken { path: "", error: snapshot };
+    }
+
+    if (kind == manual_kind()) {
+        let labelled = write_label(files, relative, justification);
+        if (labelled != "") {
+            return Taken { path: path, error: labelled };
+        }
+    }
+    Taken { path: path, error: "" }
+}
+
+test "a manual snapshot of a home is taken of its subvolume and labelled" {
+    let files = root.common.recording_files();
+    let shell = root.common.RecordingShell {
+        commands: [], streamed: [], fed: [], exit_codes: {}, replies: { "date +%s": "1778765100\n" },
+    };
+
+    let taken = take_home_snapshot(shell, files, recording_lock(shell), "work", manual_kind(),
+                                   "before the client project import");
+
+    assert.equal(taken.error, "");
+    assert.equal(taken.path, "/snapshots/home/work/manual/@1778765100");
+    //# a home carries no boot artifacts, so nothing but the moment and the
+    //# snapshot is asked of the machine, and the table is not touched
+    assert.equal(shell.commands, [
+        "lock /snapshots/lock",
+        "date +%s",
+        "btrfs subvolume snapshot -r /home/work /snapshots/home/work/manual/@1778765100",
+        "unlock /snapshots/lock",
+    ]);
+    assert.equal(files.written.get("/snapshots/boot/table"), null);
+    assert.equal(read_labels(files).entries.get("home/work/manual/@1778765100"), "before the client project import")
+}
+
+test "a home that cannot be snapshotted is never labelled" {
+    let files = root.common.recording_files();
+    let shell = root.common.RecordingShell {
+        commands: [], streamed: [], fed: [],
+        replies: { "date +%s": "1778765100\n" },
+        exit_codes: { "btrfs subvolume snapshot -r /home/nobody /snapshots/home/nobody/manual/@1778765100": 1 },
+    };
+
+    let taken = take_home_snapshot(shell, files, recording_lock(shell), "nobody", manual_kind(),
+                                   "before the client project import");
+
+    assert.equal(taken.error, "taking the snapshot /snapshots/home/nobody/manual/@1778765100 failed with exit code 1.");
+    assert.equal(files.written.get("/snapshots/labels.json"), null)
+}
+
+test "a manual snapshot of a home with no justification is refused before anything is done" {
+    let files = root.common.recording_files();
+    let shell = root.common.RecordingShell { commands: [], streamed: [], fed: [], replies: {}, exit_codes: {} };
+
+    let taken = take_home_snapshot(shell, files, recording_lock(shell), "work", manual_kind(), "\t");
+
+    assert.equal(taken.error, "a manual snapshot needs a justification, and this one is empty");
+    assert.equal(shell.commands, [])
+}
+
+test "an automatic snapshot of a home takes no lock and no label" {
+    let files = root.common.recording_files();
+    let shell = root.common.RecordingShell {
+        commands: [], streamed: [], fed: [], exit_codes: {}, replies: { "date +%s": "1778761500\n" },
+    };
+
+    let taken = take_home_snapshot(shell, files, recording_lock(shell), "work", automatic_kind(), "");
+
+    assert.equal(taken.error, "");
+    assert.equal(shell.commands, [
+        "date +%s",
+        "btrfs subvolume snapshot -r /home/work /snapshots/home/work/automatic/@1778761500",
+    ]);
+    assert.equal(files.written.get("/snapshots/labels.json"), null)
+}
+
 /// A machine whose EFI system partition holds a kernel and GRUB, with the
 /// answers a snapshot of it is given.
 function boot_files() -> root.common.RecordingFiles {

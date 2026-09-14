@@ -32,7 +32,7 @@ Installs a machine from the debug image and boots it in a window, with the tools
 1. The debug image is built.
 2. It boots in a window, and the script drives it over its serial line with `scripts/lib/guest.sh`. The first console, which is what the window shows, runs the unattended installer from the image and nothing else.
 3. The installer installs the machine with the answers in `scripts/vm-config.yaml`.
-4. The renderer, the dotfiles tool, `oparch-work-context-list`, `oparch-work-context-create`, `oparch-snapshot-system-create` and the assets from the image are copied over the ones the installation took from the published repository.
+4. The renderer, the dotfiles tool, `oparch-work-context-list`, `oparch-work-context-create`, `oparch-snapshot-system-create`, `oparch-snapshot-work-context-create` and the assets from the image are copied over the ones the installation took from the published repository.
 5. The live system powers off, and a window opens on the installed disk.
 
 `scripts/vm-config.yaml` is a configuration file in the format [Installer Configuration File Format](../tools/installer/unattended/001-config-file-format.md) defines, and the machine is whatever it answers: its work contexts, its shared secret, its keymap, timezone and hostname. The disk asks for the shared secret, and every work context logs in with it. Before the window opens on the installed disk, `vm.sh` says which secret and which work contexts those are.

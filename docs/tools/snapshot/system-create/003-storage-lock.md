@@ -20,7 +20,7 @@ A tool that writes the boot table, the labels file or a set of boot artifacts ta
 
 The lock belongs to the process holding it, and it is released when that process ends, however it ends.
 
-[oparch-snapshot-system-create](000-command.md) holds it for the whole of each snapshot it takes.
+[oparch-snapshot-system-create](000-command.md) holds it for the whole of each snapshot it takes, and [oparch-snapshot-work-context-create](../work-context-create/000-command.md) for the whole of each snapshot it takes and labels.
 
 ## Why
 
