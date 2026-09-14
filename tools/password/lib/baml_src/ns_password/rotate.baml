@@ -58,14 +58,39 @@ function password_line(name: string, password: string) -> string {
     name + ":" + password + "\n"
 }
 
+/// Why a pair of secrets is refused, or "" when it is not.
+///
+/// An empty replacement would leave every work context with no password. And
+/// both `cryptsetup` and `chpasswd` read a secret up to the end of its line, so
+/// a secret holding a line break would reach them cut in two.
+function secrets_problem(old_password: string, new_password: string) -> string {
+    if (new_password == "") {
+        return "the new secret cannot be empty.";
+    }
+    if (old_password.includes("\n")) {
+        return "the existing secret cannot contain a line break.";
+    }
+    if (new_password.includes("\n")) {
+        return "the new secret cannot contain a line break.";
+    }
+    ""
+}
+
 /// Changes the passphrase of the encrypted container from the existing secret
 /// to the replacement, and sets the replacement as the password of every
-/// member of `work-contexts`. It stops at the first command that fails.
+/// member of `work-contexts`. A pair of secrets `secrets_problem` refuses is
+/// refused before anything runs, and the rotation stops at the first command
+/// that fails.
 ///
 /// Both secrets reach the commands on standard input and never as arguments,
 /// where any user of the machine could read them from the process list.
 function rotate_shared_secret(shell: root.common.Shell, old_password: string,
                               new_password: string) -> Rotation {
+    let refused = secrets_problem(old_password, new_password);
+    if (refused != "") {
+        return Rotation { failure: refused, stderr: "" };
+    }
+
     let group = shell.capture("getent", ["group", work_contexts_group()]);
     let read = root.common.must(group, `reading the members of ${work_contexts_group()}`);
     if (read != "") {
@@ -85,7 +110,12 @@ function rotate_shared_secret(shell: root.common.Shell, old_password: string,
         let set = shell.feed("chpasswd", [], password_line(name, new_password));
         let password = root.common.must(set, `setting the password of ${name}`);
         if (password != "") {
-            return Rotation { failure: password, stderr: set.stderr };
+            //# nothing is rolled back: the operator is told where the secret
+            //# stands, and running again with the new secret as both finishes it
+            return Rotation {
+                failure: password + " The encrypted container already has the new secret.",
+                stderr: set.stderr,
+            };
         }
     }
     Rotation { failure: "", stderr: "" }
@@ -165,9 +195,38 @@ test "a password that cannot be set says whose it was, and stops there" {
 
     let rotation = rotate_shared_secret(shell, "old secret", "new secret");
 
-    assert.equal(rotation.failure, "setting the password of personal failed with exit code 1.");
+    //# the container has already taken the change, and the message says so
+    assert.equal(rotation.failure,
+                 "setting the password of personal failed with exit code 1."
+                     + " The encrypted container already has the new secret.");
     assert.equal(shell.fed, [
         "cryptsetup luksChangeKey /dev/disk/by-partlabel/OpinionatedArch",
         "chpasswd",
     ])
+}
+
+test "an empty new secret is refused before anything runs" {
+    let shell = machine_with_two_contexts();
+
+    let rotation = rotate_shared_secret(shell, "old secret", "");
+
+    assert.equal(rotation.failure, "the new secret cannot be empty.");
+    assert.equal(shell.commands, [])
+}
+
+test "a secret holding a line break is refused before anything runs, old or new" {
+    let shell = machine_with_two_contexts();
+
+    let old_broken = rotate_shared_secret(shell, "old\nsecret", "new secret");
+    let new_broken = rotate_shared_secret(shell, "old secret", "new\nsecret");
+
+    assert.equal(old_broken.failure, "the existing secret cannot contain a line break.");
+    assert.equal(new_broken.failure, "the new secret cannot contain a line break.");
+    assert.equal(shell.commands, [])
+}
+
+test "a pair of secrets with nothing wrong with it is not refused" {
+    assert.equal(secrets_problem("old secret", "new secret"), "");
+    //# the new secret given as both is how a rotation that stopped is finished
+    assert.equal(secrets_problem("new secret", "new secret"), "")
 }
