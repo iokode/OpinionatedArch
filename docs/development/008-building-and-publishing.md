@@ -74,7 +74,7 @@ The prune runs after the new image is up and not before, so that an upload which
 
 ## What runs at the edge
 
-Two addresses answer with whatever image is newest and with its checksum, and what answers both is one Worker that reads the bucket rather than being told — the checksum is stored beside the image under the image's own name, so finding the current image finds both. It is deployed by a workflow of its own, when what is in `.cloudflare/` changes and not otherwise, so that what is deployed is what was committed rather than what somebody remembered to push by hand.
+Two addresses answer with whatever image is newest and with its checksum, and a third with the installation script as it is on `master`, and what answers all three is one Worker. For the image it reads the bucket rather than being told — the checksum is stored beside the image under the image's own name, so finding the current image finds both. The script's place in the repository is written in the Worker, beside the script itself, so a change that moves the script is the change that shows the address has to follow it. It is deployed by a workflow of its own, when what is in `.cloudflare/` changes and not otherwise, so that what is deployed is what was committed rather than what somebody remembered to push by hand.
 
 It is not deployed alongside the image it points at. That is published every day and this changes almost never, and joining them would mean a failure to deploy taking down the publication of an image that was fine.
 
