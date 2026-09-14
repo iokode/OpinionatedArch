@@ -8,7 +8,7 @@
 case_assert() {
     guest_check "the tools this project ships are on the machine" \
         "arch-chroot /mnt pacman -Q oparch-assets oparch-return-message-render \
-            oparch-dotfiles-sync oparch-keyring"
+            oparch-dotfiles-sync oparch-work-context-list oparch-keyring"
 
     guest_check "the machine can be updated from the repository it came from" \
         "grep -q '^Server = https://packages.oparch.iokode.dev' /mnt/etc/pacman.conf"

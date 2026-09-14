@@ -34,5 +34,6 @@ plymouth
 # What the tools this system installs need on it
 oparch-return-message-render
 oparch-dotfiles-sync
+oparch-work-context-list
 oparch-assets
 oparch-keyring

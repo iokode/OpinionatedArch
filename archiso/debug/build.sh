@@ -70,6 +70,8 @@ capped cargo build --release --manifest-path "$ROOT/tools/installer/interactive/
 ( cd "$ROOT/tools/return-message/render" \
     && capped baml pack main --output ./oparch-return-message-render )
 ( cd "$ROOT/tools/dotfiles/sync" && capped baml pack main --output ./oparch-dotfiles-sync )
+( cd "$ROOT/tools/work-context/list" \
+    && capped baml pack main --output ./oparch-work-context-list )
 
 # The runtime library the interactive installer's host loads, for the toolchain
 # the host was built against. It is fetched the way the setup-baml action
@@ -151,6 +153,7 @@ cp "$ROOT/packages/oparch-installer/oparch-installer-interactive.sh" \
     "$air/usr/bin/oparch-installer-interactive"
 cp "$ROOT/tools/return-message/render/oparch-return-message-render" "$air/usr/bin/"
 cp "$ROOT/tools/dotfiles/sync/oparch-dotfiles-sync" "$air/usr/bin/"
+cp "$ROOT/tools/work-context/list/oparch-work-context-list" "$air/usr/bin/"
 cp "$ROOT/tools/installer/interactive/host/target/release/oparch-installer-interactive" \
     "$air/usr/lib/oparch/"
 cp "$library" "$air/usr/lib/oparch/"
