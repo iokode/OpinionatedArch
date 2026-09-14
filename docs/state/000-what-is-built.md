@@ -20,7 +20,7 @@ This document is descriptive. What the tools are for is defined in `../tools/`, 
 
 The layout and the reason for it are [Repository Layout](../development/002-repository-layout.md); how the last two are used is [Building and Publishing](../development/008-building-and-publishing.md).
 
-Tests, counted on 2026-09-13: 250 in `tools/installer/lib`, 289 in `tools/installer/unattended`, 311 in `tools/installer/interactive`, 129 in `tools/return-message/lib`, 134 in `tools/return-message/render`, 80 in `tools/dotfiles/lib`, 54 in `tools/dotfiles/sync`, 42 in `tools/utils`; and, counted on 2026-09-14, 52 in `tools/password/lib` and 57 in `tools/password/rotate`. Counts move with the work, so treat them as of the date they were counted rather than as a fact about the suite. Every suite runs with `baml test` and needs no host, no bridge, no ImageMagick and no privileges. The counts overlap: a suite also runs the tests of every namespace linked into it.
+Tests, counted on 2026-09-13: 250 in `tools/installer/lib`, 289 in `tools/installer/unattended`, 311 in `tools/installer/interactive`, 129 in `tools/return-message/lib`, 134 in `tools/return-message/render`, 80 in `tools/dotfiles/lib`, 54 in `tools/dotfiles/sync`, 42 in `tools/utils`; and, counted on 2026-09-14, 55 in `tools/password/lib` and 60 in `tools/password/rotate`. Counts move with the work, so treat them as of the date they were counted rather than as a fact about the suite. Every suite runs with `baml test` and needs no host, no bridge, no ImageMagick and no privileges. The counts overlap: a suite also runs the tests of every namespace linked into it.
 
 ## The installer
 
