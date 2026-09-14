@@ -143,54 +143,6 @@ function print_errors(diag: root.dotfiles.Diagnostics) -> null {
     null
 }
 
-/// Refuses a run that is not root's. The tool runs as root and as no other
-/// user, because what it applies is written into protected paths such as
-/// `/etc`. `id -u` is the effective user, so a run through `sudo` is root's.
-function require_root(shell: root.common.Shell, diag: root.dotfiles.Diagnostics) -> null {
-    let user_id = shell.capture("id", ["-u"]);
-    if (root.dotfiles.report_failed(diag, user_id, "reading the user id this runs as")) {
-        return null;
-    }
-    if (user_id.stdout.trim() != "0") {
-        diag.report("oparch-dotfiles-sync must be run as root");
-    }
-    null
-}
-
-test "a run as root goes on" {
-    let shell = root.common.RecordingShell {
-        commands: [], streamed: [], fed: [], exit_codes: {}, replies: { "id -u": "0\n" },
-    };
-    let diag = root.dotfiles.new_diagnostics();
-
-    require_root(shell, diag);
-
-    assert.equal(shell.commands, ["id -u"]);
-    assert.is_true(!diag.has_errors())
-}
-
-test "a run as any other user is refused" {
-    let shell = root.common.RecordingShell {
-        commands: [], streamed: [], fed: [], exit_codes: {}, replies: { "id -u": "1000\n" },
-    };
-    let diag = root.dotfiles.new_diagnostics();
-
-    require_root(shell, diag);
-
-    assert.equal(diag.errors, ["oparch-dotfiles-sync must be run as root"])
-}
-
-test "a user id that cannot be read is refused rather than taken for root" {
-    let shell = root.common.RecordingShell {
-        commands: [], streamed: [], fed: [], exit_codes: { "id -u": 1 }, replies: {},
-    };
-    let diag = root.dotfiles.new_diagnostics();
-
-    require_root(shell, diag);
-
-    assert.equal(diag.errors, ["reading the user id this runs as failed with exit code 1."])
-}
-
 function describe_target(planned: root.dotfiles.PlannedTarget) -> string {
     let details: string[] = [];
     if let mode: string = planned.mode {
@@ -238,9 +190,11 @@ function main() -> void {
     let shell = root.common.system_shell();
     let files = root.common.system_files();
     //# before anything else, the options included: a run that is not root's is
-    //# refused whatever it was asked to do
-    require_root(shell, diag);
-    if (diag.has_errors()) {
+    //# refused whatever it was asked to do. The tool runs as root because what
+    //# it applies is written into protected paths such as /etc
+    let refused = root.common.require_root(shell, "oparch-dotfiles-sync");
+    if (refused != "") {
+        diag.report(refused);
         print_errors(diag);
         baml.sys.exit(1);
     }

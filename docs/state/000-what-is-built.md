@@ -6,7 +6,7 @@ This document is descriptive. What the tools are for is defined in `../tools/`, 
 
 ## Where the code is
 
-- `tools/utils/` — the generic BAML, namespace `root.common`: the `Shell` and `Files` ports, the host adapter for commands, their recording doubles, their implementations over `baml.sys` and `baml.fs`, and helpers for text, paths and YAML.
+- `tools/utils/` — the generic BAML, namespace `root.common`: the `Shell` and `Files` ports, the host adapter for commands, their recording doubles, their implementations over `baml.sys` and `baml.fs`, the check that a tool runs as root, and helpers for text, paths and YAML.
 - `tools/installer/` — the installer: its library under `lib/`, namespace `root.installer`, which holds the installation; `oparch-installer` under `unattended/`, which `baml pack` makes an executable of its own; and `oparch-installer-interactive` under `interactive/`, with its Rust host under `interactive/host/`.
 - `tools/return-message/` — the return message: its library under `lib/`, namespace `root.return_message`, which owns the template package format, the values format and the theme format and composes the message from them; and `oparch-return-message-render` under `render/`, with no host, which `baml pack` makes an executable of its own. The installer links the library because it asks for what a package declares, validates the same values in its own configuration file, and reads the theme to know how many languages it may offer.
 - `tools/dotfiles/` — the dotfiles: their library under `lib/`, namespace `root.dotfiles`, which parses a map and builds and applies its plan; and `oparch-dotfiles-sync` under `sync/`, with no host either and packed the same way.
