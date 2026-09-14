@@ -1,0 +1,31 @@
+# What boots
+base
+linux
+mkinitcpio
+mkinitcpio-archiso
+
+# root's shell, which reads the file that starts the installer
+zsh
+
+# What the tools call and base does not carry
+iwd
+which
+e2fsprogs
+
+# What the packages of the tools declare, which this image does not install
+# because it carries the tools built from the working tree instead
+git
+fontconfig
+gptfdisk
+cryptsetup
+btrfs-progs
+dosfstools
+arch-install-scripts
+parted
+kbd
+curl
+age
+imagemagick
+pango
+noto-fonts
+gnupg

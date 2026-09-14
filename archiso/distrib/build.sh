@@ -121,9 +121,9 @@ lines "$HERE/packages.add" >> "$profile/packages.x86_64"
 
 say "Trusting the project's signing key"
 fingerprint="$(gpg --with-colons --import-options show-only --import \
-    < "$HERE/../packages/oparch-keyring/oparch.gpg" |
+    < "$HERE/../../packages/oparch-keyring/oparch.gpg" |
     awk -F: '/^fpr:/ { print $10; exit }')"
-pacman-key --add "$HERE/../packages/oparch-keyring/oparch.gpg"
+pacman-key --add "$HERE/../../packages/oparch-keyring/oparch.gpg"
 pacman-key --lsign-key "$fingerprint"
 
 # The published repository, above the official ones, so that the medium is

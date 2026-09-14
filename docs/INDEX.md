@@ -73,6 +73,7 @@ The first four are written. The rest are specified and not implemented, which [R
 - [End-to-End Testing](development/006-end-to-end-testing.md)
 - [Installation Checks](development/007-installation-checks.md)
 - [Building and Publishing](development/008-building-and-publishing.md)
+- [Trying a Working Tree](development/009-trying-a-working-tree.md)
 
 ## Plans
 

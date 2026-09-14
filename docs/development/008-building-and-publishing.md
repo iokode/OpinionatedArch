@@ -50,7 +50,7 @@ One run publishes at a time. The database is the one thing two of them would dam
 
 ## How the image is built
 
-The profile is not kept here. `releng` is archiso's, it moves with archiso, and holding a copy would be maintaining a fork of a bootloader configuration nobody in this project wrote — while the reason the image is rebuilt at all is precisely that upstream moves. So the profile is assembled at build time: a copy of `releng` as it is on the day, with this project's differences applied over it. What is kept in `archiso/` is only the difference — what the medium adds, what it drops, what its own repository carries, and the one file that starts the installer.
+The profile is not kept here. `releng` is archiso's, it moves with archiso, and holding a copy would be maintaining a fork of a bootloader configuration nobody in this project wrote — while the reason the image is rebuilt at all is precisely that upstream moves. So the profile is assembled at build time: a copy of `releng` as it is on the day, with this project's differences applied over it. What is kept in `archiso/distrib/` is only the difference — what the medium adds, what it drops, what its own repository carries, and the one file that starts the installer.
 
 The medium's repository is filled by downloading rather than installing: what is wanted is package files, so that an installation with nothing to fetch from has something to install. Every package an answer might ask for is fetched, and not the ones a particular answer would, because an installation without a network cannot go and get the microcode of the processor it turns out to be running on.
 

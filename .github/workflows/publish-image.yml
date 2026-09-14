@@ -52,7 +52,7 @@ jobs:
         run: |
           set -eu
           mkdir -p out
-          archiso/build.sh "$PWD/out"
+          archiso/distrib/build.sh "$PWD/out"
           ls -lh out
 
       # Before it goes anywhere. Every image published until now became the one

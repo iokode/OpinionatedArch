@@ -2,7 +2,7 @@
 #
 # Starting a guest under QEMU and driving it over its serial line. The
 # end-to-end harness in tests/e2e/ runs its cases in such a guest, and
-# scripts/vm.sh puts the tools of a working tree into one.
+# scripts/vm.sh installs a machine with the tools of a working tree in one.
 #
 # It holds no guest of its own and nothing about what one is for: whoever
 # sources it says what to boot and what to type.

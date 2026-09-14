@@ -1,37 +1,37 @@
 #!/usr/bin/env bash
 #
-# Boots the published installation image in a window, with the tools built
-# from this working tree put in place of the ones the image carries, so that a
-# change to them can be tried by hand before it is merged.
+# Boots, in a window, a machine installed from the debug image, with the tools
+# built from this working tree in place of the ones the installation took from
+# the published repository, so that a change to them can be tried on an
+# installed system before it is merged.
 #
-#     scripts/vm.sh                  build the tools, boot the image, open the installer
-#     scripts/vm.sh --iso <image>    the same, with an image already on this machine
-#     scripts/vm.sh --disk           boot the disk the last installation left
+#     scripts/vm.sh
 #
-# What reaches the live system is what an image built from this tree would
-# carry of the tools: the installer's two commands and the wrapper of the
-# interactive one, the renderer, the dotfiles tool, the assets, and the file
-# that starts the installer on the first console. The rest is the published
-# image, so the package, its dependencies and the image itself are not what is
-# tried here.
+# Every run installs the machine again, on a new disk: the debug image is built
+# and booted in a window, and the installer it carries installs the machine
+# there, with the answers in scripts/vm-config.yaml, while this script drives it
+# over the serial line. It installs over the network, because the debug image
+# carries no repository of its own. Once that is done the window closes, and one
+# opens on the installed disk.
 #
-# The guest is driven over its serial line with scripts/lib/guest.sh, which the
-# end-to-end harness drives its guests with too. The window is its screen, and
-# once the tools are in place it is yours.
+# The tools are copied over the packaged ones, so updating their packages
+# inside the machine puts the published ones back.
+#
+# What the image is and how it is built is archiso/debug/build.sh.
 
 set -euo pipefail
 
 readonly ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-readonly IMAGE_URL="https://oparch.iokode.dev/latest.iso"
-readonly CHECKSUM_URL="https://oparch.iokode.dev/latest.sha256"
+readonly CONFIG="$ROOT/scripts/vm-config.yaml"
 
-# Kept between runs: the image, so that it is downloaded when a newer one is
-# published and not otherwise, and the disk and firmware variables of the last
-# guest, so that the machine it installed can be booted afterwards.
 readonly WORK="${XDG_CACHE_HOME:-$HOME/.cache}/oparch-vm"
+readonly IMAGE_DIR="$WORK/image"
 readonly SHARE="$WORK/share"
 readonly DISK="$WORK/disk.qcow2"
 readonly VARS="$WORK/firmware-vars.fd"
+
+# How long an installation over the network is waited for.
+readonly WAIT_INSTALL=3600
 
 . "$ROOT/scripts/lib/guest.sh"
 
@@ -39,98 +39,43 @@ say() {
     printf '==> %s\n' "$*" >&2
 }
 
-usage() {
-    printf 'Usage: %s [--iso <image>] [--disk]\n' "$0" >&2
+# The shared secret and the work contexts, as the answers give them, to say how
+# the installed machine is entered.
+shared_secret() {
+    sed -n 's/^shared_secret:[[:space:]]*//p' "$CONFIG" | sed -e 's/^"//' -e 's/"$//'
 }
 
-image=""
-disk_only=false
-while [ "$#" -gt 0 ]; do
-    case "$1" in
-        --iso)
-            image="${2:-}"
-            if [ -z "$image" ]; then
-                usage
-                exit 2
-            fi
-            shift 2
-            ;;
-        --disk)
-            disk_only=true
-            shift
-            ;;
-        *)
-            usage
-            exit 2
-            ;;
-    esac
-done
-
-# A build that allocates without bound takes a machine with no swap down before
-# anything can stop it, so each one is held to a ceiling where the user's
-# systemd is there to hold it.
-capped() {
-    if systemd-run --user --scope -q -p MemoryMax=8G -p MemorySwapMax=0 true 2>/dev/null; then
-        systemd-run --user --scope -q -p MemoryMax=8G -p MemorySwapMax=0 "$@"
-    else
-        "$@"
-    fi
+work_contexts() {
+    sed -n '/^work_contexts:/,/^[^[:space:]-]/s/^[[:space:]]*-[[:space:]]*//p' "$CONFIG" |
+        paste -sd, - | sed 's/,/, /g'
 }
 
-build_tools() {
-    say "Building the tools from $ROOT"
-    ( cd "$ROOT/src/installer/unattended" && capped baml pack main --output ./oparch-installer )
-    capped baml --directory "$ROOT/src/installer/interactive" generate
-    capped cargo build --release --manifest-path "$ROOT/src/installer/interactive/host/Cargo.toml"
-    ( cd "$ROOT/src/return-message/render" \
-        && capped baml pack main --output ./oparch-return-message-render )
-    ( cd "$ROOT/src/dotfiles/sync" && capped baml pack main --output ./oparch-dotfiles-sync )
+build_image() {
+    rm -rf "$IMAGE_DIR"
+    "$ROOT/archiso/debug/build.sh" "$IMAGE_DIR"
+    image="$(ls "$IMAGE_DIR"/*.iso)"
 }
 
-# What the guest is given, in one directory it mounts read-only.
-stage_tools() {
-    rm -rf "$SHARE"
-    mkdir -p "$SHARE"
-    cp "$ROOT/src/installer/unattended/oparch-installer" "$SHARE/"
-    cp "$ROOT/src/installer/interactive/host/target/release/oparch-installer-interactive" "$SHARE/"
-    cp "$ROOT/packages/oparch-installer/oparch-installer-interactive.sh" "$SHARE/"
-    cp "$ROOT/src/return-message/render/oparch-return-message-render" "$SHARE/"
-    cp "$ROOT/src/dotfiles/sync/oparch-dotfiles-sync" "$SHARE/"
-    cp -r "$ROOT/assets" "$SHARE/assets"
-    cp "$ROOT/archiso/airootfs/root/.zprofile" "$SHARE/zprofile"
-}
-
-# The image that is published, downloaded once per image and checked against
-# the checksum published beside it before it is kept.
-fetch_image() {
-    local published sum name
-    published="$(curl -fsSL "$CHECKSUM_URL")"
-    sum="${published%% *}"
-    name="${published##* }"
-    image="$WORK/$name"
-    if [ -f "$image" ]; then
-        return 0
-    fi
-
-    say "Downloading $name"
-    rm -f "$WORK"/*.iso "$WORK"/*.iso.part
-    curl -fL -o "$image.part" "$IMAGE_URL"
-    say "Checking $name against its published checksum"
-    printf '%s  %s\n' "$sum" "$image.part" | sha256sum -c --quiet -
-    mv "$image.part" "$image"
-}
-
-# A disk with nothing on it, and firmware variables of its own that the
-# installation registers its boot entry in.
+# A disk with nothing on it, firmware variables of its own that the
+# installation registers its boot entry in, and the answers the machine is
+# installed with, in the directory the guest mounts.
 prepare_machine() {
     qemu-img create -f qcow2 "$DISK" "$GUEST_DISK_SIZE" >/dev/null
     cp "$OVMF_VARS" "$VARS"
+
+    rm -rf "$SHARE"
+    mkdir -p "$SHARE"
+    cp "$CONFIG" "$SHARE/config.yaml"
 }
 
-# The live system, in a window, with its serial line left to be driven. The
-# kernel and the initramfs are taken out of the image and handed over, as the
-# end-to-end harness does, because that is what lets the serial line be a
-# console too; the first console stays the window's.
+# The live system, in a window, driven over its serial line: the kernel and the
+# initramfs are taken out of the image and handed over, because that is what
+# lets the serial line be a console too.
+#
+# The image logs root in on the first console, and that login starts the
+# interactive installer. It is masked on the kernel command line, so the first
+# console, which is what the window shows, is the unattended installation's
+# from the moment the system starts.
 boot_live() {
     local kernel="$WORK/vmlinuz-linux"
     local initramfs="$WORK/initramfs-linux.img"
@@ -143,7 +88,7 @@ boot_live() {
     guest_acceleration
     guest_network present
 
-    guest_start "$WORK/serial.log" "$WORK/serial.in" \
+    guest_start "$WORK/install.log" "$WORK/install.in" \
         "${GUEST_ACCELERATION[@]}" \
         -m "$GUEST_MEMORY" -smp "$GUEST_CPUS" \
         -display gtk -serial stdio \
@@ -154,50 +99,58 @@ boot_live() {
         -drive "media=cdrom,readonly=on,file=$image" \
         -virtfs "local,path=$SHARE,mount_tag=$SHARE_TAG,security_model=none,readonly=on" \
         -kernel "$kernel" -initrd "$initramfs" \
-        -append "archisobasedir=arch archisolabel=$label console=tty0 console=ttyS0,115200"
+        -append "archisobasedir=arch archisolabel=$label console=tty0 console=ttyS0,115200 systemd.mask=getty@tty1.service"
 }
 
-# Puts the tools from this tree where the image's own are, and starts the first
-# console again, so that what opens there is the installer from this tree.
-put_tools_in_place() {
+# Installs the machine, puts the tools from this tree over the packaged ones
+# while the installation is still mounted, and powers the live system off. The
+# disk is only safe to boot once the guest that wrote it has gone.
+install_machine() {
     guest_wait_for_shell || return 1
     guest_quieten || return 1
 
-    guest_check "the tools from this tree reach the guest" \
+    guest_check "the answers reach the guest" \
         "mkdir -p $SHARE_MOUNT \
             && mount -t 9p -o trans=virtio,version=9p2000.L,ro $SHARE_TAG $SHARE_MOUNT" || return 1
 
-    guest_check "the tools from this tree are where the image keeps its own" \
-        "install -m 755 $SHARE_MOUNT/oparch-installer /usr/bin/oparch-installer \
-            && install -m 755 $SHARE_MOUNT/oparch-installer-interactive \
-                /usr/lib/oparch/oparch-installer-interactive \
-            && install -m 755 $SHARE_MOUNT/oparch-installer-interactive.sh \
-                /usr/bin/oparch-installer-interactive \
-            && install -m 755 $SHARE_MOUNT/oparch-return-message-render \
-                /usr/bin/oparch-return-message-render \
-            && install -m 755 $SHARE_MOUNT/oparch-dotfiles-sync /usr/bin/oparch-dotfiles-sync \
-            && rm -rf /usr/share/opinionatedarch/assets \
-            && cp -r $SHARE_MOUNT/assets /usr/share/opinionatedarch/assets \
-            && install -m 644 $SHARE_MOUNT/zprofile /root/.zprofile" || return 1
+    # The installation runs on the first console, which is what the window
+    # shows. What the kernel wrote there while the system started is cleared
+    # first.
+    guest_check "the first console is cleared for the installation" \
+        "printf '\033c' >/dev/tty1" || return 1
 
-    # Whatever the first console was running is the image's own installer, in a
-    # login shell. Asked to end, the installer ends and the shell and `login`
-    # stay, because an interactive shell ignores that signal; so everything on
-    # the console is killed instead. With `login` gone the console logs in again,
-    # and starts what the file put in place above says to start.
-    guest_check "the first console starts again, with the installer from this tree" \
-        "pkill -KILL -t tty1; true" || return 1
+    # The mask on the first console's login is kept under /run, and pacstrap
+    # gives the target the live system's /run: left there, it stops the systemd
+    # package enabling the login on the installed system's first console. It is
+    # removed before the installation, and the live console stays as it is,
+    # because systemd read the mask when the system started.
+    guest_check "the mask on the first console's login is out of the installation's way" \
+        "rm /run/systemd/generator.early/getty@tty1.service" || return 1
+
+    # Under `script`, which gives the installer a terminal of its own, so what it
+    # writes reaches the window as it is written, and keeps a copy of it, so a
+    # failure can still be read once the window has gone.
+    if ! guest_check "the installer installs the machine" \
+            "script -qefc 'oparch-installer --config $SHARE_MOUNT/config.yaml' /run/oparch-install.log \
+                </dev/null >/dev/tty1" "$WAIT_INSTALL"; then
+        guest_run "cat /run/oparch-install.log" || :
+        return 1
+    fi
+
+    guest_check "the tools from this tree are where the installation put the packaged ones" \
+        "install -m 755 /usr/bin/oparch-return-message-render /mnt/usr/bin/oparch-return-message-render \
+            && install -m 755 /usr/bin/oparch-dotfiles-sync /mnt/usr/bin/oparch-dotfiles-sync \
+            && rm -rf /mnt/usr/share/opinionatedarch/assets \
+            && cp -r /usr/share/opinionatedarch/assets /mnt/usr/share/opinionatedarch/assets" || return 1
+
+    guest_say "powering the live system off"
+    guest_send poweroff
+    guest_wait_for_exit
 }
 
-# The disk the last installation left, booted on its own the way the machine
-# would be: by the entry the installation registered with the firmware.
+# The installed disk, booted on its own the way the machine would be: by the
+# entry the installation registered with the firmware.
 boot_disk() {
-    if [ ! -f "$DISK" ] || [ ! -f "$VARS" ]; then
-        say "There is no disk from a previous run in $WORK"
-        exit 1
-    fi
-    guest_acceleration
-    guest_network present
     qemu-system-x86_64 \
         "${GUEST_ACCELERATION[@]}" \
         -m "$GUEST_MEMORY" -smp "$GUEST_CPUS" \
@@ -215,27 +168,19 @@ if ! qemu-system-x86_64 -display help | grep -qx gtk; then
     exit 1
 fi
 
-if "$disk_only"; then
-    boot_disk
-    exit 0
-fi
-
-build_tools
-stage_tools
-if [ -z "$image" ]; then
-    fetch_image
-fi
+build_image
 prepare_machine
 
-say "Booting $(basename "$image")"
+say "Installing a machine from $(basename "$image")"
+say "The window shows the installation, and closes when it is done; then one opens on the installed disk."
 boot_live
 trap guest_stop EXIT
 
-if ! put_tools_in_place; then
-    say "The tools could not be put in place. What the serial line said is in $WORK/serial.log"
+if ! install_machine; then
+    say "The machine could not be installed. What the serial line said is in $WORK/install.log"
     exit 1
 fi
+trap - EXIT
 
-say "The window is the live system, with the tools from this tree in it."
-say "Close the window to end it. scripts/vm.sh --disk boots what it installed."
-wait "$GUEST_PID" || :
+say "The window is the installed machine. The disk asks for $(shared_secret), and $(work_contexts) log in with it."
+boot_disk
