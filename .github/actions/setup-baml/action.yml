@@ -48,10 +48,10 @@ runs:
         version="$(awk '
             /^name = "baml_bridge"$/ { found = 1; next }
             found && /^version = / { gsub(/[",]/, "", $3); print $3; exit }
-        ' src/installer/interactive/host/Cargo.lock)"
+        ' tools/installer/interactive/host/Cargo.lock)"
 
         if [ -z "$version" ]; then
-            echo "no baml_bridge version in src/installer/interactive/host/Cargo.lock" >&2
+            echo "no baml_bridge version in tools/installer/interactive/host/Cargo.lock" >&2
             exit 1
         fi
 

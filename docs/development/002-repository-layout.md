@@ -2,7 +2,7 @@
 
 Where the sources live, where the tests live, why the two answers are not the same, and where what is neither of them goes.
 
-The repository holds the source of every tool under `src/`, the tests under `tests/`, the scripts that are run from a checkout and belong to none of the other directories under `scripts/`, the assets the tools ship or read under `assets/`, the packages the project publishes and what it takes to sign them under `packages/`, the profiles images are built from under `archiso/`, the workflows that build, publish and deploy all of it under `.github/`, what the project runs at the edge of its own domain under `.cloudflare/`, and the documentation under `docs/`. Those are the directories, and there is no other.
+The repository holds the source of every tool under `tools/`, the tests under `tests/`, the scripts that are run from a checkout and belong to none of the other directories under `scripts/`, the assets the tools ship or read under `assets/`, the packages the project publishes and what it takes to sign them under `packages/`, the profiles images are built from under `archiso/`, the workflows that build, publish and deploy all of it under `.github/`, what the project runs at the edge of its own domain under `.cloudflare/`, and the documentation under `docs/`. Those are the directories, and there is no other.
 
 `archiso/` holds a directory for each image: `distrib/` for the installation image the project publishes, and `debug/` for an image carrying the tools built from the working tree, to try them in before they are published. How that image and the scripts that boot it are used is [Trying a Working Tree](009-trying-a-working-tree.md).
 
@@ -16,10 +16,10 @@ What BAML does have is namespaces: a directory named `ns_<name>/` under `baml_sr
 
 ## One directory per entity, sharing by symlinked namespace
 
-The tools of an entity are interfaces over one library of that entity, as [Oparch Tools](../decisions/015-oparch-tools.md) decides. Each entity has a directory under `src/` named after it, holding that library as a project in `lib/` and one project per tool, named after what follows the entity in the tool's name: `oparch-snapshot-restore` is `src/snapshot/restore/`, and `oparch-snapshot-interactive` is `src/snapshot/interactive/`. Generic code is a project of its own under `src/utils/`. A namespace directory is symlinked into every project that uses it, whether it belongs to `utils/` or to the library of an entity:
+The tools of an entity are interfaces over one library of that entity, as [Oparch Tools](../decisions/015-oparch-tools.md) decides. Each entity has a directory under `tools/` named after it, holding that library as a project in `lib/` and one project per tool, named after what follows the entity in the tool's name: `oparch-snapshot-restore` is `tools/snapshot/restore/`, and `oparch-snapshot-interactive` is `tools/snapshot/interactive/`. Generic code is a project of its own under `tools/utils/`. A namespace directory is symlinked into every project that uses it, whether it belongs to `utils/` or to the library of an entity:
 
 ```
-src/
+tools/
 ├── utils/                          generic code; not built on its own
 │   ├── baml.toml
 │   └── baml_src/
@@ -45,7 +45,7 @@ src/
 
 The namespace of an entity is its name with its hyphens written as underscores: the return message's is `ns_return_message`, reached as `root.return_message`.
 
-The installer is laid out as an entity, `installer`, whose library in `src/installer/lib/` holds the installation. Its two projects are named after what they are rather than after an action, because `oparch-installer` has no action in its name: `unattended/` is `oparch-installer`, and `interactive/` is `oparch-installer-interactive`.
+The installer is laid out as an entity, `installer`, whose library in `tools/installer/lib/` holds the installation. Its two projects are named after what they are rather than after an action, because `oparch-installer` has no action in its name: `unattended/` is `oparch-installer`, and `interactive/` is `oparch-installer-interactive`.
 
 An interactive tool over a system tool has no library, so the directory of its entity holds that tool's project alone.
 
@@ -53,11 +53,11 @@ An entity is added by creating its directory and its library. A tool is added by
 
 ### What goes in `utils/`, in a library, and in a tool
 
-`src/utils/` holds what is generic: code that would read the same if the tool it was first written for did not exist. Running commands, touching files, reading YAML, splitting text.
+`tools/utils/` holds what is generic: code that would read the same if the tool it was first written for did not exist. Running commands, touching files, reading YAML, splitting text.
 
 The domain logic of an entity belongs to its library, whichever of its tools first needed it, and stays there when a project outside the entity needs it too. That project symlinks the namespace exactly as it symlinks a shared one.
 
-The return-message template package and its values format are the case: they belong to the return message, and they are specified under `oparch-return-message-render` in `docs/`. They live in `src/return-message/lib/baml_src/ns_return_message/`, and the installer links them from there, because it asks for the fields a package declares and validates the same values in its own configuration file.
+The return-message template package and its values format are the case: they belong to the return message, and they are specified under `oparch-return-message-render` in `docs/`. They live in `tools/return-message/lib/baml_src/ns_return_message/`, and the installer links them from there, because it asks for the fields a package declares and validates the same values in its own configuration file.
 
 The project of a tool holds its interface and no domain logic: the arguments it reads and what it prints, or the screens it draws and whatever the interface does to the system so it can be used.
 
@@ -65,11 +65,11 @@ A tool with no host declares no generator and has no `host/`. It ships as what `
 
 ## Where the tests are, and why they are in two places
 
-The unit tests are in `src/`, beside the code they test. The end-to-end harness is in `tests/`. That is not a preference; it is what the language allows.
+The unit tests are in `tools/`, beside the code they test. The end-to-end harness is in `tests/`. That is not a preference; it is what the language allows.
 
 A BAML test is a `test` block, written in a `.baml` file inside the project's `baml_src/`. It is source, compiled with everything around it, and there is nowhere else to put it: a directory outside the project is not part of the project, and the project cannot reference one. So the tests of a library or a tool are in its files — most of them at the foot of the file whose functions they exercise, and the dotfiles library's in a `tests.baml` of its own because they cross most of it.
 
-What a test reads goes in `tests/` **inside the project**, as `src/dotfiles/lib/tests/fixtures/` does. Relative paths in a test resolve against the project directory rather than against the working directory — `baml --directory src/dotfiles/lib test` finds them from anywhere — so a fixture is addressed the same way whoever runs the suite is standing.
+What a test reads goes in `tests/` **inside the project**, as `tools/dotfiles/lib/tests/fixtures/` does. Relative paths in a test resolve against the project directory rather than against the working directory — `baml --directory tools/dotfiles/lib test` finds them from anywhere — so a fixture is addressed the same way whoever runs the suite is standing.
 
 That is why a test that reads a fixture is in the root namespace of its project and never inside a namespace. The tests inside a namespace run in every project the namespace is linked into, and there a relative path resolves against that project, where the fixture is not.
 
@@ -83,11 +83,11 @@ The harness is the opposite case and gets the opposite answer. It boots a virtua
 - Only generic code lives there, because a directory named for what code *is not* — not specific to anyone — collects whatever has two callers, and ends up holding the domain of every tool with none of their names on it. What belongs to an entity is that entity's, however many projects read it.
 - The domain logic of an entity stays in its library even when a project outside the entity needs it, because where code lives is what says who owns it. If it moves out on its second caller, ownership follows use, and the answer to "who decides what this format means" changes every time something new reads it.
 - The shared code is reached by symlinking its namespace directory because BAML offers no other way to pull sources in from outside a project; if the files are duplicated instead, whichever project owns them stops being the source of truth it exists to be.
-- `src/utils/` and the library of each entity declare no generator because they produce no artifact of their own; they exist to be included and to hold the tests for what they provide.
+- `tools/utils/` and the library of each entity declare no generator because they produce no artifact of their own; they exist to be included and to hold the tests for what they provide.
 - A tool with no host declares no generator either, for the same reason: a generator exists to hand BAML's symbols to another language, and there is no other language to hand them to.
 - `scripts/` is apart from `tests/` because what is in it is not a test: `install.sh` is published and run on a live environment, and `vm-installer.sh` and `vm.sh` are how a working tree is tried by hand. Keeping the tests in one directory of their own is what lets every kind of them be found in the same place.
 - What drives a guest is in `scripts/lib/` rather than in the harness because more than the tests drive one: the harness runs its cases in a guest, and `vm.sh` installs a machine in one. Kept in the harness, `vm.sh` would reach into `tests/` for it; split this way, the tests depend on a script and a script never depends on the tests.
-- `packages/` and `archiso/` are at the top level because nothing already there could hold them: `src/` holds BAML projects and a `PKGBUILD` is not one, `assets/` is what the tools ship or read and neither a package definition nor an image profile is read by any tool, and `tests/` is the tests. What the two have in common is that they describe what is made out of this repository, packages and images, rather than what is in it, and that is not what any of the others is for.
+- `packages/` and `archiso/` are at the top level because nothing already there could hold them: `tools/` holds BAML projects and a `PKGBUILD` is not one, `assets/` is what the tools ship or read and neither a package definition nor an image profile is read by any tool, and `tests/` is the tests. What the two have in common is that they describe what is made out of this repository, packages and images, rather than what is in it, and that is not what any of the others is for.
 - `packages/` also holds what generates the key those packages are signed with, because a key whose only purpose is to sign them is not a subject apart from them, and a directory of its own for one script is a place nothing else would ever go.
 - `.cloudflare/` holds what is deployed rather than installed, and it is in the repository at all so that what answers on the project's own addresses can be read by whoever wonders what answered. Its name is not imposed by anything; it is the one the other project of this author already uses for the same thing, and a second convention for one purpose is a convention nobody remembers.
 - `.github/` is where it is because GitHub requires that name and that place. There is nothing decided about a path this project does not get to choose, and it is named here only so that the list above is the whole list.

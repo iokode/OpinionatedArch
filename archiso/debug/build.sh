@@ -64,12 +64,12 @@ capped() {
 # ------------------------------------------------------------------ the tools
 
 say "Building the tools from $ROOT"
-( cd "$ROOT/src/installer/unattended" && capped baml pack main --output ./oparch-installer )
-capped baml --directory "$ROOT/src/installer/interactive" generate
-capped cargo build --release --manifest-path "$ROOT/src/installer/interactive/host/Cargo.toml"
-( cd "$ROOT/src/return-message/render" \
+( cd "$ROOT/tools/installer/unattended" && capped baml pack main --output ./oparch-installer )
+capped baml --directory "$ROOT/tools/installer/interactive" generate
+capped cargo build --release --manifest-path "$ROOT/tools/installer/interactive/host/Cargo.toml"
+( cd "$ROOT/tools/return-message/render" \
     && capped baml pack main --output ./oparch-return-message-render )
-( cd "$ROOT/src/dotfiles/sync" && capped baml pack main --output ./oparch-dotfiles-sync )
+( cd "$ROOT/tools/dotfiles/sync" && capped baml pack main --output ./oparch-dotfiles-sync )
 
 # The runtime library the interactive installer's host loads, for the toolchain
 # the host was built against. It is fetched the way the setup-baml action
@@ -77,7 +77,7 @@ capped cargo build --release --manifest-path "$ROOT/src/installer/interactive/ho
 toolchain="$(awk '
     /^name = "baml_bridge"$/ { found = 1; next }
     found && /^version = / { gsub(/[",]/, "", $3); print $3; exit }
-' "$ROOT/src/installer/interactive/host/Cargo.lock")"
+' "$ROOT/tools/installer/interactive/host/Cargo.lock")"
 library="$HOME/.cache/baml/libs/$toolchain/libbaml_cffi-$TARGET.so"
 if [ ! -f "$library" ]; then
     manifest="$HOME/.baml/manifest-cache/prod/version/$toolchain.json"
@@ -146,12 +146,12 @@ printf '%s:4:\n' "$fingerprint" > "$keyrings/oparch-trusted"
 # published image starts the installer with.
 say "Putting the tools in"
 mkdir -p "$air/usr/bin" "$air/usr/lib/oparch" "$air/usr/share/opinionatedarch" "$air/root"
-cp "$ROOT/src/installer/unattended/oparch-installer" "$air/usr/bin/"
+cp "$ROOT/tools/installer/unattended/oparch-installer" "$air/usr/bin/"
 cp "$ROOT/packages/oparch-installer/oparch-installer-interactive.sh" \
     "$air/usr/bin/oparch-installer-interactive"
-cp "$ROOT/src/return-message/render/oparch-return-message-render" "$air/usr/bin/"
-cp "$ROOT/src/dotfiles/sync/oparch-dotfiles-sync" "$air/usr/bin/"
-cp "$ROOT/src/installer/interactive/host/target/release/oparch-installer-interactive" \
+cp "$ROOT/tools/return-message/render/oparch-return-message-render" "$air/usr/bin/"
+cp "$ROOT/tools/dotfiles/sync/oparch-dotfiles-sync" "$air/usr/bin/"
+cp "$ROOT/tools/installer/interactive/host/target/release/oparch-installer-interactive" \
     "$air/usr/lib/oparch/"
 cp "$library" "$air/usr/lib/oparch/"
 cp -r "$ROOT/assets" "$air/usr/share/opinionatedarch/assets"
