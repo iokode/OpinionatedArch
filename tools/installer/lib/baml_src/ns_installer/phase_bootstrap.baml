@@ -23,7 +23,7 @@ function packaged_netboot_binary() -> string {
 /// The package set from `docs/tools/installer/unattended/002-inputs-and-bootstrap-baseline.md`,
 /// plus the packages the selected hardware and options require.
 function bootstrap_packages(config: InstallConfig) -> string[] {
-    //# the last eight are every tool this project ships except the installer,
+    //# the last nine are every tool this project ships except the installer,
     //# which runs from a live environment and has no use on a machine that is
     //# installed, and the keyring, which is what lets the rest be updated from
     //# the repository they came from
@@ -33,7 +33,8 @@ function bootstrap_packages(config: InstallConfig) -> string[] {
         "sudo", "networkmanager", "ipxe",
         "oparch-assets", "oparch-return-message-render", "oparch-dotfiles-sync",
         "oparch-work-context-list", "oparch-work-context-create",
-        "oparch-snapshot-system-create", "oparch-snapshot-work-context-create", "oparch-keyring",
+        "oparch-snapshot-system-create", "oparch-snapshot-work-context-create",
+        "oparch-snapshot-automatic-create", "oparch-keyring",
     ];
     if (config.ucode_package != "none") {
         packages.push(config.ucode_package);
@@ -266,7 +267,8 @@ test "bootstrap_packages is the documented baseline when nothing is selected" {
         "sudo", "networkmanager", "ipxe",
         "oparch-assets", "oparch-return-message-render", "oparch-dotfiles-sync",
         "oparch-work-context-list", "oparch-work-context-create",
-        "oparch-snapshot-system-create", "oparch-snapshot-work-context-create", "oparch-keyring",
+        "oparch-snapshot-system-create", "oparch-snapshot-work-context-create",
+        "oparch-snapshot-automatic-create", "oparch-keyring",
     ])
 }
 
@@ -350,7 +352,7 @@ test "bootstrap installs, writes fstab and stages the netboot binary" {
             + " oparch-assets oparch-return-message-render oparch-dotfiles-sync"
             + " oparch-work-context-list oparch-work-context-create"
             + " oparch-snapshot-system-create oparch-snapshot-work-context-create"
-            + " oparch-keyring amd-ucode",
+            + " oparch-snapshot-automatic-create oparch-keyring amd-ucode",
     ]);
     assert.equal(files.written.get("/mnt/etc/fstab"), "UUID=5f3a / btrfs subvol=@ 0 0\n");
     assert.is_true(files.directories.includes("/mnt/boot/EFI/OpinionatedArch"));
@@ -381,7 +383,7 @@ test "an installation without a network installs from the medium alone" {
             + " oparch-assets oparch-return-message-render oparch-dotfiles-sync"
             + " oparch-work-context-list oparch-work-context-create"
             + " oparch-snapshot-system-create oparch-snapshot-work-context-create"
-            + " oparch-keyring amd-ucode",
+            + " oparch-snapshot-automatic-create oparch-keyring amd-ucode",
     ])
 }
 

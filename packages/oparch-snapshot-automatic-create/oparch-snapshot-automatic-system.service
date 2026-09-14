@@ -1,0 +1,14 @@
+# The automatic snapshot of the system, as docs/decisions/004-snapshots.md takes
+# one: when the machine starts, because multi-user.target wants this unit, and
+# before each package transaction, because a pacman hook starts it.
+#
+# Nothing requires it, so a snapshot that cannot be taken fails this unit and
+# nothing else, and what the tool said about it is in the journal.
+
+[Unit]
+Description=Automatic snapshot of the system
+RequiresMountsFor=/snapshots /boot
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/oparch-snapshot-automatic-create system

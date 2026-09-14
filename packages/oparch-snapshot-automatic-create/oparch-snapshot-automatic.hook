@@ -1,0 +1,20 @@
+# The automatic snapshot of the system before each transaction that installs or
+# upgrades a package, as docs/decisions/004-snapshots.md takes one. It starts
+# the same unit the machine starts with and waits for it, so the snapshot holds
+# the system as it was before the transaction and what the tool said is in the
+# journal.
+#
+# There is no AbortOnFail: a snapshot that cannot be taken is reported and the
+# transaction goes on. In a chroot systemctl starts nothing, so a transaction
+# run inside a system being installed takes no snapshot.
+
+[Trigger]
+Type = Package
+Operation = Install
+Operation = Upgrade
+Target = *
+
+[Action]
+Description = Taking an automatic snapshot of the system...
+When = PreTransaction
+Exec = /usr/bin/systemctl start oparch-snapshot-automatic-system.service

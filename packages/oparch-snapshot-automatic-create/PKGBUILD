@@ -1,0 +1,58 @@
+pkgname=oparch-snapshot-automatic-create
+pkgver=0.1.0dev1
+pkgrel=1
+pkgdesc="Takes the automatic snapshots of the system and of each work context's home, and keeps the last sixty"
+arch=('x86_64')
+url='https://github.com/iokode/OpinionatedArch'
+license=('BSD-2-Clause')
+
+# No separate package of debug symbols, which makepkg would otherwise make and
+# the repository would then hold alongside every tool it publishes.
+#
+# And nothing is stripped. `baml pack` leaves the program this tool runs in
+# sections of the binary it produces, and `strip` takes them out: what is left
+# starts, finds no program inside itself, and says so.
+options=('!debug' '!strip')
+
+# What the Requirements section of
+# docs/tools/snapshot/automatic-create/000-command.md names.
+depends=('btrfs-progs' 'coreutils' 'util-linux' 'glibc' 'systemd')
+
+# The binary is built by the workflow and left beside this file. There is no
+# build() here: the toolchain that produces it is not an Arch package, so
+# makepkg cannot compile it and only packages what it is handed. The rest is
+# what runs it at each moment docs/decisions/004-snapshots.md takes an
+# automatic snapshot, and is kept here.
+source=('oparch-snapshot-automatic-create'
+        'oparch-snapshot-automatic-system.service'
+        'oparch-snapshot-automatic-home@.service'
+        'oparch-snapshot-automatic-home.conf'
+        'oparch-snapshot-automatic.hook')
+sha256sums=('SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP')
+
+package() {
+    install -Dm755 "${srcdir}/oparch-snapshot-automatic-create" \
+        "${pkgdir}/usr/bin/oparch-snapshot-automatic-create"
+
+    # When the machine starts: the unit is wanted by multi-user.target from the
+    # package's own directory, so installing the package is what enables it.
+    install -Dm644 "${srcdir}/oparch-snapshot-automatic-system.service" \
+        "${pkgdir}/usr/lib/systemd/system/oparch-snapshot-automatic-system.service"
+    install -dm755 "${pkgdir}/usr/lib/systemd/system/multi-user.target.wants"
+    ln -s ../oparch-snapshot-automatic-system.service \
+        "${pkgdir}/usr/lib/systemd/system/multi-user.target.wants/oparch-snapshot-automatic-system.service"
+
+    # Before each package transaction, which starts the same unit.
+    install -Dm644 "${srcdir}/oparch-snapshot-automatic.hook" \
+        "${pkgdir}/usr/share/libalpm/hooks/00-oparch-snapshot-automatic.hook"
+
+    # When a work context logs in: its user manager wants the unit for its UID.
+    install -Dm644 "${srcdir}/oparch-snapshot-automatic-home@.service" \
+        "${pkgdir}/usr/lib/systemd/system/oparch-snapshot-automatic-home@.service"
+    install -Dm644 "${srcdir}/oparch-snapshot-automatic-home.conf" \
+        "${pkgdir}/usr/lib/systemd/system/user@.service.d/oparch-snapshot-automatic-home.conf"
+}

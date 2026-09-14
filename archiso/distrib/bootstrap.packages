@@ -38,5 +38,6 @@ oparch-work-context-list
 oparch-work-context-create
 oparch-snapshot-system-create
 oparch-snapshot-work-context-create
+oparch-snapshot-automatic-create
 oparch-assets
 oparch-keyring

@@ -78,6 +78,8 @@ capped cargo build --release --manifest-path "$ROOT/tools/installer/interactive/
     && capped baml pack main --output ./oparch-snapshot-system-create )
 ( cd "$ROOT/tools/snapshot/work-context-create" \
     && capped baml pack main --output ./oparch-snapshot-work-context-create )
+( cd "$ROOT/tools/snapshot/automatic-create" \
+    && capped baml pack main --output ./oparch-snapshot-automatic-create )
 
 # The runtime library the interactive installer's host loads, for the toolchain
 # the host was built against. It is fetched the way the setup-baml action
@@ -163,6 +165,7 @@ cp "$ROOT/tools/work-context/list/oparch-work-context-list" "$air/usr/bin/"
 cp "$ROOT/tools/work-context/create/oparch-work-context-create" "$air/usr/bin/"
 cp "$ROOT/tools/snapshot/system-create/oparch-snapshot-system-create" "$air/usr/bin/"
 cp "$ROOT/tools/snapshot/work-context-create/oparch-snapshot-work-context-create" "$air/usr/bin/"
+cp "$ROOT/tools/snapshot/automatic-create/oparch-snapshot-automatic-create" "$air/usr/bin/"
 cp "$ROOT/tools/installer/interactive/host/target/release/oparch-installer-interactive" \
     "$air/usr/lib/oparch/"
 cp "$library" "$air/usr/lib/oparch/"

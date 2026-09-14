@@ -1,0 +1,15 @@
+# The automatic snapshot of the home of the work context with the UID this unit
+# is an instance for, as docs/decisions/004-snapshots.md takes one when a work
+# context logs in. The user manager of that work context wants this unit and
+# starts after it, through oparch-snapshot-automatic-home.conf.
+#
+# Nothing requires it, so a snapshot that cannot be taken fails this unit and
+# nothing else, and what the tool said about it is in the journal.
+
+[Unit]
+Description=Automatic snapshot of the home of UID %i
+RequiresMountsFor=/snapshots
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/oparch-snapshot-automatic-create home %i
