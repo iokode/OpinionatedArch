@@ -4,7 +4,7 @@
 
 `oparch-snapshot-restore` restores a concrete snapshot for either system scope or user-home scope using the single `@snapshots` layout.
 
-Every restore runs from the recovery system, as [Snapshots](../../decisions/004-snapshots.md) decides: neither `@` nor the home of a work context is restored while the installed system is running.
+Every restore runs from the recovery system, as [Snapshots](../../../decisions/004-snapshots.md) decides: neither `@` nor the home of a work context is restored while the installed system is running.
 
 Restoring a system snapshot also puts back the set of boot artifacts recorded with it.
 

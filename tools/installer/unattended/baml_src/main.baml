@@ -3,7 +3,7 @@
 // Installs from a configuration file, takes over no terminal and asks nothing.
 // Progress is written as plain timestamped lines, so that a run can be logged
 // and read by a test. The command is documented in
-// `docs/tools/oparch-installer/000-command.md`.
+// `docs/tools/installer/unattended/000-command.md`.
 //
 // There is no host program. Nothing here needs a terminal interface, and output
 // read while a command still runs is not needed either: a command's output is

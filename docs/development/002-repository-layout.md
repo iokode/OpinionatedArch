@@ -57,7 +57,7 @@ An entity is added by creating its directory and its library. A tool is added by
 
 The domain logic of an entity belongs to its library, whichever of its tools first needed it, and stays there when a project outside the entity needs it too. That project symlinks the namespace exactly as it symlinks a shared one.
 
-The return-message template package and its values format are the case: they belong to the return message, and they are specified under `oparch-return-message-render` in `docs/`. They live in `tools/return-message/lib/baml_src/ns_return_message/`, and the installer links them from there, because it asks for the fields a package declares and validates the same values in its own configuration file.
+The return-message template package and its values format are the case: they belong to the return message, and they are specified under `docs/tools/return-message/render/`. They live in `tools/return-message/lib/baml_src/ns_return_message/`, and the installer links them from there, because it asks for the fields a package declares and validates the same values in its own configuration file.
 
 The project of a tool holds its interface and no domain logic: the arguments it reads and what it prints, or the screens it draws and whatever the interface does to the system so it can be used.
 

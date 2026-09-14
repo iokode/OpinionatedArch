@@ -1,7 +1,7 @@
 # The unlock screen. It draws no text: everything it shows was composed into an
 # image beforehand by `oparch-return-message-render`, and the installed system
 # carries no font for this screen. What is drawn is decided by the return-message
-# theme, in `docs/tools/oparch-return-message-render/003-theme-format.md`.
+# theme, in `docs/tools/return-message/render/003-theme-format.md`.
 #
 # This file is the body of the script. Whoever installs the theme writes these
 # seven values above it, as literals, and the two together are the script the

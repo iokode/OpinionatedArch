@@ -2,9 +2,9 @@
 
 ## Description
 
-`oparch-installer-interactive` is the interactive interface for installing OpinionatedArch. It runs from the live environment, asks every installation input through a terminal interface one screen at a time, and installs through the installer library, which [oparch-installer](../oparch-installer/000-command.md) is built on too, so an installation made from its screens is the one a configuration file would make.
+`oparch-installer-interactive` is the interactive interface for installing OpinionatedArch. It runs from the live environment, asks every installation input through a terminal interface one screen at a time, and installs through the installer library, which [oparch-installer](../../installer/unattended/000-command.md) is built on too, so an installation made from its screens is the one a configuration file would make.
 
-The screens act on the live environment where the operator needs them to: the keymap is applied to the console as it is chosen, a wireless network is connected to from the network screen, and a device can be mounted to take a source from it, as [Installer Input Sources](../oparch-installer/003-input-sources.md) describes. None of that is part of the installation.
+The screens act on the live environment where the operator needs them to: the keymap is applied to the console as it is chosen, a wireless network is connected to from the network screen, and a device can be mounted to take a source from it, as [Installer Input Sources](../../installer/unattended/003-input-sources.md) describes. None of that is part of the installation.
 
 ## Why is needed
 
@@ -12,14 +12,14 @@ Installing by hand means answering in front of the machine, and several answers 
 
 ## Requirements
 
-Everything [oparch-installer](../oparch-installer/000-command.md) requires, because it installs through the same library. On top of that, what its screens call, which the Arch live medium also carries: `kbd` for `loadkeys`, `iproute2` for `ip`, and `iwd` for `iwctl`.
+Everything [oparch-installer](../../installer/unattended/000-command.md) requires, because it installs through the same library. On top of that, what its screens call, which the Arch live medium also carries: `kbd` for `loadkeys`, `iproute2` for `ip`, and `iwd` for `iwctl`.
 
 `iwctl` talks to a daemon, and on a live medium that daemon is running: it is how `releng` is built, and this project's own image is built from it. `ip` is read for the machine's wireless interfaces rather than `iwctl` being asked, because one prints a line per interface and the other prints a table drawn for a person to look at.
 
 And two things of its own:
 
-- **The BAML runtime library.** This tool has a host, so its binary loads a shared library of about 25 MB rather than carrying it. Where it comes from is [Host Bridge](../../development/001-host-bridge.md). Its package carries it and what goes on `PATH` is a wrapper that names it with `BAML_LIBRARY_PATH`, along with `BAML_LIBRARY_DISABLE_DOWNLOAD`, which turns a missing one into a failure instead of a silent download.
-- **Its assets.** The wrapper names those too, at the one place [Oparch Tools](../../decisions/015-oparch-tools.md) keeps them, because this tool's own default is a directory beside its binary and that is not where the project puts them.
+- **The BAML runtime library.** This tool has a host, so its binary loads a shared library of about 25 MB rather than carrying it. Where it comes from is [Host Bridge](../../../development/001-host-bridge.md). Its package carries it and what goes on `PATH` is a wrapper that names it with `BAML_LIBRARY_PATH`, along with `BAML_LIBRARY_DISABLE_DOWNLOAD`, which turns a missing one into a failure instead of a silent download.
+- **Its assets.** The wrapper names those too, at the one place [Oparch Tools](../../../decisions/015-oparch-tools.md) keeps them, because this tool's own default is a directory beside its binary and that is not where the project puts them.
 
 ## Input parameters
 

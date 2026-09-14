@@ -15,7 +15,7 @@ license=('BSD-2-Clause')
 # package published before this line was that.
 options=('!debug' '!strip')
 
-# What the Requirements section of docs/tools/oparch-dotfiles-sync/000-command.md
+# What the Requirements section of docs/tools/dotfiles/sync/000-command.md
 # names. Every one of them is on any Arch system, and they are declared anyway
 # because nothing is arranged so that they are absent.
 depends=('pacman' 'glibc' 'coreutils')

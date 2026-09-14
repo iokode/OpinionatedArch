@@ -8,7 +8,7 @@
 
 The configuration of the machine is one source, and every work context takes what it needs from it. There is no second copy of a file for a second context.
 
-What one context or one machine needs and another does not is declared, not kept apart: a rule says which contexts and which machines it applies to, and the same source produces all of them. The syntax of those rules is [Dotfiles Map Format](../tools/oparch-dotfiles-sync/001-map-format.md).
+What one context or one machine needs and another does not is declared, not kept apart: a rule says which contexts and which machines it applies to, and the same source produces all of them. The syntax of those rules is [Dotfiles Map Format](../tools/dotfiles/sync/001-map-format.md).
 
 `/dotfiles` is owned `root:dotfiles` with mode `2775`.
 
@@ -22,9 +22,9 @@ Content an installation places under `/dotfiles` is left with directories at `27
 
 `/dotfiles` is listed in git's system-wide `safe.directory`.
 
-Secret values are not kept in `/dotfiles`. They live in a store of their own, `/etc/oparch/dotfiles-sync/secrets/`, owned `root:root` with mode `0700`, which the `dotfiles` group does not reach. What that store holds and how it is read is [Dotfiles Map Format](../tools/oparch-dotfiles-sync/001-map-format.md).
+Secret values are not kept in `/dotfiles`. They live in a store of their own, `/etc/oparch/dotfiles-sync/secrets/`, owned `root:root` with mode `0700`, which the `dotfiles` group does not reach. What that store holds and how it is read is [Dotfiles Map Format](../tools/dotfiles/sync/001-map-format.md).
 
-A change under `/dotfiles` reaches a linked target at once, because that target is a link to it. Everything the map copies or renders is produced by [oparch-dotfiles-sync](../tools/oparch-dotfiles-sync/000-command.md), and changes when it is run.
+A change under `/dotfiles` reaches a linked target at once, because that target is a link to it. Everything the map copies or renders is produced by [oparch-dotfiles-sync](../tools/dotfiles/sync/000-command.md), and changes when it is run.
 
 ## Why
 
@@ -41,5 +41,5 @@ A change under `/dotfiles` reaches a linked target at once, because that target 
 
 - `/dotfiles` is a Git repository only when the package it was installed from was one. A package taken as a directory or an archive leaves files, and the restore path [Disk Layout](001-disk-layout.md) describes does not exist on that machine until someone makes it a repository.
 - The `dotfiles` group is a boundary between the accounts of one person and not between people, as [Work Contexts and Accounts](000-work-contexts-and-accounts.md) establishes. Shared write access to shared configuration is the point of it, not a concession.
-- What [oparch-dotfiles-sync](../tools/oparch-dotfiles-sync/000-command.md) writes is the targets a map declares and its own state under `/var/lib/oparch/`. Its permission to read `/dotfiles` is the group's, and nothing here asks it to write there.
+- What [oparch-dotfiles-sync](../tools/dotfiles/sync/000-command.md) writes is the targets a map declares and its own state under `/var/lib/oparch/`. Its permission to read `/dotfiles` is the group's, and nothing here asks it to write there.
 

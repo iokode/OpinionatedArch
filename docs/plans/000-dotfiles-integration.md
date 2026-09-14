@@ -1,6 +1,6 @@
 # Dotfiles Integration Plan
 
-`oparch-dotfiles-sync` exists and the installer collects a dotfiles package, but nothing joins the two: [Installer Input Sources](../tools/oparch-installer/003-input-sources.md) still says that nothing consumes the package, and [Remaining](../state/001-remaining.md) records that an installation answered by hand does not even fetch it. This plan is how that gap closes — where the step goes, how the package gets to `/dotfiles`, how it is judged before the disk is touched, and what a map that needs credentials does about them.
+`oparch-dotfiles-sync` exists and the installer collects a dotfiles package, but nothing joins the two: [Installer Input Sources](../tools/installer/unattended/003-input-sources.md) still says that nothing consumes the package, and [Remaining](../state/001-remaining.md) records that an installation answered by hand does not even fetch it. This plan is how that gap closes — where the step goes, how the package gets to `/dotfiles`, how it is judged before the disk is touched, and what a map that needs credentials does about them.
 
 **This plan has been carried out, and is kept rather than deleted.** As of 2026-08-13 the installer has the phase and runs the tool from inside the target, the keymap is the first screen and `loadkeys` applies it there, `bring_here` clones the dotfiles package whole where it clones the other two at one revision, the tool has `--hostname`, `--user`, `--secrets-root` and the mode that lists what a plan needs, the `Secrets` port exists with its recording double, and the documents named at the foot were written. What is not done is the end-to-end coverage: the harness carries the first of the five cases [End-to-End Testing](../development/006-end-to-end-testing.md) describes and one of the two fixtures they need, which [Remaining](../state/001-remaining.md) follows from here.
 
@@ -42,7 +42,7 @@ A package is rejected at the form, not at the end of the installation. What make
 
 The tool already reports everything the rejection needs. A map that does not parse, a version it does not implement, an `include` that is not there, a source that is missing, a symlink or special file where a regular one was declared, a path escaping the package, a render source that is a directory, a reference to an undeclared value, a secret whose store file is absent — all of them are diagnostics from `build_plan`, and all of them are produced before anything is applied. No second implementation of the format is needed anywhere, and the installer does not link the tool's namespace.
 
-What is judged is **this machine's plan**: rules whose selectors do not match this hostname or these users are not expanded, so their sources are not checked. That is what [Dotfiles Map Format](../tools/oparch-dotfiles-sync/001-map-format.md) already specifies, and it is what makes a package shareable — a public package describes machines that are not this one, and demanding that every file and every secret in it be present here would make it unusable everywhere.
+What is judged is **this machine's plan**: rules whose selectors do not match this hostname or these users are not expanded, so their sources are not checked. That is what [Dotfiles Map Format](../tools/dotfiles/sync/001-map-format.md) already specifies, and it is what makes a package shareable — a public package describes machines that are not this one, and demanding that every file and every secret in it be present here would make it unusable everywhere.
 
 ## Telling the tool which machine to plan for
 
@@ -59,7 +59,7 @@ These arguments describe a machine; they do not aim the tool at one. What it wri
 
 ## Secrets
 
-A map may declare secrets, and the store they are read from is not populated on a machine being installed. Skipping the rules that need them is not available: [Dotfiles Map Format](../tools/oparch-dotfiles-sync/001-map-format.md) rules it out in as many words, and the all-or-nothing rule rules it out again.
+A map may declare secrets, and the store they are read from is not populated on a machine being installed. Skipping the rules that need them is not available: [Dotfiles Map Format](../tools/dotfiles/sync/001-map-format.md) rules it out in as many words, and the all-or-nothing rule rules it out again.
 
 So the store arrives as an input, like every other piece of content the operator points at: **one encrypted archive**, decrypted with a passphrase given at the form. Typing one passphrase is the cost; typing every token is what it replaces. [Remaining](../state/001-remaining.md) carries the tool that produces such an archive.
 
@@ -83,7 +83,7 @@ That is already wrong for the shared secret, which [Remaining](../state/001-rema
 
 So the keymap is asked before every other input, on a screen of its own ahead of the disk, and `loadkeys` applies it the moment it is answered. Everything after it is typed under it, including the screen it is changed from when the operator goes back to it.
 
-This moves the order [oparch-installer](../tools/oparch-installer/000-command.md) lists for the screens and the one [Installer Inputs and Bootstrap Baseline](../tools/oparch-installer/002-inputs-and-bootstrap-baseline.md) numbers for the inputs, and it settles the entry [Remaining](../state/001-remaining.md) carries.
+This moves the order [oparch-installer](../tools/installer/unattended/000-command.md) lists for the screens and the one [Installer Inputs and Bootstrap Baseline](../tools/installer/unattended/002-inputs-and-bootstrap-baseline.md) numbers for the inputs, and it settles the entry [Remaining](../state/001-remaining.md) carries.
 
 ## Running it
 

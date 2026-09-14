@@ -3,7 +3,7 @@
 // Builds the three images the boot splash shows and installs them into the
 // theme, from a template package, the values that fill it and a theme. The
 // command is documented in
-// `docs/tools/oparch-return-message-render/000-command.md`, and what it runs is
+// `docs/tools/return-message/render/000-command.md`, and what it runs is
 // the return message's library.
 //
 // There is no host program. Nothing here needs a terminal interface or the

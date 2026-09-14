@@ -1,6 +1,6 @@
 // End-to-end tests over the parser, the include graph and the plan builder.
 // The fixture map under `tests/fixtures/dotfiles` mirrors the example in
-// `docs/tools/oparch-dotfiles-sync/001-map-format.md`.
+// `docs/tools/dotfiles/sync/001-map-format.md`.
 //
 // They are in the root namespace of the library rather than inside it, because
 // they read fixtures by a path relative to this project, and a test inside the

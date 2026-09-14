@@ -3,7 +3,7 @@
 // A dotfiles map declares the secrets its renders need and never carries their
 // values, so a machine being installed has to be given them from outside. What
 // it is given is one encrypted file, as
-// `docs/tools/oparch-dotfiles-sync/002-secret-store-archive.md` specifies.
+// `docs/tools/dotfiles/sync/002-secret-store-archive.md` specifies.
 //
 // This is a port for the same reason `root.common.Shell` is one: the work
 // happens somewhere else — in `age`, because BAML's standard library has no

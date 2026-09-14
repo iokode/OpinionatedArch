@@ -51,7 +51,7 @@ Three things about the generated entry point:
 
 ## The standard library
 
-- `baml.yaml.parse` requires **string mapping keys**: a mapping keyed by numbers fails with `YAML mappings must use string keys to fit baml.json.json`. A format that wants to key entries by a number has to quote them, which is why `arrangement` in [Return Message Theme Format](../tools/oparch-return-message-render/003-theme-format.md) is written `"1":`.
+- `baml.yaml.parse` requires **string mapping keys**: a mapping keyed by numbers fails with `YAML mappings must use string keys to fit baml.json.json`. A format that wants to key entries by a number has to quote them, which is why `arrangement` in [Return Message Theme Format](../tools/return-message/render/003-theme-format.md) is written `"1":`.
 - `baml.sys.exec`'s `ProcessOptions.env` **replaces the environment rather than adding to it**. `PATH` survives, `HOME` does not. Anything the child needs has to be passed.
 - `baml.sys.exec` takes the program and its arguments separately, so nothing built from a template package or a theme is ever parsed by a shell.
 

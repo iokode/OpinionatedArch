@@ -10,7 +10,7 @@ The return message is optional. When enabled, it is shown at the disk unlock pro
 
 ### The message
 
-The wording of the message, the languages it offers and the data it needs are not fixed by this project: they come from a template package, which the operator may supply and which the project ships one of. Its format is [Return Message Template Package Format](../tools/oparch-return-message-render/001-template-package-format.md).
+The wording of the message, the languages it offers and the data it needs are not fixed by this project: they come from a template package, which the operator may supply and which the project ships one of. Its format is [Return Message Template Package Format](../tools/return-message/render/001-template-package-format.md).
 
 A package is data. Nothing in it is executed, and its text is escaped wherever it is embedded, so a package obtained from a URL cannot introduce anything that runs during boot.
 
@@ -22,7 +22,7 @@ The message is rendered to images, and those images are what the unlock screen d
 
 The rendered images reach the edges of the screen. Their content does not: the renderer composes them with a margin around it.
 
-What the message looks like, and how the languages are arranged, are the theme's, as decided in [Return Message Themes](../tools/oparch-return-message-render/004-themes.md).
+What the message looks like, and how the languages are arranged, are the theme's, as decided in [Return Message Themes](../tools/return-message/render/004-themes.md).
 
 Everything the unlock screen needs is on the machine before the initramfs is built. Nothing is fetched at boot.
 
@@ -54,7 +54,7 @@ If the boot splash fails, unlock still falls back to a text-mode prompt.
 
 - Contact data is intentionally public on the pre-boot screen.
 - The rendered message is an image, so it carries no selectable text. This is accepted: at this point there is no operating system and no assistive tooling, and what a finder sees is pixels either way.
-- Changing the message on an installed system means rendering it again with [oparch-return-message-render](../tools/oparch-return-message-render/000-command.md).
+- Changing the message on an installed system means rendering it again with [oparch-return-message-render](../tools/return-message/render/000-command.md).
 - Return-message readability must be validated on the real display resolutions used by the target machines.
-- What the rendered message looks like is a theme's, decided in [Return Message Themes](../tools/oparch-return-message-render/004-themes.md).
+- What the rendered message looks like is a theme's, decided in [Return Message Themes](../tools/return-message/render/004-themes.md).
 

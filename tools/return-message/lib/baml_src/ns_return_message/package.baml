@@ -1,5 +1,5 @@
 // Reading a return-message template package, as defined in
-// `docs/tools/oparch-return-message-render/001-template-package-format.md`.
+// `docs/tools/return-message/render/001-template-package-format.md`.
 //
 // Two tools read a package: the installer, to know which values to ask for,
 // and `oparch-return-message-render`, to build the message. They read it with
