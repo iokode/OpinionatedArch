@@ -1,5 +1,5 @@
 pkgname=oparch-installer
-pkgver=0.1.0dev6
+pkgver=0.1.0dev7
 pkgrel=1
 pkgdesc="Installs OpinionatedArch onto a machine, from a live environment"
 arch=('x86_64')
@@ -17,9 +17,11 @@ options=('!debug' '!strip')
 # What the Requirements sections of docs/tools/installer/unattended/000-command.md
 # and docs/tools/installer/interactive/000-command.md name. The two tools
 # are there because the installer calls them by name and needs them on PATH;
-# the rest are what it calls without checking whether they are present, which is
-# what lets a live environment be given rather than examined.
+# the BAML runtime because the interactive installer's host loads it; the rest
+# are what it calls without checking whether they are present, which is what
+# lets a live environment be given rather than examined.
 depends=('oparch-assets'
+         'oparch-baml-runtime'
          'oparch-return-message-render'
          'oparch-dotfiles-sync'
          'git'
@@ -37,17 +39,14 @@ depends=('oparch-assets'
          'tar'
          'age>=1.3.1')
 
-# All four are built by the workflow and left beside this file: the unattended
-# installer, which `baml pack` made and which carries its runtime inside it; the
-# interactive one, which has a host; the BAML runtime that host loads, carried
-# rather than fetched so that an installation does not depend on a network it
-# has not configured yet; and the wrapper that points the one at the other.
+# The unattended installer, which `baml pack` made and which carries its runtime
+# inside it, and the interactive one, which has a host, are built by the
+# workflow and left beside this file; the wrapper that points the interactive
+# one at the BAML runtime its host loads is committed beside it.
 source=('oparch-installer'
         'oparch-installer-interactive'
-        'libbaml_cffi-x86_64-unknown-linux-gnu.so'
         'oparch-installer-interactive.sh')
 sha256sums=('SKIP'
-            'SKIP'
             'SKIP'
             'SKIP')
 
@@ -55,12 +54,11 @@ package() {
     install -Dm755 "${srcdir}/oparch-installer" \
         "${pkgdir}/usr/bin/oparch-installer"
 
-    # The interactive binary and its library sit together, out of the way, and
-    # what goes on PATH is the wrapper that points the one at the other.
+    # The interactive binary sits beside the library oparch-baml-runtime puts
+    # there, out of the way, and what goes on PATH is the wrapper that points
+    # the one at the other.
     install -Dm755 "${srcdir}/oparch-installer-interactive" \
         "${pkgdir}/usr/lib/oparch/oparch-installer-interactive"
-    install -Dm755 "${srcdir}/libbaml_cffi-x86_64-unknown-linux-gnu.so" \
-        "${pkgdir}/usr/lib/oparch/libbaml_cffi-x86_64-unknown-linux-gnu.so"
     install -Dm755 "${srcdir}/oparch-installer-interactive.sh" \
         "${pkgdir}/usr/bin/oparch-installer-interactive"
 }

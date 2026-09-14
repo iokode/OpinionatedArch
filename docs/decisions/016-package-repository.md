@@ -10,7 +10,7 @@ OpinionatedArch publishes its tools as pacman packages, in a repository of its o
 
 The repository is named `oparch` and is served over HTTPS from `https://packages.oparch.iokode.dev`, for the `x86_64` architecture. It is a set of static files — the packages, their signatures and the repository database — and nothing runs on the serving side.
 
-It holds a package for each tool this project ships, and a package for what those tools need that is not a tool: the assets they read, and the public half of the key they are all signed with. The installer's two tools, `oparch-installer` and `oparch-installer-interactive`, are the exception, and travel together in one package, `oparch-installer`.
+It holds a package for each tool this project ships, and a package for what those tools need that is not a tool: the assets they read, the BAML runtime library the tools with a host load, and the public half of the key they are all signed with. The installer's two tools, `oparch-installer` and `oparch-installer-interactive`, are the exception, and travel together in one package, `oparch-installer`.
 
 Every package and the repository database are signed, and the signature is required: pacman is configured for this repository with `SigLevel = Required TrustedOnly`, wherever an installation runs and on every installed system alike. The private half of the key is held by the project's continuous integration, which signs what it publishes, and nothing reaches the repository unsigned.
 
