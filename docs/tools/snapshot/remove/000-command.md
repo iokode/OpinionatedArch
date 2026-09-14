@@ -4,7 +4,7 @@
 
 `oparch-snapshot-remove` removes one snapshot, of either scope, automatic or manual.
 
-Removing a system snapshot also removes its line from the table [Boot Artifacts Table Format](../create/002-boot-table-format.md) specifies, and then deletes every set of boot artifacts that no line points at, so the set it pointed at goes when no other snapshot points at that set. Removing a manual snapshot also removes its justification from the labels file [Snapshot Labels File Format](../create/001-labels-file-format.md) defines.
+Removing a system snapshot also removes its line from the table [Boot Artifacts Table Format](../create/002-boot-table-format.md) specifies, and then deletes every set of boot artifacts that no line points at. Removing a manual snapshot also removes its justification from the labels file [Snapshot Labels File Format](../create/001-labels-file-format.md) defines.
 
 It does all of it while holding the lock [Snapshot Storage Lock](../create/003-storage-lock.md) specifies, and waits for the lock when another tool holds it. The subvolume is deleted first, so a snapshot that cannot be deleted keeps its line and its label.
 

@@ -24,7 +24,7 @@ The lock belongs to the process holding it, and it is released when that process
 
 ## Why
 
-- There is one lock for all three because one operation changes more than one of them: a system snapshot stores a set, adds a line to the table and adds a label, and removing a system snapshot removes its line and then the set nothing points at any more. A lock for each would let one run delete a set between the moment another run stored it and the moment it wrote the line that points at it.
+- There is one lock for all three because one operation changes more than one of them: a system snapshot stores a set, adds a line to the table and adds a label, and removing a system snapshot removes its line and then every set no line points at. A lock for each would let one run delete a set between the moment another run stored it and the moment it wrote the line that points at it.
 - A tool waits for the lock rather than giving up because the runs that find it held are the ones nobody is watching: an automatic snapshot at boot or before a transaction, refused because the operator was taking one by hand at the same moment, is a rollback point missing on the day it is wanted.
 - The moment is read under the lock so that the order of the names is the order in which the snapshots were written into the table.
 - The lock is a `flock(2)` lock because the kernel releases it when its holder ends. A lock that had to be removed by the tool that took it would be left behind by a tool killed half way, and every snapshot after it would wait for ever.
