@@ -44,7 +44,7 @@ See [Installation Overview](docs/general/002-installation-overview.md) for what 
 ## Repository layout
 
 ```text
-├── src/
+├── tools/
 ├── tests/
 ├── assets/
 ├── packages/
@@ -54,11 +54,11 @@ See [Installation Overview](docs/general/002-installation-overview.md) for what 
 └── docs/
 ```
 
-- `src/`: one directory per tool, and the code they share
+- `tools/`: one directory per tool, and the code they share
 - `tests/`: the end-to-end harness; the unit tests live with the code they test
 - `assets/`: managed project assets
 - `packages/`: the packages the project publishes, and what it takes to sign them
-- `archiso/`: the profile the installation image is built from
+- `archiso/`: the profiles images are built from
 - `.github/`: the workflows that build, publish and deploy all of it
 - `.cloudflare/`: what the project runs at the edge of its own domain
 - `docs/`: project documentation

@@ -47,12 +47,14 @@ jobs:
           # The host runs the BAML program embedded in its generated SDK, and
           # only `baml generate` puts a change to baml_src/ there. Building the
           # binary without this step ships the previous program.
-          baml --directory src/installer generate
-          cargo build --release --manifest-path src/installer/host/Cargo.toml
+          baml --directory tools/installer/interactive generate
+          cargo build --release --manifest-path tools/installer/interactive/host/Cargo.toml
 
-          ( cd src/return-message-render \
+          ( cd tools/installer/unattended \
+              && baml pack main --output ./oparch-installer )
+          ( cd tools/return-message/render \
               && baml pack main --output ./oparch-return-message-render )
-          ( cd src/dotfiles-sync \
+          ( cd tools/dotfiles/sync \
               && baml pack main --output ./oparch-dotfiles-sync )
 
       - name: Work out what the repository does not already hold
@@ -96,14 +98,16 @@ jobs:
 
           # The library was fetched and checked when BAML was set up, and its
           # path comes from there rather than being built again here.
-          cp src/installer/host/target/release/oparch-installer \
+          cp tools/installer/unattended/oparch-installer \
+              packages/oparch-installer/
+          cp tools/installer/interactive/host/target/release/oparch-installer-interactive \
               packages/oparch-installer/
           cp "$BAML_RUNTIME_LIBRARY" packages/oparch-installer/
 
-          cp src/return-message-render/oparch-return-message-render \
+          cp tools/return-message/render/oparch-return-message-render \
               packages/oparch-return-message-render/
 
-          cp src/dotfiles-sync/oparch-dotfiles-sync \
+          cp tools/dotfiles/sync/oparch-dotfiles-sync \
               packages/oparch-dotfiles-sync/
 
       - name: Build the packages

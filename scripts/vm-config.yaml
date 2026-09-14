@@ -1,0 +1,24 @@
+# The answers scripts/vm.sh installs a machine with, as oparch-installer reads
+# them; the format is docs/tools/oparch-installer/001-config-file-format.md.
+#
+# The disk is the one vm.sh attaches to its guest, over virtio. The machine is
+# installed over the network, because the debug image carries no repository of
+# its own. The shared secret is what the disk asks for and what every work
+# context logs in with.
+
+disk: /dev/vda
+install_mode: wipe-all
+offline: false
+
+ucode_package: none
+gpu_driver: none
+
+work_contexts:
+  - iokode
+  - work
+  - gaming
+shared_secret: "secret"
+
+console_keymap: es
+timezone: Europe/Madrid
+hostname: oparch

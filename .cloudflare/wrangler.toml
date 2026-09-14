@@ -14,6 +14,12 @@ zone_name = "iokode.dev"
 pattern = "oparch.iokode.dev/latest.sha256"
 zone_name = "iokode.dev"
 
+# And the address the installation script is fetched from, on the same host
+# for the same reason, answering with the script as it is on master.
+[[routes]]
+pattern = "oparch.iokode.dev/install.sh"
+zone_name = "iokode.dev"
+
 # Read-only in practice: this lists and nothing else. The binding is part of
 # the Worker's deployment rather than a credential handed to it, so nothing
 # that publishes an image needs to know about this at all.

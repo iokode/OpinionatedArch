@@ -14,6 +14,4 @@ Recovery must be deterministic during incidents. One tool for both scopes, runni
 
 ## Input parameters
 
-- `<scope>`: Mandatory. Restore scope. Accepted values: `system`, `home`.
-- `<name>`: Mandatory for `home` scope. Work context whose home scope is restored.
-- `<snapshot>`: Mandatory. Concrete snapshot path or identifier to restore.
+- `<snapshot>`: Mandatory. Path of the snapshot to restore, as `oparch-snapshot-list` prints it.

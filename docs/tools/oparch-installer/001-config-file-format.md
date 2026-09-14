@@ -2,7 +2,7 @@
 
 ## Context
 
-`oparch-installer` can take every installation input from a file instead of asking for it, through `--config <path>`. That file has to express exactly what the interactive screens collect, so that an installation performed either way is the same installation.
+`oparch-installer` takes every installation input from a file, through `--config <path>`. That file has to express exactly what the screens of [oparch-installer-interactive](../oparch-installer-interactive/000-command.md) collect, so that an installation performed either way is the same installation.
 
 The return message is defined by a template package that declares its own fields, so the file must be able to carry values whose names the installer does not know in advance.
 

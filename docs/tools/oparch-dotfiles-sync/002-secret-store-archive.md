@@ -18,7 +18,7 @@ Unlike a map, a `.dfsec` is identified by its name alone. A map is recognised by
 
 ### The encryption
 
-The archive is an `age` file, encrypted with a passphrase: `scrypt` derives the key, and the payload is sealed with ChaCha20-Poly1305 under a 256-bit key. Any implementation of the `age` format produces and reads one; the `age(1)` command line does, and so does the `age` Rust crate the installer opens it with.
+The archive is an `age` file, encrypted with a passphrase: `scrypt` derives the key, and the payload is sealed with ChaCha20-Poly1305 under a 256-bit key. Any implementation of the `age` format produces and reads one, and the `age(1)` command line is what the installer opens it with.
 
 ### The passphrase
 

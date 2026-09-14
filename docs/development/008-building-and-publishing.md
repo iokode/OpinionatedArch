@@ -50,7 +50,7 @@ One run publishes at a time. The database is the one thing two of them would dam
 
 ## How the image is built
 
-The profile is not kept here. `releng` is archiso's, it moves with archiso, and holding a copy would be maintaining a fork of a bootloader configuration nobody in this project wrote — while the reason the image is rebuilt at all is precisely that upstream moves. So the profile is assembled at build time: a copy of `releng` as it is on the day, with this project's differences applied over it. What is kept in `archiso/` is only the difference — what the medium adds, what it drops, what its own repository carries, and the one file that starts the installer.
+The profile is not kept here. `releng` is archiso's, it moves with archiso, and holding a copy would be maintaining a fork of a bootloader configuration nobody in this project wrote — while the reason the image is rebuilt at all is precisely that upstream moves. So the profile is assembled at build time: a copy of `releng` as it is on the day, with this project's differences applied over it. What is kept in `archiso/distrib/` is only the difference — what the medium adds, what it drops, what its own repository carries, and the one file that starts the installer.
 
 The medium's repository is filled by downloading rather than installing: what is wanted is package files, so that an installation with nothing to fetch from has something to install. Every package an answer might ask for is fetched, and not the ones a particular answer would, because an installation without a network cannot go and get the microcode of the processor it turns out to be running on.
 
@@ -74,7 +74,7 @@ The prune runs after the new image is up and not before, so that an upload which
 
 ## What runs at the edge
 
-Two addresses answer with whatever image is newest and with its checksum, and what answers both is one Worker that reads the bucket rather than being told — the checksum is stored beside the image under the image's own name, so finding the current image finds both. It is deployed by a workflow of its own, when what is in `.cloudflare/` changes and not otherwise, so that what is deployed is what was committed rather than what somebody remembered to push by hand.
+Two addresses answer with whatever image is newest and with its checksum, and a third with the installation script as it is on `master`, and what answers all three is one Worker. For the image it reads the bucket rather than being told — the checksum is stored beside the image under the image's own name, so finding the current image finds both. The script's place in the repository is written in the Worker, beside the script itself, so a change that moves the script is the change that shows the address has to follow it. It is deployed by a workflow of its own, when what is in `.cloudflare/` changes and not otherwise, so that what is deployed is what was committed rather than what somebody remembered to push by hand.
 
 It is not deployed alongside the image it points at. That is published every day and this changes almost never, and joining them would mean a failure to deploy taking down the publication of an image that was fine.
 
