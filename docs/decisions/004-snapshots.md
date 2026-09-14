@@ -41,7 +41,7 @@ A snapshot that cannot be taken does not stop what it was taken for. The machine
 - Manual snapshots are never auto-purged for either `@` or `home/@<work-context>`.
 - Every manual snapshot must include a human-readable justification in its name or label.
 - Manual snapshot cleanup is explicitly manual when justification is no longer valid.
-- A set of boot artifacts is removed when the last snapshot pointing at it is, in the same pass that purges them.
+- A set of boot artifacts that no system snapshot points at is removed.
 
 ## Why
 
