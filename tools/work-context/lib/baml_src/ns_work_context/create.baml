@@ -46,49 +46,18 @@ function fstab_entry(device: string, uuid: string, mount_point: string, options:
         + "\t0 0" + "\n" + "\n"
 }
 
-/// The failures of several steps, in the order they happened, or "" when none
-/// failed.
-function joined_failures(failures: string[]) -> string {
-    failures
-        .filter(
-            (failure) -> {
-                failure != ""
-            },
-        )
-        .join(" ")
-}
-
-/// Creates `home/@<name>` in the top level of the filesystem. The installed
-/// system mounts subvolumes and never the top level, so it is mounted on a
-/// directory of its own for as long as the subvolume takes, and unmounted and
-/// that directory removed whether or not the subvolume was made.
+/// Creates `home/@<name>` in the top level of the filesystem, which is mounted
+/// for as long as the subvolume takes, and unmounted and its directory removed
+/// whether or not the subvolume was made.
 function create_home_subvolume(shell: root.common.Shell, device: string, name: string) -> string {
-    let made = shell.capture("mktemp", ["-d"]);
-    let unmade = root.common.must(made, "making a directory to mount the top level of the filesystem on");
-    if (unmade != "") {
-        return unmade;
+    let top = mount_top_level(shell, device);
+    if (top.error != "") {
+        return top.error;
     }
-    let top = made.stdout.trim();
-
-    let mounted = root.common.must(shell.capture("mount", ["-o", "subvolid=5", device, top]),
-                                   "mounting the top level of the filesystem");
-    if (mounted != "") {
-        let removed = root.common.must(shell.capture("rmdir", [top]), `removing ${top}`);
-        return joined_failures([mounted, removed]);
-    }
-
     let created = root.common.must(
-        shell.capture("btrfs", ["subvolume", "create", `${top}/home/@${name}`]),
+        shell.capture("btrfs", ["subvolume", "create", `${top.value}/home/@${name}`]),
         `creating the home subvolume of ${name}`);
-    let unmounted = root.common.must(shell.capture("umount", [top]),
-                                     "unmounting the top level of the filesystem");
-    //# a directory that is still a mount point cannot be removed, and saying
-    //# that it could not be would only repeat the unmount that failed
-    let removed = "";
-    if (unmounted == "") {
-        removed = root.common.must(shell.capture("rmdir", [top]), `removing ${top}`);
-    }
-    joined_failures([created, unmounted, removed])
+    joined_failures([created, unmount_top_level(shell, top.value)])
 }
 
 /// Creates the work context `name` on this machine, or says why it did not.
@@ -128,12 +97,11 @@ function create_work_context(shell: root.common.Shell, files: root.common.Files,
         return password;
     }
 
-    let source = shell.capture("findmnt", ["-nvo", "SOURCE", "/"]);
-    let unfound = root.common.must(source, "finding the device the system is mounted from");
-    if (unfound != "") {
-        return unfound;
+    let found = root_device(shell);
+    if (found.error != "") {
+        return found.error;
     }
-    let device = source.stdout.trim();
+    let device = found.value;
 
     let subvolume = create_home_subvolume(shell, device, name);
     if (subvolume != "") {

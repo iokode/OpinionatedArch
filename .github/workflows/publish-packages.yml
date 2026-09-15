@@ -60,6 +60,8 @@ jobs:
               && baml pack main --output ./oparch-work-context-list )
           ( cd tools/work-context/create \
               && baml pack main --output ./oparch-work-context-create )
+          ( cd tools/work-context/remove \
+              && baml pack main --output ./oparch-work-context-remove )
           ( cd tools/snapshot/create \
               && baml pack main --output ./oparch-snapshot-create )
           ( cd tools/snapshot/list \
@@ -126,6 +128,9 @@ jobs:
 
           cp tools/work-context/create/oparch-work-context-create \
               packages/oparch-work-context-create/
+
+          cp tools/work-context/remove/oparch-work-context-remove \
+              packages/oparch-work-context-remove/
 
           cp tools/snapshot/create/oparch-snapshot-create \
               packages/oparch-snapshot-create/
