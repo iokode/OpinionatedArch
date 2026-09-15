@@ -61,7 +61,7 @@ Every document in this directory, by type. What the types are and what shape eac
 - [oparch-password-rotate](tools/password/rotate/000-command.md)
 - [oparch-password-rotate-interactive](tools/password/rotate-interactive/000-command.md)
 
-The first four, `oparch-work-context-create`, `oparch-work-context-list`, `oparch-work-context-remove`, `oparch-work-context-interactive`, `oparch-snapshot-create`, `oparch-snapshot-list` and `oparch-snapshot-remove` are written. The rest are specified and not implemented, which [Remaining](state/001-remaining.md) carries as the first work.
+The first four, `oparch-work-context-create`, `oparch-work-context-list`, `oparch-work-context-remove`, `oparch-work-context-interactive`, `oparch-snapshot-create`, `oparch-snapshot-list`, `oparch-snapshot-remove` and `oparch-snapshot-interactive` are written. The rest are specified and not implemented, which [Remaining](state/001-remaining.md) carries as the first work.
 
 ## Development
 

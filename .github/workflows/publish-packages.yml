@@ -51,6 +51,8 @@ jobs:
           cargo build --release --manifest-path tools/installer/interactive/host/Cargo.toml
           baml --directory tools/work-context/interactive generate
           cargo build --release --manifest-path tools/work-context/interactive/host/Cargo.toml
+          baml --directory tools/snapshot/interactive generate
+          cargo build --release --manifest-path tools/snapshot/interactive/host/Cargo.toml
 
           ( cd tools/installer/unattended \
               && baml pack main --output ./oparch-installer )
@@ -145,6 +147,9 @@ jobs:
 
           cp tools/snapshot/remove/oparch-snapshot-remove \
               packages/oparch-snapshot-remove/
+
+          cp tools/snapshot/interactive/host/target/release/oparch-snapshot-interactive \
+              packages/oparch-snapshot-interactive/
 
       - name: Build the packages
         run: |
