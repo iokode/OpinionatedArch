@@ -40,7 +40,11 @@ There is no BAML runtime library in this list: this tool has no host, so `baml p
 
 - `<scope>`: Mandatory. Snapshot scope. Accepted values: `system`, `home`.
 - `<name>`: Mandatory for `home` scope, and refused with `system` scope. Work context whose home subvolume is snapshotted, given by its name or by its UID: a value made only of decimal digits is a UID, and the work context is the account that has it.
-- `--justification <text>`: Takes a manual snapshot. `<text>` is the human-readable reason for the snapshot, recorded in the labels file. It may be any Unicode text, line breaks included, and it is refused when it is empty or holds only whitespace.
+- `--justification <text>`: Takes a manual snapshot. `<text>` is the argument that follows `--justification`, whatever it holds, text that starts with `--` included. It is the human-readable reason for the snapshot, recorded in the labels file. It may be any Unicode text, line breaks included, and it is refused when it is empty or holds only whitespace. When `<name>` is a UID, the work context is resolved from it before a blank justification is refused.
 - `--automatic`: Takes an automatic snapshot, and deletes the automatic snapshots of its scope beyond the latest sixty.
 
-Exactly one of `--justification` and `--automatic` is given: neither, or both, is refused.
+Options may come before or after `<scope>` and `<name>`.
+
+Exactly one of `--justification` and `--automatic` is given: neither, both, or either of them given twice, is refused.
+
+Any other argument that starts with `--` is an unknown option, and is refused with exit code 2.
