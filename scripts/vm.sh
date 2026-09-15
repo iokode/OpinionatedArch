@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
 #
-# Boots, in a window, a machine installed from the debug image, with the tools
-# built from this working tree in place of the ones the installation took from
-# the published repository, so that a change to them can be tried on an
-# installed system before it is merged.
+# Boots, in a window, a machine installed from the debug image, with packages
+# built from this working tree on it, so that a change to them can be tried on
+# an installed system before it is merged.
 #
 #     scripts/vm.sh
 #
-# Every run installs the machine again, on a new disk: the debug image is built
-# and booted in a window, and the installer it carries installs the machine
-# there, with the answers in scripts/vm-config.yaml, while this script drives it
-# over the serial line. It installs over the network, because the debug image
-# carries no repository of its own. Once that is done the window closes, and one
+# It asks first which of this tree's packages to add to the machine, besides
+# the ones every machine it installs gets. Every run installs the machine again,
+# on a new disk: the debug image is built and booted in a window, and the
+# installer it carries installs the machine there, with the answers in
+# scripts/vm-config.yaml, while this script drives it over the serial line. It
+# installs over the network, because the debug image carries no repository of
+# its own. The packages are built the way the publish workflow builds them, and
+# installed with pacman inside the machine over the ones the installation took
+# from the published repository. Once that is done the window closes, and one
 # opens on the installed disk.
-#
-# The tools are copied over the packaged ones, so updating their packages
-# inside the machine puts the published ones back.
 #
 # What the image is and how it is built is archiso/debug/build.sh.
 
@@ -27,13 +27,20 @@ readonly CONFIG="$ROOT/scripts/vm-config.yaml"
 readonly WORK="${XDG_CACHE_HOME:-$HOME/.cache}/oparch-vm"
 readonly IMAGE_DIR="$WORK/image"
 readonly SHARE="$WORK/share"
+readonly BUILD="$WORK/build"
 readonly DISK="$WORK/disk.qcow2"
 readonly VARS="$WORK/firmware-vars.fd"
 
 # How long an installation over the network is waited for.
 readonly WAIT_INSTALL=3600
 
+# The packages of this tree every machine it installs gets: of the tools the
+# image carries, the two the installation puts on the machine, the renderer and
+# the dotfiles tool, and the assets they read.
+readonly ALWAYS_PACKAGES=(oparch-assets oparch-return-message-render oparch-dotfiles-sync)
+
 . "$ROOT/scripts/lib/guest.sh"
+. "$ROOT/scripts/lib/toolchain.sh"
 
 say() {
     printf '==> %s\n' "$*" >&2
@@ -66,6 +73,92 @@ prepare_machine() {
     rm -rf "$SHARE"
     mkdir -p "$SHARE"
     cp "$CONFIG" "$SHARE/config.yaml"
+}
+
+# What can be added to the machine: every package this tree defines, except the
+# ones every machine gets, the installer, which installs the machine from the
+# image rather than being used on it, and the keyring, which carries the key the
+# published repository is signed with and is not the working tree's to choose.
+offered_packages() {
+    local definition name
+    for definition in "$ROOT"/packages/*/PKGBUILD; do
+        name="$(basename "$(dirname "$definition")")"
+        case " ${ALWAYS_PACKAGES[*]} oparch-installer oparch-keyring " in
+            *" $name "*) ;;
+            *) printf '%s\n' "$name" ;;
+        esac
+    done
+}
+
+# Asked before anything is built, so the run is left to itself once it is
+# answered.
+choose_packages() {
+    local offered answer number
+    mapfile -t offered < <(offered_packages)
+
+    say "Which packages of this tree go on the machine, besides ${ALWAYS_PACKAGES[*]}?"
+    for number in "${!offered[@]}"; do
+        printf '    %d) %s\n' "$((number + 1))" "${offered[number]}" >&2
+    done
+    read -rp "Their numbers, separated by spaces, or nothing for none: " -a answer
+
+    chosen=()
+    for number in "${answer[@]}"; do
+        if ! [[ "$number" =~ ^[1-9][0-9]*$ ]] || (( number > ${#offered[@]} )); then
+            say "$number is not one of the numbers above"
+            exit 1
+        fi
+        chosen+=("${offered[number - 1]}")
+    done
+}
+
+# What a package packages, put beside the copy of its PKGBUILD. A tool's
+# package is named after the tool, oparch-<entity>-<action>, and the tool is
+# tools/<entity>/<action>/: packed by `baml pack`, or built with its host when
+# it has one. The assets and the runtime library are the packages that carry no
+# tool, and every other file a PKGBUILD names is committed beside it.
+stage() {
+    local name="$1"
+    local project library
+
+    case "$name" in
+        oparch-assets)
+            tar czf "$BUILD/$name/assets.tar.gz" -C "$ROOT" assets
+            ;;
+        oparch-baml-runtime)
+            library="$(baml_runtime_library)"
+            cp "$library" "$BUILD/$name/"
+            ;;
+    esac
+
+    for project in "$ROOT"/tools/*/*/baml.toml; do
+        project="$(dirname "$project")"
+        [ "oparch-$(basename "$(dirname "$project")")-$(basename "$project")" = "$name" ] || continue
+        if [ -d "$project/host" ]; then
+            capped baml --directory "$project" generate
+            capped cargo build --release --manifest-path "$project/host/Cargo.toml"
+            cp "$project/host/target/release/$name" "$BUILD/$name/"
+        else
+            ( cd "$project" && capped baml pack main --output "./$name" )
+            cp "$project/$name" "$BUILD/$name/"
+        fi
+    done
+}
+
+# The packages that go on the machine, built the way the publish workflow builds
+# them: what each one packages is built from this tree and staged beside a copy
+# of its PKGBUILD, and makepkg packages it into the directory the guest mounts.
+build_packages() {
+    local name
+
+    rm -rf "$BUILD"
+    mkdir -p "$BUILD" "$SHARE/packages"
+    for name in "${ALWAYS_PACKAGES[@]}" "${chosen[@]}"; do
+        say "Building $name"
+        cp -r "$ROOT/packages/$name" "$BUILD/$name"
+        stage "$name"
+        PKGDEST="$SHARE/packages" makepkg --dir "$BUILD/$name" --nodeps --clean
+    done
 }
 
 # The live system, in a window, driven over its serial line: the kernel and the
@@ -102,10 +195,12 @@ boot_live() {
         -append "archisobasedir=arch archisolabel=$label console=tty0 console=ttyS0,115200 systemd.mask=getty@tty1.service"
 }
 
-# Installs the machine, puts the tools from this tree over the packaged ones
-# while the installation is still mounted, and powers the live system off. The
-# disk is only safe to boot once the guest that wrote it has gone.
+# Installs the machine, installs the packages from this tree in it while the
+# installation is still mounted, and powers the live system off. The disk is
+# only safe to boot once the guest that wrote it has gone.
 install_machine() {
+    local files="" package
+
     guest_wait_for_shell || return 1
     guest_quieten || return 1
 
@@ -137,11 +232,14 @@ install_machine() {
         return 1
     fi
 
-    guest_check "the tools from this tree are where the installation put the packaged ones" \
-        "install -m 755 /usr/bin/oparch-return-message-render /mnt/usr/bin/oparch-return-message-render \
-            && install -m 755 /usr/bin/oparch-dotfiles-sync /mnt/usr/bin/oparch-dotfiles-sync \
-            && rm -rf /mnt/usr/share/opinionatedarch/assets \
-            && cp -r /usr/share/opinionatedarch/assets /mnt/usr/share/opinionatedarch/assets" || return 1
+    # Into the machine's own package cache, and installed by the machine's
+    # pacman, which brings what they depend on from the repositories it uses.
+    for package in "$SHARE"/packages/*; do
+        files+=" /var/cache/pacman/pkg/$(basename "$package")"
+    done
+    guest_check "the packages from this tree are installed on the machine" \
+        "cp $SHARE_MOUNT/packages/* /mnt/var/cache/pacman/pkg/ \
+            && arch-chroot /mnt pacman -U --noconfirm$files" "$WAIT_INSTALL" || return 1
 
     guest_say "powering the live system off"
     guest_send poweroff
@@ -168,8 +266,10 @@ if ! qemu-system-x86_64 -display help | grep -qx gtk; then
     exit 1
 fi
 
+choose_packages
 build_image
 prepare_machine
+build_packages
 
 say "Installing a machine from $(basename "$image")"
 say "The window shows the installation, and closes when it is done; then one opens on the installed disk."
