@@ -10,4 +10,4 @@ Manual snapshots are never purged automatically, so the ones whose justification
 
 ## Input parameters
 
-- `<snapshot>`: Mandatory. Path of the snapshot to remove, as `oparch-snapshot-list` prints it.
+- `<snapshot>`: Mandatory. Path of the snapshot to remove, as `oparch-snapshot-list` prints it after the tab of the snapshot's line.
