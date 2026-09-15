@@ -6,8 +6,10 @@ arch=('any')
 url='https://github.com/iokode/OpinionatedArch'
 license=('BSD-2-Clause')
 
-# The tool the hook runs.
-depends=('oparch-snapshot-create')
+# The tool the hook runs, and what the hook runs it with: bash for pipefail,
+# tee to copy what it says to pacman's output, and systemd-cat to write it to
+# the journal.
+depends=('oparch-snapshot-create' 'bash' 'coreutils' 'systemd')
 
 # The hook is kept beside this file.
 source=('oparch-snapshot-automatic.hook')

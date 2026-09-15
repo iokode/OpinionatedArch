@@ -1,8 +1,15 @@
 # The automatic snapshot of the system before each transaction that installs or
-# upgrades a package, as docs/decisions/004-snapshots.md takes one. The hook
-# runs the tool itself and pacman waits for it, so the snapshot holds the system
-# as it was before the transaction, and what the tool said is printed with the
-# transaction and kept in pacman's log.
+# upgrades a package, as docs/decisions/004-snapshots.md takes one. pacman waits
+# for the hook, so the snapshot holds the system as it was before the
+# transaction.
+#
+# What the tool says goes to pacman's output and to the journal alike: tee
+# writes it to its own standard output, which pacman prints and keeps in its
+# log, and to systemd-cat, which writes it to the journal. tee is handed
+# systemd-cat as a process substitution rather than /dev/stderr, because what
+# pacman gives a hook is a socket, and a socket cannot be opened again by path.
+# pipefail makes the hook's exit code the tool's, so pacman reports a snapshot
+# that could not be taken.
 #
 # There is no AbortOnFail: a snapshot that cannot be taken is reported and the
 # transaction goes on.
@@ -16,4 +23,4 @@ Target = *
 [Action]
 Description = Taking an automatic snapshot of the system...
 When = PreTransaction
-Exec = /usr/bin/oparch-snapshot-create system --automatic
+Exec = /usr/bin/bash -o pipefail -c '/usr/bin/oparch-snapshot-create system --automatic 2>&1 | /usr/bin/tee >(/usr/bin/systemd-cat -t oparch-snapshot-create)'
