@@ -66,6 +66,6 @@ A snapshot that cannot be taken does not stop what it was taken for. The machine
 
 ## Considerations
 
-- What a snapshot is called is not decided here. The name has to carry the justification a manual snapshot requires, and beyond that its form belongs to the tools that create and list them.
+- What a snapshot is called is not decided here. The justification a manual snapshot requires is carried by its label rather than its name, and the form of both belongs to the tools that create and list them.
 - Snapshot storage must remain separated by domain inside `/snapshots`: `system` for system snapshots and `home/<work-context>` for each work context's.
 - `/boot` is outside Btrfs, so its content is copied rather than snapshotted, and what pairs a copy with a snapshot is the table rather than the filesystem.
