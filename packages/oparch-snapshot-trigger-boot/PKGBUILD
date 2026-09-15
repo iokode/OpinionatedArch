@@ -1,0 +1,24 @@
+pkgname=oparch-snapshot-trigger-boot
+pkgver=0.1.0dev1
+pkgrel=1
+pkgdesc="Takes an automatic snapshot of the system when the machine starts"
+arch=('any')
+url='https://github.com/iokode/OpinionatedArch'
+license=('BSD-2-Clause')
+
+# The tool the unit runs, and what runs the unit.
+depends=('oparch-snapshot-create' 'systemd')
+
+# The unit is kept beside this file.
+source=('oparch-snapshot-automatic-system.service')
+sha256sums=('SKIP')
+
+package() {
+    # Wanted by multi-user.target from the package's own directory, so
+    # installing the package is what enables it.
+    install -Dm644 "${srcdir}/oparch-snapshot-automatic-system.service" \
+        "${pkgdir}/usr/lib/systemd/system/oparch-snapshot-automatic-system.service"
+    install -dm755 "${pkgdir}/usr/lib/systemd/system/multi-user.target.wants"
+    ln -s ../oparch-snapshot-automatic-system.service \
+        "${pkgdir}/usr/lib/systemd/system/multi-user.target.wants/oparch-snapshot-automatic-system.service"
+}
