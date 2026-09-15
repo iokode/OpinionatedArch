@@ -49,6 +49,8 @@ jobs:
           # binary without this step ships the previous program.
           baml --directory tools/installer/interactive generate
           cargo build --release --manifest-path tools/installer/interactive/host/Cargo.toml
+          baml --directory tools/password/rotate-interactive generate
+          cargo build --release --manifest-path tools/password/rotate-interactive/host/Cargo.toml
 
           ( cd tools/installer/unattended \
               && baml pack main --output ./oparch-installer )
@@ -115,6 +117,9 @@ jobs:
 
           cp tools/password/rotate/oparch-password-rotate \
               packages/oparch-password-rotate/
+
+          cp tools/password/rotate-interactive/host/target/release/oparch-password-rotate-interactive \
+              packages/oparch-password-rotate-interactive/
 
       - name: Build the packages
         run: |
