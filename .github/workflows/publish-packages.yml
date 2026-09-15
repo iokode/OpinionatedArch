@@ -58,6 +58,8 @@ jobs:
               && baml pack main --output ./oparch-dotfiles-sync )
           ( cd tools/work-context/list \
               && baml pack main --output ./oparch-work-context-list )
+          ( cd tools/work-context/create \
+              && baml pack main --output ./oparch-work-context-create )
 
       - name: Work out what the repository does not already hold
         run: |
@@ -115,6 +117,9 @@ jobs:
 
           cp tools/work-context/list/oparch-work-context-list \
               packages/oparch-work-context-list/
+
+          cp tools/work-context/create/oparch-work-context-create \
+              packages/oparch-work-context-create/
 
       - name: Build the packages
         run: |
