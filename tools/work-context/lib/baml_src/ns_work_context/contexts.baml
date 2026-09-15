@@ -17,16 +17,9 @@ class WorkContexts {
 
 /// The members of `work-contexts`, in the order the group lists them. A group
 /// with no members is a machine with no work contexts, which is an answer and
-/// not a failure; a group that is not there is a failure.
+/// not a failure.
 function list_work_contexts(shell: root.common.Shell) -> WorkContexts {
     let group = shell.capture("getent", ["group", work_contexts_group()]);
-    //# `getent` answers 2 for a key its database does not hold
-    if (group.exit_code == 2) {
-        return WorkContexts {
-            names: [],
-            error: `the '${work_contexts_group()}' group does not exist on this machine`,
-        };
-    }
     let failed = root.common.must(group, `reading the '${work_contexts_group()}' group`);
     if (failed != "") {
         return WorkContexts { names: [], error: failed };
@@ -66,13 +59,6 @@ test "a group with no members is a machine with no work contexts" {
 
     assert.equal(contexts.error, "");
     assert.equal(contexts.names, [])
-}
-
-test "a machine without the group is told apart from one without contexts" {
-    let shell = contexts_shell({}, { "getent group work-contexts": 2 });
-
-    assert.equal(list_work_contexts(shell).error,
-                 "the 'work-contexts' group does not exist on this machine")
 }
 
 test "a group that cannot be read is reported as the command that failed" {
