@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 #
-# Building the tools of a working tree on the machine it is checked out on.
-# archiso/debug/build.sh builds the tools the debug image carries with it, and
-# scripts/vm.sh builds the packages it puts on the machine it installs.
+# Building the tools and the packages of a working tree on the machine it is
+# checked out on. archiso/debug/build.sh builds every package the tree defines
+# into the repository the debug image carries, and scripts/vm.sh builds the
+# packages it puts on the machine it installs.
 #
 # Whoever sources it sets ROOT to the working tree.
 
@@ -45,4 +46,57 @@ baml_runtime_library() {
         mv "$library.part" "$library"
     fi
     printf '%s\n' "$library"
+}
+
+# What a package packages, put beside the copy of its PKGBUILD in the directory
+# given. A tool's package is named after the tool, oparch-<entity>-<action>, and
+# the tool is tools/<entity>/<action>/: packed by `baml pack`, or built with its
+# host when it has one. The installer's package carries the two installers, the
+# assets and the runtime library are the packages that carry no tool, and every
+# other file a PKGBUILD names is committed beside it.
+stage() {
+    local name="$1" directory="$2"
+    local project library
+
+    case "$name" in
+        oparch-assets)
+            tar czf "$directory/assets.tar.gz" -C "$ROOT" assets
+            ;;
+        oparch-baml-runtime)
+            library="$(baml_runtime_library)"
+            cp "$library" "$directory/"
+            ;;
+        oparch-installer)
+            ( cd "$ROOT/tools/installer/unattended" && capped baml pack main --output ./oparch-installer )
+            capped baml --directory "$ROOT/tools/installer/interactive" generate
+            capped cargo build --release --manifest-path "$ROOT/tools/installer/interactive/host/Cargo.toml"
+            cp "$ROOT/tools/installer/unattended/oparch-installer" \
+                "$ROOT/tools/installer/interactive/host/target/release/oparch-installer-interactive" \
+                "$directory/"
+            ;;
+    esac
+
+    for project in "$ROOT"/tools/*/*/baml.toml; do
+        project="$(dirname "$project")"
+        [ "oparch-$(basename "$(dirname "$project")")-$(basename "$project")" = "$name" ] || continue
+        if [ -d "$project/host" ]; then
+            capped baml --directory "$project" generate
+            capped cargo build --release --manifest-path "$project/host/Cargo.toml"
+            cp "$project/host/target/release/$name" "$directory/"
+        else
+            ( cd "$project" && capped baml pack main --output "./$name" )
+            cp "$project/$name" "$directory/"
+        fi
+    done
+}
+
+# A package of this tree, built the way the publish workflow builds it: what it
+# packages is built from the tree and staged beside a copy of its PKGBUILD under
+# the build directory given, and makepkg packages it into the destination given.
+build_package() {
+    local name="$1" build="$2" destination="$3"
+
+    cp -r "$ROOT/packages/$name" "$build/$name"
+    stage "$name" "$build/$name"
+    PKGDEST="$destination" makepkg --dir "$build/$name" --nodeps --clean
 }
