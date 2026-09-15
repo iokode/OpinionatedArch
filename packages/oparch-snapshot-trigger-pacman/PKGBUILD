@@ -1,0 +1,19 @@
+pkgname=oparch-snapshot-trigger-pacman
+pkgver=0.1.0dev1
+pkgrel=1
+pkgdesc="Takes an automatic snapshot of the system before each package transaction"
+arch=('any')
+url='https://github.com/iokode/OpinionatedArch'
+license=('BSD-2-Clause')
+
+# The tool the hook runs.
+depends=('oparch-snapshot-create')
+
+# The hook is kept beside this file.
+source=('oparch-snapshot-automatic.hook')
+sha256sums=('SKIP')
+
+package() {
+    install -Dm644 "${srcdir}/oparch-snapshot-automatic.hook" \
+        "${pkgdir}/usr/share/libalpm/hooks/00-oparch-snapshot-automatic.hook"
+}
