@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
-# Builds an image carrying the tools built from this working tree, to try them
-# in before they are published.
+# Builds an image carrying the installer built from this working tree, with the
+# two tools it calls, to try them in before they are published.
 #
 # It is assembled the way archiso/distrib/build.sh assembles the published
 # image, out of a profile of archiso's with this directory's differences
@@ -25,7 +25,8 @@ readonly HERE="$(cd "$(dirname "$0")" && pwd)"
 readonly ROOT="$(cd "$HERE/../.." && pwd)"
 readonly BASELINE=/usr/share/archiso/configs/baseline
 readonly RELENG=/usr/share/archiso/configs/releng/airootfs
-readonly TARGET=x86_64-unknown-linux-gnu
+
+. "$ROOT/scripts/lib/toolchain.sh"
 
 say() { printf '==> %s\n' "$*" >&2; }
 
@@ -50,17 +51,6 @@ remove_work() {
 }
 trap remove_work EXIT
 
-# A build that allocates without bound takes a machine with no swap down before
-# anything can stop it, so each one is held to a ceiling where the user's
-# systemd is there to hold it.
-capped() {
-    if systemd-run --user --scope -q -p MemoryMax=8G -p MemorySwapMax=0 true 2>/dev/null; then
-        systemd-run --user --scope -q -p MemoryMax=8G -p MemorySwapMax=0 "$@"
-    else
-        "$@"
-    fi
-}
-
 # ------------------------------------------------------------------ the tools
 
 say "Building the tools from $ROOT"
@@ -71,28 +61,8 @@ capped cargo build --release --manifest-path "$ROOT/tools/installer/interactive/
     && capped baml pack main --output ./oparch-return-message-render )
 ( cd "$ROOT/tools/dotfiles/sync" && capped baml pack main --output ./oparch-dotfiles-sync )
 
-# The runtime library the interactive installer's host loads, for the toolchain
-# the host was built against. It is fetched the way the setup-baml action
-# fetches it, and kept where the host itself would keep it.
-toolchain="$(awk '
-    /^name = "baml_bridge"$/ { found = 1; next }
-    found && /^version = / { gsub(/[",]/, "", $3); print $3; exit }
-' "$ROOT/tools/installer/interactive/host/Cargo.lock")"
-library="$HOME/.cache/baml/libs/$toolchain/libbaml_cffi-$TARGET.so"
-if [ ! -f "$library" ]; then
-    manifest="$HOME/.baml/manifest-cache/prod/version/$toolchain.json"
-    if [ ! -f "$manifest" ]; then
-        say "There is no manifest for BAML $toolchain. 'baml toolchain use $toolchain' leaves one."
-        exit 1
-    fi
-    say "Fetching the BAML runtime library for $toolchain"
-    url="$(jq -er --arg t "$TARGET" '.cffi[$t].url' "$manifest")"
-    sha="$(jq -er --arg t "$TARGET" '.cffi[$t].sha256' "$manifest")"
-    mkdir -p "$(dirname "$library")"
-    curl -fsSL -o "$library.part" "$url"
-    printf '%s  %s\n' "$sha" "$library.part" | sha256sum -c --quiet -
-    mv "$library.part" "$library"
-fi
+# The runtime library the interactive installer's host loads.
+library="$(baml_runtime_library)"
 
 # ---------------------------------------------------------------- the profile
 
