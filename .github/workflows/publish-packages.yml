@@ -56,6 +56,8 @@ jobs:
               && baml pack main --output ./oparch-return-message-render )
           ( cd tools/dotfiles/sync \
               && baml pack main --output ./oparch-dotfiles-sync )
+          ( cd tools/password/rotate \
+              && baml pack main --output ./oparch-password-rotate )
 
       - name: Work out what the repository does not already hold
         run: |
@@ -110,6 +112,9 @@ jobs:
 
           cp tools/dotfiles/sync/oparch-dotfiles-sync \
               packages/oparch-dotfiles-sync/
+
+          cp tools/password/rotate/oparch-password-rotate \
+              packages/oparch-password-rotate/
 
       - name: Build the packages
         run: |
