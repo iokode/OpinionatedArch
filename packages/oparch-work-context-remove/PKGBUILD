@@ -1,7 +1,7 @@
-pkgname=oparch-work-context-create
-pkgver=0.1.0dev2
+pkgname=oparch-work-context-remove
+pkgver=0.1.0dev1
 pkgrel=1
-pkgdesc="Creates a work context on the machine it is run on"
+pkgdesc="Removes a work context from the machine it is run on"
 arch=('x86_64')
 url='https://github.com/iokode/OpinionatedArch'
 license=('BSD-2-Clause')
@@ -14,7 +14,7 @@ license=('BSD-2-Clause')
 # starts, finds no program inside itself, and says so.
 options=('!debug' '!strip')
 
-# What the Requirements section of docs/tools/work-context/create/000-command.md
+# What the Requirements section of docs/tools/work-context/remove/000-command.md
 # names. Every one of them is on an installed system, and they are declared
 # anyway because nothing is arranged so that they are absent.
 depends=('shadow' 'glibc' 'util-linux' 'btrfs-progs' 'coreutils')
@@ -22,10 +22,10 @@ depends=('shadow' 'glibc' 'util-linux' 'btrfs-progs' 'coreutils')
 # Built by the workflow and left beside this file. There is no build() here:
 # the toolchain that produces this binary is not an Arch package, so makepkg
 # cannot compile it and only packages what it is handed.
-source=('oparch-work-context-create')
+source=('oparch-work-context-remove')
 sha256sums=('SKIP')
 
 package() {
-    install -Dm755 "${srcdir}/oparch-work-context-create" \
-        "${pkgdir}/usr/bin/oparch-work-context-create"
+    install -Dm755 "${srcdir}/oparch-work-context-remove" \
+        "${pkgdir}/usr/bin/oparch-work-context-remove"
 }

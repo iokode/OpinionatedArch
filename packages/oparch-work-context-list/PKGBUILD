@@ -1,5 +1,5 @@
 pkgname=oparch-work-context-list
-pkgver=0.1.0dev2
+pkgver=0.1.0dev3
 pkgrel=1
 pkgdesc="Lists the work contexts of the machine it is run on"
 arch=('x86_64')
