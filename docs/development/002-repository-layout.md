@@ -103,6 +103,7 @@ The harness is the opposite case and gets the opposite answer. It boots a virtua
 - Generated SDKs and BAML caches exclude themselves from version control — the generator writes a `.gitignore` into the SDK directory, and `.baml/` carries its own. Neither needs an entry in the repository's `.gitignore`.
 - A packed executable excludes itself from nothing, so the tool that produces one carries a `.gitignore` naming it.
 - What a `PKGBUILD` is given to package — the built binaries, the runtime library, the archive of assets — is put beside it when a package is built and is no part of this repository. The definition is committed; what it packages is produced.
+- A trigger package, which runs a tool on an event as [Oparch Tools](../decisions/015-oparch-tools.md) decides, has its directory under `packages/` like any other package. The units and hooks it installs are written rather than produced, and are committed beside its `PKGBUILD`.
 - Git stores the symlink itself, so a clone reproduces the layout with no setup step.
 - Do not add a shared namespace to a project that does not use it. The symlink is what declares the dependency, and it should mean something.
 - A namespace owned by a library is a directory several projects read, so renaming or removing its entity breaks whoever links it. The symlink is what makes that visible: it names the owner in the path.
