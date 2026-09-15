@@ -29,9 +29,9 @@ A machine with no labels file has no labelled snapshot.
 
 A tool that labels a snapshot holds the lock [Snapshot Storage Lock](003-storage-lock.md) specifies, reads the file, adds the member for that snapshot, and writes the whole object back, keeping every member it held. A file that is there and cannot be read, or that is not a JSON object whose values are strings, is an error, and it is not written over.
 
-[oparch-snapshot-create](000-command.md) writes a member for each manual snapshot it takes, of the system or of a work context's home.
+[oparch-snapshot-create](000-command.md) writes a member for each manual snapshot it takes, of the system or of a work context's home, and [oparch-snapshot-interactive](../interactive/000-command.md) one for each manual snapshot it takes, of either scope.
 
-Removing a manual snapshot removes its member in the same way, holding the same lock and keeping every other member; [oparch-snapshot-remove](../remove/000-command.md) does it.
+Removing a manual snapshot removes its member in the same way, holding the same lock and keeping every other member; [oparch-snapshot-remove](../remove/000-command.md) and [oparch-snapshot-interactive](../interactive/000-command.md) do it.
 
 ## Why
 

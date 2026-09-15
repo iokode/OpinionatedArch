@@ -114,6 +114,45 @@ test "a date and time carrying a zone, or written any other way, is refused" {
     }
 }
 
+/// A number written in decimal with zeros in front, to at least a width.
+function zero_padded(number: int, width: int) -> string {
+    let text = `${number}`;
+    while (text.length() < width) {
+        text = "0" + text;
+    }
+    text
+}
+
+/// A moment in seconds since the Unix epoch, written the way
+/// `read_utc_date_time` reads one: `YYYY-MM-DDTHH:MM:SS`, in UTC. The moment of
+/// a snapshot is never before the epoch, so neither is what this is given.
+function utc_date_time(seconds: int) -> string {
+    let rest = seconds % 86400;
+    let shifted = seconds / 86400 + 719468;
+    let era = shifted / 146097;
+    let day_of_era = shifted - era * 146097;
+    let year_of_era = (day_of_era - day_of_era / 1460 + day_of_era / 36524 - day_of_era / 146096) / 365;
+    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
+    let month_from_march = (5 * day_of_year + 2) / 153;
+    let day = day_of_year - (153 * month_from_march + 2) / 5 + 1;
+    let month = if (month_from_march < 10) { month_from_march + 3 } else { month_from_march - 9 };
+    let year = year_of_era + era * 400 + (if (month <= 2) { 1 } else { 0 });
+    let date = `${zero_padded(year, 4)}-${zero_padded(month, 2)}-${zero_padded(day, 2)}`;
+    let time = `${zero_padded(rest / 3600, 2)}:${zero_padded(rest % 3600 / 60, 2)}:${zero_padded(rest % 60, 2)}`;
+    `${date}T${time}`
+}
+
+test "a moment is written as the date and time in UTC it is read from" {
+    //# the moments of the test that reads them, worked out apart from this code
+    assert.equal(utc_date_time(1789380000), "2026-09-14T10:00:00");
+    assert.equal(utc_date_time(951868799), "2000-02-29T23:59:59");
+    assert.equal(utc_date_time(0), "1970-01-01T00:00:00");
+    assert.equal(utc_date_time(1778764800), "2026-05-14T13:20:00");
+    for (let text in ["2026-12-31T23:59:59", "2024-03-01T00:00:00", "2100-02-28T12:34:56"]) {
+        assert.equal(utc_date_time(read_utc_date_time(text).seconds), text);
+    }
+}
+
 /// Whether a moment is inside the bounds a filter sets, both of them included.
 function within_moments(moment: int, filter: SnapshotFilter) -> bool {
     if let since: int = filter.since {
@@ -160,11 +199,7 @@ function listed_scopes(files: root.common.Files, filter: SnapshotFilter) -> List
 
 /// A moment written at a fixed width, so that sorting the text sorts the moments.
 function moment_sort_key(moment: int) -> string {
-    let text = `${moment}`;
-    while (text.length() < 20) {
-        text = "0" + text;
-    }
-    text
+    zero_padded(moment, 20)
 }
 
 /// The snapshots a filter keeps, as the paths they are reached at, earliest
@@ -205,6 +240,87 @@ function list_snapshots(files: root.common.Files, filter: SnapshotFilter) -> Lis
         snapshots.push(ListedSnapshot { work_context: fields.at(2) ?? "", path: fields.at(1) ?? "" });
     }
     Listing { snapshots: snapshots, error: "" }
+}
+
+/// A snapshot as a person reads it: the work context whose home it is, empty
+/// for the system, the path it is reached at, whether it is manual, the moment
+/// it was taken, and the justification its label gives, empty when it has none.
+class DescribedSnapshot {
+    work_context: string,
+    path: string,
+    is_manual: bool,
+    moment: int,
+    justification: string,
+}
+
+/// The snapshots described, or what stopped them from being described.
+class Described {
+    snapshots: DescribedSnapshot[],
+    error: string,
+}
+
+/// The snapshots a filter keeps, in the order `list_snapshots` gives them, each
+/// with its kind, its moment and the justification the labels file holds for
+/// it. A labels file that is there and cannot be read is an error, and never
+/// read as holding no justification.
+function describe_snapshots(files: root.common.Files, filter: SnapshotFilter) -> Described {
+    let listing = list_snapshots(files, filter);
+    if (listing.error != "") {
+        return Described { snapshots: [], error: listing.error };
+    }
+    let labels = read_labels(files);
+    if (labels.error != "") {
+        return Described { snapshots: [], error: labels.error };
+    }
+    let described: DescribedSnapshot[] = [];
+    for (let snapshot in listing.snapshots) {
+        let parsed = parse_snapshot_path(snapshot.path);
+        let parts = parsed.relative.split("/");
+        described.push(DescribedSnapshot {
+            work_context: snapshot.work_context,
+            path: snapshot.path,
+            is_manual: parsed.is_manual,
+            moment: moment_of(parts.at(parts.length() - 1) ?? "") ?? 0,
+            justification: labels.entries.get(parsed.relative) ?? "",
+        });
+    }
+    Described { snapshots: described, error: "" }
+}
+
+test "each snapshot is described with its kind, its moment and its justification" {
+    let files = listed_files();
+    files.write("/snapshots/labels.json",
+                "{\"system/manual/@1778764800\":\"before a kernel upgrade\",\"home/work/manual/@1778765100\":\"before the client project import\"}\n");
+    let filter = no_filter();
+    filter.since = 1778764800;
+
+    let described = describe_snapshots(files, filter);
+
+    assert.equal(described.error, "");
+    assert.equal(described.snapshots.length(), 3);
+    let automatic = described.snapshots.at(0);
+    let system = described.snapshots.at(1);
+    let home = described.snapshots.at(2);
+    assert.equal(automatic?.path, "/snapshots/system/automatic/@1778764800");
+    assert.equal(automatic?.is_manual, false);
+    assert.equal(automatic?.justification, "");
+    assert.equal(system?.work_context, "");
+    assert.equal(system?.is_manual, true);
+    assert.equal(system?.moment, 1778764800);
+    assert.equal(system?.justification, "before a kernel upgrade");
+    assert.equal(home?.work_context, "work");
+    assert.equal(home?.moment, 1778765100);
+    assert.equal(home?.justification, "before the client project import")
+}
+
+test "a labels file that is not one describes nothing" {
+    let files = listed_files();
+    files.write("/snapshots/labels.json", "system/manual/@1778764800 before a kernel upgrade\n");
+
+    let described = describe_snapshots(files, no_filter());
+
+    assert.equal(described.error, "/snapshots/labels.json is not a labels file");
+    assert.equal(described.snapshots.length(), 0)
 }
 
 /// The paths of what was listed, in order.
