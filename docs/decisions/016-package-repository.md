@@ -20,7 +20,7 @@ Each package declares its own dependencies, so installing a tool brings what tha
 
 An installed system carries this repository configured above the official Arch repositories. A package name present in both resolves to this one.
 
-An installed system gets every tool this project ships except the installer's two, which are published here because that is how they reach the live environment they run in, and are installed on no target.
+An installation puts on the system it installs the packages of this project that [Installer Inputs and Bootstrap Baseline](../tools/installer/unattended/002-inputs-and-bootstrap-baseline.md) lists, and any other tool this project ships is installed on it afterwards, with pacman. The installer's two tools are the exception: they are published here because that is how they reach the live environment they run in, and are installed on no target.
 
 ## Why
 
@@ -32,7 +32,7 @@ An installed system gets every tool this project ships except the installer's tw
 - Dependencies are declared by the packages rather than listed by whatever installs them, because a list kept beside the medium and a list kept beside the tool are two lists that have to agree, and only one of the two travels to the installed system.
 - The repository sits above the official repositories so that where a package comes from is fixed by this project rather than by what Arch adds later. Below them, the same name appearing upstream would silently move a tool's origin, and the machine would stop being the one this project describes without anything having been changed on it.
 - The installer's tools are not installed on a target because they are not operational tools: [Oparch Tools](015-oparch-tools.md) sets the installer apart as what runs from the live environment and installs the system in the first place. On an installed system every use of either would be a mistake.
-- The rest are installed on a target because the machine keeps changing after the installation, and what a decision of this project governs is kept by a tool of this project rather than by hand.
+- Every installation installs the renderer and the dotfiles tool because both are run again on the machine once it is installed, the assets because the renderer reads them there, and the keyring because an installation gives the target its key rather than sending it to fetch one. Any other tool is installed afterwards, with pacman, because the repository an installation leaves configured is all a machine needs to bring one, signed and updated like the rest, when it is wanted.
 
 ## Considerations
 
