@@ -31,9 +31,10 @@ readonly BASELINE=/usr/share/archiso/configs/baseline
 readonly RELENG=/usr/share/archiso/configs/releng/airootfs
 
 # The repository of the working tree's packages, as the live system's
-# pacman.conf in airootfs/etc/ names it.
-readonly REPOSITORY_NAME=oparch-working-tree
-readonly REPOSITORY_DIR=/usr/share/oparch/working-tree
+# pacman.conf in airootfs/etc/ names it, and as scripts/vm.sh gives it to the
+# machine it installs.
+readonly REPOSITORY_NAME=oparch-debug
+readonly REPOSITORY_DIR=/usr/share/oparch/debug
 
 . "$ROOT/scripts/lib/toolchain.sh"
 

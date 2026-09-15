@@ -2,8 +2,7 @@
 #
 # Building the tools and the packages of a working tree on the machine it is
 # checked out on. archiso/debug/build.sh builds every package the tree defines
-# into the repository the debug image carries, and scripts/vm.sh builds the
-# packages it puts on the machine it installs.
+# with it, into the repository the debug image carries.
 #
 # Whoever sources it sets ROOT to the working tree.
 
