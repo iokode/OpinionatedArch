@@ -142,12 +142,31 @@ function copy_home(shell: root.common.Shell, files: root.common.Files, name: str
     Removed { copy: copy, error: "" }
 }
 
+/// Why a removal cannot be done on a machine whose work contexts are `names`,
+/// or "" when it can: the context removed, and the one given its home, have to
+/// be work contexts of the machine; the one removed cannot be the last; and its
+/// home cannot be given to itself.
+function removal_problem(names: string[], removal: Removal) -> string {
+    let name = removal.name;
+    let target = removal.preserve_home;
+    if (!names.includes(name)) {
+        return `'${name}' is not a work context of this machine`;
+    }
+    if (names.length() == 1) {
+        return `'${name}' is the last work context of this machine`;
+    }
+    if (target == name) {
+        return `the home of '${name}' cannot be kept in the home of the work context being removed`;
+    }
+    if (target != "" && !names.includes(target)) {
+        return `'${target}' is not a work context of this machine`;
+    }
+    ""
+}
+
 /// Removes a work context from this machine. It stops at the first step that
-/// fails, and what was done before that stays done.
-///
-/// What is asked is checked before anything is done: the context removed, and
-/// the one given its home, have to be work contexts of the machine; the one
-/// removed cannot be the last; and its home cannot be given to itself.
+/// fails, and what was done before that stays done. What is asked is checked
+/// before anything is done, as `removal_problem` checks it.
 function remove_work_context(shell: root.common.Shell, files: root.common.Files,
                              lock: root.snapshot.SnapshotLock, removal: Removal) -> Removed {
     let name = removal.name;
@@ -156,17 +175,9 @@ function remove_work_context(shell: root.common.Shell, files: root.common.Files,
     if (contexts.error != "") {
         return Removed { copy: "", error: contexts.error };
     }
-    if (!contexts.names.includes(name)) {
-        return Removed { copy: "", error: `'${name}' is not a work context of this machine` };
-    }
-    if (contexts.names.length() == 1) {
-        return Removed { copy: "", error: `'${name}' is the last work context of this machine` };
-    }
-    if (target == name) {
-        return Removed { copy: "", error: `the home of '${name}' cannot be kept in the home of the work context being removed` };
-    }
-    if (target != "" && !contexts.names.includes(target)) {
-        return Removed { copy: "", error: `'${target}' is not a work context of this machine` };
+    let problem = removal_problem(contexts.names, removal);
+    if (problem != "") {
+        return Removed { copy: "", error: problem };
     }
 
     let copy = "";
