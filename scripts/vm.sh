@@ -11,11 +11,11 @@
 # on a new disk: the debug image is built and booted in a window, and the
 # installer it carries installs the machine there, with the answers in
 # scripts/vm-config.yaml, while this script drives it over the serial line. It
-# installs over the network, because the debug image carries no repository of
-# its own. The packages are built the way the publish workflow builds them, and
-# installed with pacman inside the machine over the ones the installation took
-# from the published repository. Once that is done the window closes, and one
-# opens on the installed disk.
+# installs over the network, because the repository the debug image carries
+# holds only the packages of this tree. The packages are built the way the
+# publish workflow builds them, and installed with pacman inside the machine
+# over the ones the installation took from the image's repository. Once that is
+# done the window closes, and one opens on the installed disk.
 #
 # What the image is and how it is built is archiso/debug/build.sh.
 
@@ -112,42 +112,8 @@ choose_packages() {
     done
 }
 
-# What a package packages, put beside the copy of its PKGBUILD. A tool's
-# package is named after the tool, oparch-<entity>-<action>, and the tool is
-# tools/<entity>/<action>/: packed by `baml pack`, or built with its host when
-# it has one. The assets and the runtime library are the packages that carry no
-# tool, and every other file a PKGBUILD names is committed beside it.
-stage() {
-    local name="$1"
-    local project library
-
-    case "$name" in
-        oparch-assets)
-            tar czf "$BUILD/$name/assets.tar.gz" -C "$ROOT" assets
-            ;;
-        oparch-baml-runtime)
-            library="$(baml_runtime_library)"
-            cp "$library" "$BUILD/$name/"
-            ;;
-    esac
-
-    for project in "$ROOT"/tools/*/*/baml.toml; do
-        project="$(dirname "$project")"
-        [ "oparch-$(basename "$(dirname "$project")")-$(basename "$project")" = "$name" ] || continue
-        if [ -d "$project/host" ]; then
-            capped baml --directory "$project" generate
-            capped cargo build --release --manifest-path "$project/host/Cargo.toml"
-            cp "$project/host/target/release/$name" "$BUILD/$name/"
-        else
-            ( cd "$project" && capped baml pack main --output "./$name" )
-            cp "$project/$name" "$BUILD/$name/"
-        fi
-    done
-}
-
-# The packages that go on the machine, built the way the publish workflow builds
-# them: what each one packages is built from this tree and staged beside a copy
-# of its PKGBUILD, and makepkg packages it into the directory the guest mounts.
+# The packages that go on the machine, built into the directory the guest
+# mounts.
 build_packages() {
     local name
 
@@ -155,9 +121,7 @@ build_packages() {
     mkdir -p "$BUILD" "$SHARE/packages"
     for name in "${ALWAYS_PACKAGES[@]}" "${chosen[@]}"; do
         say "Building $name"
-        cp -r "$ROOT/packages/$name" "$BUILD/$name"
-        stage "$name"
-        PKGDEST="$SHARE/packages" makepkg --dir "$BUILD/$name" --nodeps --clean
+        build_package "$name" "$BUILD" "$SHARE/packages"
     done
 }
 

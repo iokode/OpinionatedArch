@@ -12,9 +12,10 @@ The image is assembled the way the published one is, as [Building and Publishing
 - the installer, the interactive installer with its wrapper, and the two tools the installer calls, the renderer and the dotfiles tool, built from the working tree and put where their packages put them, with the BAML runtime library of the toolchain `Cargo.lock` names, fetched the way the `setup-baml` action fetches it;
 - the assets, where their package puts them;
 - from `releng`: root's shell, the autologin on the first console that starts the interactive installer with the same `.zprofile` the published image carries, the keyring made at boot, and the mirrorlist with its servers uncommented;
-- the project's signing key, trusted, and a live `pacman.conf` with the project's repository ahead of the official ones.
+- a repository of every package defined under `packages/`, `oparch-working-tree`, built from the working tree the way `vm.sh` builds a package;
+- the project's signing key, trusted, and a live `pacman.conf` with the working tree's repository first, the project's repository after it and the official ones after that. The working tree's repository is not signed, and is listed with `SigLevel = Never`, as the published image lists its own.
 
-It carries no repository of its own, so an installation made from it needs a network. It boots UEFI only, and its root filesystem is compressed to be built quickly rather than to be small.
+Its repository holds only the packages of the working tree, so an installation made from it needs a network. It boots UEFI only, and its root filesystem is compressed to be built quickly rather than to be small.
 
 It builds as any user: `mkarchiso` runs its steps in a user namespace when it is not root. Its work directory is under `~/.cache` rather than `/tmp`, and is removed when the build ends.
 
@@ -34,7 +35,7 @@ Installs a machine from the debug image, with packages built from the working tr
 2. The debug image is built, and so are the packages that go on the machine.
 3. The image boots in a window, and the script drives it over its serial line with `scripts/lib/guest.sh`. The first console, which is what the window shows, runs the unattended installer from the image and nothing else.
 4. The installer installs the machine with the answers in `scripts/vm-config.yaml`.
-5. The packages are installed on the machine, over the ones the installation took from the published repository.
+5. The packages are installed on the machine, over the ones the installation took from the image's repository.
 6. The live system powers off, and a window opens on the installed disk.
 
 Every machine gets `oparch-assets`, `oparch-return-message-render` and `oparch-dotfiles-sync` from the working tree. What it asks about is every other package defined under `packages/`, except `oparch-installer` and `oparch-keyring`: it lists them numbered, and takes the numbers of the ones to add, separated by spaces, where an empty answer adds none. The list is read from `packages/` each run, so a package added there is offered with nothing else changing.
@@ -52,21 +53,22 @@ Beyond what the tools need to be built:
 - `qemu-system-x86_64` with a window to draw in, which on Arch is `qemu-ui-gtk`, and `edk2-ovmf` for the firmware;
 - `/dev/kvm`, without which the guest is emulated and slow;
 - `archiso`, `grub` and `jq` for the image, `libarchive` for `bsdtar` and `util-linux` for `blkid`;
-- `makepkg`, which `pacman` carries, and `fakeroot`, for the packages `vm.sh` builds.
+- `makepkg` and `repo-add`, which `pacman` carries, and `fakeroot`, for the packages the debug image and `vm.sh` build.
 
 ## Why
 
 - The image is built rather than the published one downloaded because building it takes under half a minute once the packages are in the machine's cache, where the published image is nearly three gigabytes and a new one is published every day. And an image that carries the tools starts the installer from the working tree the way the published one starts its own, where tools put into a running live system replace an installer that has already started.
+- The working tree's repository comes first in the live system's `pacman.conf` because `pacstrap` takes a package from the first repository that carries its name. Every package of the project an installation asks for that the working tree defines is then installed from the working tree: one the published repository does not hold yet installs at all, and one it does hold is the working tree's and not the published one.
 - The debug image is built from `baseline` and the published one from `releng` because this one runs in a virtual machine: the firmware and hardware tools `releng` brings are for real machines, and nothing uses them here. The published image stays on `releng`, as [Installation ISO](../decisions/018-installation-iso.md) decides.
 - A machine is installed inside a guest rather than written onto a disk image from the development machine because the installer presumes the live environment, for the reasons [End-to-End Testing](006-end-to-end-testing.md) gives, and because some of what it does acts on the machine it runs on: `efibootmgr` writes the firmware's boot entries and `hwclock` sets the hardware clock. Inside a guest those are the guest's.
 - `vm.sh` installs again every run so that the machine it boots is always what the installer in the working tree makes, and never a machine an earlier run left.
-- The packages of the working tree are put on the machine because the installation installs the project's packages from the published repository, and an installed system has no other way to get the ones in the working tree. They are installed as packages because a package brings more than its files: a unit it enables, a hook, what it depends on. What is tried is then what the published package would put on a machine.
+- The packages of the working tree are put on the machine because the installation installs only the project's packages its bootstrap names, and an installed system has no other way to get the others from the working tree. They are installed as packages because a package brings more than its files: a unit it enables, a hook, what it depends on. What is tried is then what the published package would put on a machine.
 - The live system is given its kernel and initramfs from outside the firmware's boot because that is what makes its serial line a console, which `vm.sh` drives the installation through and `vm-installer.sh` reads a reboot from. A guest booted that way starts the same kernel again on every reset, which is the live system and never the disk, so `vm-installer.sh` runs it with QEMU told not to reset, and tells a reboot from a power off by what the kernel wrote on the serial line before it stopped.
 - `vm.sh` masks the first console's login on the kernel command line because that login starts the interactive installer, which would fill the window until the serial line answers. The mask is removed before the installation, because systemd keeps it under `/run` and `pacstrap` gives the target the live system's `/run`: left there, it stops the `systemd` package enabling the login on the installed system's first console. The live console is not affected by its removal, because systemd read the mask when the system started.
 
 ## Considerations
 
-- The debug image cannot try an installation without a network: the interactive installer offers going on without one only where the medium carries a repository.
+- The debug image cannot try an installation without a network: its repository holds only the packages of the working tree, and the image carries no configuration for installing from that repository alone, which is what the interactive installer looks for before it offers going on without one.
 - What these scripts try is the tools and the installer, not the published image: the package definitions, the `releng` profile and the signatures are what [End-to-End Testing](006-end-to-end-testing.md) runs against.
 - Updating a machine `vm.sh` installed replaces a package built from the working tree with the published one whenever the published version is newer.
 - A package that depends on another of the project's packages installs only when that one is added too or the published repository holds it: `pacman` looks for what it is not given in the repositories the machine uses.
