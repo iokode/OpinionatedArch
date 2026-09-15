@@ -49,6 +49,8 @@ jobs:
           # binary without this step ships the previous program.
           baml --directory tools/installer/interactive generate
           cargo build --release --manifest-path tools/installer/interactive/host/Cargo.toml
+          baml --directory tools/work-context/interactive generate
+          cargo build --release --manifest-path tools/work-context/interactive/host/Cargo.toml
 
           ( cd tools/installer/unattended \
               && baml pack main --output ./oparch-installer )
@@ -131,6 +133,9 @@ jobs:
 
           cp tools/work-context/remove/oparch-work-context-remove \
               packages/oparch-work-context-remove/
+
+          cp tools/work-context/interactive/host/target/release/oparch-work-context-interactive \
+              packages/oparch-work-context-interactive/
 
           cp tools/snapshot/create/oparch-snapshot-create \
               packages/oparch-snapshot-create/

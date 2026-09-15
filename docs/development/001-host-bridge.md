@@ -16,7 +16,7 @@ Because the host is disposable, the selection criterion is not which host is bes
 
 A host exists to own a terminal and to read a command's output while it is still running. A tool that needs neither has no host and no bridge: `baml.sys` runs commands and `baml.fs` touches files, and `baml pack` turns the tool into the executable it ships as.
 
-Which tools need one is not settled by this document and is not expected to stay as it is. Today `oparch-installer-interactive` is the only one that has a host, and `oparch-return-message-render` the first built without one; a terminal interface is the kind of thing more tools will want, and each of them arrives at the same bridge by the same argument.
+Which tools need one is not settled by this document and is not expected to stay as it is. Today `oparch-installer-interactive` and `oparch-work-context-interactive` have one, and `oparch-return-message-render` was the first built without one; a terminal interface is the kind of thing more tools will want, and each of them arrives at the same bridge by the same argument.
 
 A **port** is the boundary between a tool and something outside it: running a command, touching a file, opening an encrypted store, drawing a terminal. It is declared as an interface so that a test can put a stand-in where the machine would be. Every interface in this project is a port today; the word is kept because an interface does not have to be one.
 
