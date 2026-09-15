@@ -4,7 +4,7 @@
 
 `oparch-work-context-list` lists the work contexts of the machine, one name per line: the accounts that are members of `work-contexts`.
 
-It runs as any user. A machine that has no `work-contexts` group is reported with an error.
+It runs as any user.
 
 ## Why is needed
 
