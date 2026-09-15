@@ -1,0 +1,14 @@
+# The automatic snapshot of the system when the machine starts, as
+# docs/decisions/004-snapshots.md takes one, because multi-user.target wants
+# this unit.
+#
+# Nothing requires it, so a snapshot that cannot be taken fails this unit and
+# nothing else, and what the tool said about it is in the journal.
+
+[Unit]
+Description=Automatic snapshot of the system
+RequiresMountsFor=/snapshots /boot
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/oparch-snapshot-create system --automatic
