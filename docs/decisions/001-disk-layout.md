@@ -66,10 +66,12 @@ A name beginning with `@` is a subvolume, and a name without it is an ordinary d
 
 - `@` is the normal system root subvolume.
 - `home/@<work-context>` is one dedicated home subvolume per work context, inside the `home` directory.
-- `@snapshots` is the snapshot-storage subvolume. The snapshots inside it are subvolumes too, at these paths:
+- `@snapshots` is the snapshot-storage subvolume. The snapshots inside it are subvolumes too, each named `@<unix-seconds>` after the moment it was taken, at these paths:
   - `@snapshots/system/{automatic,manual}` holds the automatic and manual snapshots of the `@` subvolume.
   - `@snapshots/home/<work-context>/{automatic,manual}` holds the automatic and manual snapshots of each `home/@<work-context>` subvolume.
-  - `@snapshots/boot` holds one directory per distinct set of boot artifacts, named by the hash of its contents, and the table that pairs each system snapshot with the set that belongs to it, as [Snapshots](004-snapshots.md) decides. These are files rather than subvolumes: what they copy lives on the EFI system partition, outside Btrfs.
+  - `@snapshots/boot` holds one directory per distinct set of boot artifacts, named by the hash of its contents, and the table that pairs each system snapshot with the set that belongs to it, as [Snapshots](004-snapshots.md) decides and [Boot Artifacts Table Format](../tools/snapshot/create/002-boot-table-format.md) specifies. These are files rather than subvolumes: what they copy lives on the EFI system partition, outside Btrfs.
+  - `@snapshots/labels.json` pairs each manual snapshot with its justification, as [Snapshot Labels File Format](../tools/snapshot/create/001-labels-file-format.md) specifies. It is a file rather than a subvolume.
+  - `@snapshots/lock` is the file whose lock is held while any of the three above is written, as [Snapshot Storage Lock](../tools/snapshot/create/003-storage-lock.md) specifies.
 - `@log` stores system logs.
 - `@pkg` stores the pacman package cache.
 - `@dotfiles` stores shared dotfiles.
@@ -87,43 +89,47 @@ Btrfs top-level id=5
 │   └── @iokode
 │
 ├── @snapshots
+│   ├── labels.json
+│   │
 │   ├── system
 │   │   ├── automatic
 │   │   │   ├── @1778761200
 │   │   │   └── @1778847600
 │   │   └── manual
-│   │       ├── @1778764800-before-kernel-upgrade
-│   │       └── @1778851200-clean-base-install
+│   │       ├── @1778764800
+│   │       └── @1778851200
 │   │
 │   ├── home
 │   │   ├── personal
 │   │   │   ├── automatic
 │   │   │   │   └── @1778761600
 │   │   │   └── manual
-│   │   │       └── @1778765200-before-photo-library-cleanup
+│   │   │       └── @1778765200
 │   │   │
 │   │   ├── work
 │   │   │   ├── automatic
 │   │   │   │   └── @1778761500
 │   │   │   └── manual
-│   │   │       └── @1778765100-before-client-project-import
+│   │   │       └── @1778765100
 │   │   │
 │   │   └── iokode
 │   │       ├── automatic
 │   │       │   └── @1778761800
 │   │       └── manual
-│   │           └── @1778765400-before-blog-redesign
+│   │           └── @1778765400
 │   │
 │   └── boot
 │       ├── table
 │       ├── 2c6d281a7198da35893e6b5bfcb1fc2d3499169c27055adc47430645652f2050
-│       │   ├── vmlinuz-linux
-│       │   ├── initramfs-linux.img
-│       │   └── amd-ucode.img
+│       │   ├── EFI/
+│       │   │   └── [...]
+│       │   └── OpinionatedArch/
+│       │       └── [...]
 │       └── 2d07898b568b0949d5863b8d4949b3f2d505c9c36e80426d72897a66c41f46be
-│           ├── vmlinuz-linux
-│           ├── initramfs-linux.img
-│           └── amd-ucode.img
+│           ├── EFI/
+│           │   └── [...]
+│           └── OpinionatedArch/
+│               └── [...]
 │
 ├── @log
 ├── @pkg

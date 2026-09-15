@@ -1,6 +1,6 @@
 pkgname=oparch-return-message-render
-pkgver=0.1.0dev1
-pkgrel=3
+pkgver=0.1.0dev3
+pkgrel=1
 pkgdesc="Composes the pre-boot ownership message and installs it as a Plymouth theme"
 arch=('x86_64')
 url='https://github.com/iokode/OpinionatedArch'
