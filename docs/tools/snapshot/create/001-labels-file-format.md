@@ -31,6 +31,8 @@ A tool that labels a snapshot holds the lock [Snapshot Storage Lock](003-storage
 
 [oparch-snapshot-create](000-command.md) writes a member for each manual snapshot it takes, of the system or of a work context's home.
 
+Removing a manual snapshot removes its member in the same way, holding the same lock and keeping every other member; [oparch-snapshot-remove](../remove/000-command.md) does it.
+
 ## Why
 
 - The justification is kept out of the name because a name is a path segment and a justification is any text: a slash, a line break or a long sentence cannot be part of one. A name that is only the moment the snapshot was taken is also one that sorts by that moment and reads back without guessing where the moment ends.
