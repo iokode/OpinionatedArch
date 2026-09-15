@@ -1,0 +1,19 @@
+# The automatic snapshot of the system before each transaction that installs or
+# upgrades a package, as docs/decisions/004-snapshots.md takes one. The hook
+# runs the tool itself and pacman waits for it, so the snapshot holds the system
+# as it was before the transaction, and what the tool said is printed with the
+# transaction and kept in pacman's log.
+#
+# There is no AbortOnFail: a snapshot that cannot be taken is reported and the
+# transaction goes on.
+
+[Trigger]
+Type = Package
+Operation = Install
+Operation = Upgrade
+Target = *
+
+[Action]
+Description = Taking an automatic snapshot of the system...
+When = PreTransaction
+Exec = /usr/bin/oparch-snapshot-create system --automatic
