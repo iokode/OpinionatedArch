@@ -39,3 +39,26 @@ Everything [oparch-snapshot-create](../create/000-command.md) and [oparch-snapsh
   - Mandatory input: snapshot to restore, chosen from the list.
   - Mandatory input: confirmation.
 - Carry out the chosen operation through the snapshot library with the collected values.
+
+The tool takes over the terminal and opens on the list of snapshots, which fills the screen. It holds every snapshot under `/snapshots`, earliest first, one row each: the date and time it was taken, in UTC and written `YYYY-MM-DDTHH:MM:SS`, its scope, the work context whose home it is, whether it is automatic or manual, and its justification, with its line breaks shown as spaces. Two rows come before the snapshots, one that narrows the list and one that takes a manual snapshot. The list is read again every time it is shown, so it holds what an operation has just done. Typing filters the rows.
+
+Narrowing the list opens a screen of what it can be narrowed by, each with what it narrows to now: the scope, the work context once the scope is `home`, the earliest and the latest moment a snapshot shown was taken at, and the kind. Choosing one asks it. The scope and the kind are chosen from a list that also offers both; the work context from the work contexts whose homes have snapshots, or all of them. The two moments are typed as a date and time in UTC written `YYYY-MM-DDTHH:MM:SS`, both included, and an empty field is no bound. What is answered narrows the list at once, and going back from that screen shows it.
+
+Taking a manual snapshot asks the scope, then, for `home`, the work context, chosen from the members of `work-contexts`, and then the justification. The field takes one line, because `Enter` accepts it. When the snapshot has been taken, a box gives the path of the snapshot made, or says what failed and what the failing command wrote.
+
+Choosing a snapshot from the list asks, in a box over it, whether to remove it, and shows the whole of it: its scope, its work context, its kind, when it was taken, its justification and its path. Once that is confirmed, it is removed, and a box says so, or says what failed.
+
+An answer that is not taken is reported on the screen it was given on, and that screen is asked again: a justification that is empty or holds only whitespace, and a moment that is not a date and time written as above, which is asked again as it was typed. What stops the list from being read, such as a labels file that is not one, is reported on the list, and what stops the work contexts from being read is reported on the scope.
+
+| Key | Action |
+| --- | --- |
+| `↑` `↓` | Move within a list |
+| Typing | Filter a list, or type into a field |
+| `Enter` | Select, or accept a field |
+| `Esc`, `F1` | Go back one screen; the list of snapshots has nothing behind it and stays |
+| `Enter`, `y` | Answer yes to whether to remove a snapshot, or close a box |
+| `Esc`, `n` | Answer no to whether to remove a snapshot, or close a box |
+| `F6` | Leave, after a confirmation, from a list or a field |
+| `F8` | Read the runtime log |
+
+The exit status is `0` when the operator leaves, and `1` when the run was refused, when the terminal could not be taken over, or when the screens stopped on an error.
