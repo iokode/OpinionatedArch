@@ -1,5 +1,5 @@
 pkgname=oparch-snapshot-list
-pkgver=0.1.0dev2
+pkgver=0.1.0dev3
 pkgrel=1
 pkgdesc="Lists the snapshots of the machine, narrowed by scope, work context and moment"
 arch=('x86_64')

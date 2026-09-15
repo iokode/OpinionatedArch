@@ -1,5 +1,5 @@
 pkgname=oparch-snapshot-remove
-pkgver=0.1.0dev1
+pkgver=0.1.0dev2
 pkgrel=1
 pkgdesc="Removes a snapshot, with its line in the boot table, its unused boot artifacts and its label"
 arch=('x86_64')
