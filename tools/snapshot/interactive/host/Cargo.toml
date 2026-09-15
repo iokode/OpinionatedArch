@@ -1,0 +1,23 @@
+[package]
+name = "oparch-snapshot-interactive"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "oparch-snapshot-interactive"
+path = "src/main.rs"
+
+[dependencies]
+baml_sdk = { path = "baml_sdk" }
+baml_bridge = "=0.17.1-nightly.20260815.a"
+# What every host shares: the terminal, the frame, the widgets and running a
+# command. See docs/development/002-repository-layout.md.
+oparch-host = { path = "../../../utils/host" }
+crossterm = "0.29"
+ratatui = "0.29"
+tokio = { version = "1", features = ["full"] }
+
+# baml_sdk is generated as its own workspace root; consume it as a path
+# dependency and keep it out of this one.
+[workspace]
+exclude = ["baml_sdk"]

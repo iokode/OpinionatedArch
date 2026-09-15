@@ -1,0 +1,29 @@
+pkgname=oparch-baml-runtime
+pkgver=0.1.0dev1
+pkgrel=1
+pkgdesc="The BAML runtime library this project's tools with a host load"
+arch=('x86_64')
+url='https://github.com/iokode/OpinionatedArch'
+license=('BSD-2-Clause')
+
+# No separate package of debug symbols, and nothing is stripped. makepkg strips
+# shared libraries too, and the library is packaged as it was fetched and
+# checked against the checksum its toolchain names.
+options=('!debug' '!strip')
+
+# One library, in one package, because every tool with a host loads the same
+# one. Carried by each of those tools, several packages would own one file, and
+# pacman installs no two packages that do.
+#
+# Fetched when BAML is set up by the workflow and left beside this file, rather
+# than fetched at run time, so that an installation does not depend on a network
+# it has not configured yet.
+source=('libbaml_cffi-x86_64-unknown-linux-gnu.so')
+sha256sums=('SKIP')
+
+package() {
+    # Where the wrapper of every tool with a host names it with
+    # BAML_LIBRARY_PATH.
+    install -Dm755 "${srcdir}/libbaml_cffi-x86_64-unknown-linux-gnu.so" \
+        "${pkgdir}/usr/lib/oparch/libbaml_cffi-x86_64-unknown-linux-gnu.so"
+}

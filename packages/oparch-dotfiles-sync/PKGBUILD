@@ -1,6 +1,6 @@
 pkgname=oparch-dotfiles-sync
-pkgver=0.1.0dev1
-pkgrel=2
+pkgver=0.1.0dev3
+pkgrel=1
 pkgdesc="Applies a dotfiles package to the machine it is run on"
 arch=('x86_64')
 url='https://github.com/iokode/OpinionatedArch'

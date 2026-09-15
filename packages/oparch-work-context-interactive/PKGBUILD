@@ -1,0 +1,40 @@
+pkgname=oparch-work-context-interactive
+pkgver=0.1.0dev1
+pkgrel=1
+pkgdesc="Shows, creates and removes the work contexts of the machine, from a terminal interface"
+arch=('x86_64')
+url='https://github.com/iokode/OpinionatedArch'
+license=('BSD-2-Clause')
+
+# No separate package of debug symbols, which makepkg would otherwise make and
+# the repository would then hold alongside every tool it publishes. And nothing
+# is stripped, as for every other tool this project ships.
+options=('!debug' '!strip')
+
+# What the Requirements section of
+# docs/tools/work-context/interactive/000-command.md names: the BAML runtime
+# its host loads, and what the work context library calls. The library is
+# carried by oparch-baml-runtime, never by this package.
+depends=('oparch-baml-runtime'
+         'shadow'
+         'glibc'
+         'util-linux'
+         'btrfs-progs'
+         'coreutils')
+
+# The binary is built by the workflow and left beside this file; the wrapper
+# that points it at the BAML runtime is committed beside it.
+source=('oparch-work-context-interactive'
+        'oparch-work-context-interactive.sh')
+sha256sums=('SKIP'
+            'SKIP')
+
+package() {
+    # The binary sits beside the library oparch-baml-runtime puts there, out of
+    # the way, and what goes on PATH is the wrapper that points the one at the
+    # other.
+    install -Dm755 "${srcdir}/oparch-work-context-interactive" \
+        "${pkgdir}/usr/lib/oparch/oparch-work-context-interactive"
+    install -Dm755 "${srcdir}/oparch-work-context-interactive.sh" \
+        "${pkgdir}/usr/bin/oparch-work-context-interactive"
+}
