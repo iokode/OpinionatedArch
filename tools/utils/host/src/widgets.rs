@@ -80,14 +80,10 @@ pub fn modal_choose<T: Tool>(host: &Host<T>, title: &str, options: &[String]) ->
 
 // ------------------------------------------------------------------- filter
 
-/// Case-insensitive match on the segment after the last `/`, so typing
-/// "madrid" finds "Europe/Madrid" and typing "es" finds the "es" keymap.
+/// Case-insensitive match anywhere in the option, so typing "madrid" finds
+/// "Europe/Madrid" and typing "europe" finds every zone under "Europe/".
 fn matches_filter(option: &str, needle: &str) -> bool {
-    if needle.is_empty() {
-        return true;
-    }
-    let tail = option.rsplit('/').next().unwrap_or(option);
-    tail.to_lowercase().contains(&needle.to_lowercase())
+    option.to_lowercase().contains(&needle.to_lowercase())
 }
 
 pub(crate) fn filtered(options: &[String], needle: &str) -> Vec<usize> {
@@ -262,4 +258,19 @@ pub fn ui_text<T: Tool>(host: &Host<T>, title: String, prompt: String, initial: 
             _ => {}
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn typing_matches_anywhere_in_an_option_whatever_its_case() {
+        let zones: Vec<String> =
+            ["Europe/Madrid", "Europe/Paris", "America/New_York", "UTC"].iter().map(|z| z.to_string()).collect();
+
+        assert_eq!(filtered(&zones, "madrid"), vec![0]);
+        assert_eq!(filtered(&zones, "europe"), vec![0, 1]);
+        assert_eq!(filtered(&zones, ""), vec![0, 1, 2, 3]);
+    }
 }

@@ -58,9 +58,9 @@ impl Entry {
         }
     }
 
-    /// What typing filters against. It is the bare name, not the label: the
-    /// filter matches the segment after the last `/`, and a label that ends in
-    /// one would have nothing left to match.
+    /// What typing filters against. It is the bare name, not the label, so
+    /// the `/` after a directory's name and the brackets around this
+    /// directory's row are not matched.
     fn key(&self) -> String {
         match self {
             Entry::Here => "use this directory".into(),
@@ -289,7 +289,7 @@ mod tests {
         let root = sample_tree("filter");
         let keys: Vec<String> = entries_in(&root.to_string_lossy(), Want::Package).iter().map(|e| e.key()).collect();
 
-        // The label ends in `/`, so filtering has to happen on the name.
+        // A directory is matched by its name, as a file is.
         assert_eq!(filtered(&keys, "andor"), vec![3]);
         let _ = std::fs::remove_dir_all(&root);
     }
