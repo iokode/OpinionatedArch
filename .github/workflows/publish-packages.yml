@@ -64,6 +64,8 @@ jobs:
               && baml pack main --output ./oparch-snapshot-create )
           ( cd tools/snapshot/list \
               && baml pack main --output ./oparch-snapshot-list )
+          ( cd tools/snapshot/remove \
+              && baml pack main --output ./oparch-snapshot-remove )
 
       - name: Work out what the repository does not already hold
         run: |
@@ -130,6 +132,9 @@ jobs:
 
           cp tools/snapshot/list/oparch-snapshot-list \
               packages/oparch-snapshot-list/
+
+          cp tools/snapshot/remove/oparch-snapshot-remove \
+              packages/oparch-snapshot-remove/
 
       - name: Build the packages
         run: |
