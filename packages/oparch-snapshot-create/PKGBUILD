@@ -1,5 +1,5 @@
 pkgname=oparch-snapshot-create
-pkgver=0.1.0dev1
+pkgver=0.1.0dev2
 pkgrel=1
 pkgdesc="Takes a manual or an automatic snapshot of the system or of a work context's home, and keeps the last sixty automatic ones"
 arch=('x86_64')
