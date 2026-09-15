@@ -47,6 +47,7 @@ Three things about the generated entry point:
 - **There is no int-to-float method.** `3.to_float()` and `baml.Int.from_float` do not exist; `value * 1.0` converts. `(3.7).round()` and `.floor()` return floats, not ints.
 - **Narrowing is enforced, not merely offered.** After `if (value == null) { return … }` the compiler refuses `value ?? ""` as unnecessary. The same check that makes a value safe makes the fallback an error.
 - **`\n` is dropped from a template literal that interpolates.** `` `${v}\n` `` is one character long, where `` `a\nb` `` is three, and `\t`, `\r` and `\\` survive in both. A generated line that ends in a value has to be written `` `… = ${v};` + "\n" ``, which is what the Plymouth prelude in `return-message-render` does.
+- **A string is lowercased with `to_lower_case()`.** `to_lowercase()` is refused with ``type `string` has no member `to_lowercase` ``, and nothing in the error names the method that is there.
 - **Optional chaining stops at the field.** `(list.at(0))?.args.slice(0, 2)` does not compile, and `((list.at(0))?.args ?? [])` compiles to `string[] | _[]`, which has no methods at all. What works is a typed local — `let empty: string[] = []; x ?? empty` — or a small function whose declared return type does the coercion.
 
 ## The standard library
