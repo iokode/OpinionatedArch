@@ -50,9 +50,10 @@ Every document in this directory, by type. What the types are and what shape eac
 - [oparch-work-context-remove](tools/work-context/remove/000-command.md)
 - [oparch-work-context-list](tools/work-context/list/000-command.md)
 - [oparch-work-context-interactive](tools/work-context/interactive/000-command.md)
-- [oparch-snapshot-system-create](tools/snapshot/system-create/000-command.md)
-- [oparch-snapshot-work-context-create](tools/snapshot/work-context-create/000-command.md)
-- [oparch-snapshot-automatic-create](tools/snapshot/automatic-create/000-command.md)
+- [oparch-snapshot-create](tools/snapshot/create/000-command.md)
+  - [Snapshot Labels File Format](tools/snapshot/create/001-labels-file-format.md)
+  - [Boot Artifacts Table Format](tools/snapshot/create/002-boot-table-format.md)
+  - [Snapshot Storage Lock](tools/snapshot/create/003-storage-lock.md)
 - [oparch-snapshot-list](tools/snapshot/list/000-command.md)
 - [oparch-snapshot-remove](tools/snapshot/remove/000-command.md)
 - [oparch-snapshot-restore](tools/snapshot/restore/000-command.md)
@@ -60,7 +61,7 @@ Every document in this directory, by type. What the types are and what shape eac
 - [oparch-password-rotate](tools/password/rotate/000-command.md)
 - [oparch-password-rotate-interactive](tools/password/rotate-interactive/000-command.md)
 
-The first four are written. The rest are specified and not implemented, which [Remaining](state/001-remaining.md) carries as the first work.
+`oparch-installer`, `oparch-installer-interactive`, `oparch-return-message-render`, `oparch-dotfiles-sync`, `oparch-work-context-create`, `oparch-work-context-list`, `oparch-work-context-remove`, `oparch-work-context-interactive`, `oparch-snapshot-create`, `oparch-snapshot-list`, `oparch-snapshot-remove` and `oparch-snapshot-interactive`, without its restore action, are written. `oparch-snapshot-restore`, `oparch-password-rotate` and `oparch-password-rotate-interactive` are specified and not implemented, which [Remaining](state/001-remaining.md) carries as the first work.
 
 ## Development
 
