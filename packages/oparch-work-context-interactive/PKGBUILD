@@ -14,8 +14,10 @@ options=('!debug' '!strip')
 # What the Requirements section of
 # docs/tools/work-context/interactive/000-command.md names: the BAML runtime
 # its host loads, and what the work context library calls. The library is
-# carried by oparch-baml-runtime, never by this package.
-depends=('oparch-baml-runtime'
+# carried by oparch-baml-runtime, never by this package, and at the one version
+# this host was built against: named without one, a runtime of any other
+# toolchain satisfies this line, and the host is left to load it.
+depends=('oparch-baml-runtime=0.17.1nightly.20260815.a'
          'shadow'
          'glibc'
          'util-linux'

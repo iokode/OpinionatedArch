@@ -14,8 +14,10 @@ options=('!debug' '!strip')
 # What the Requirements section of
 # docs/tools/snapshot/interactive/000-command.md names: the BAML runtime its
 # host loads, and what the snapshot and work context libraries call. The
-# runtime is carried by oparch-baml-runtime, never by this package.
-depends=('oparch-baml-runtime'
+# runtime is carried by oparch-baml-runtime, never by this package, and at the
+# one version this host was built against: named without one, a runtime of any
+# other toolchain satisfies this line, and the host is left to load it.
+depends=('oparch-baml-runtime=0.17.1nightly.20260815.a'
          'btrfs-progs'
          'coreutils'
          'util-linux'
