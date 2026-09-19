@@ -1,0 +1,49 @@
+pkgname=oparch-baml-runtime
+
+# BAML's version and not one of this project's: what is packaged here is
+# BoundaryML's library, and a machine asked which runtime it carries is owed the
+# version BoundaryML gave it. It is the toolchain the hosts are built against,
+# resolved in tools/installer/interactive/host/Cargo.lock, and it moves when
+# that lock moves: the library moves with it, and a version left standing is a
+# new library that is never published, because this line is what the publish
+# workflow compares against what the repository already holds.
+#
+# Upstream's hyphen is dropped rather than written as `_`, for the reason
+# docs/decisions/015-oparch-tools.md gives for this project's own pre-releases:
+# glued is the only form pacman orders before the release it precedes.
+pkgver=0.17.1nightly.20260815.a
+pkgrel=1
+pkgdesc="The BAML runtime library this project's tools with a host load"
+arch=('x86_64')
+# BoundaryML's project and BoundaryML's license: what this package carries is
+# their library, and this project's part in it is the packaging.
+url='https://github.com/BoundaryML/baml'
+license=('Apache-2.0')
+
+# No separate package of debug symbols, and nothing is stripped. makepkg strips
+# shared libraries too, and the library is packaged as it was fetched and
+# checked against the checksum its toolchain names.
+options=('!debug' '!strip')
+
+# What the library itself asks the loader for: glibc, for libc, libm, libdl,
+# libpthread, librt and the loader, and libgcc, for libgcc_s.so.1. Both are on
+# any Arch system, and they are declared anyway because nothing is arranged so
+# that they are absent.
+depends=('glibc' 'libgcc')
+
+# One library, in one package, because every tool with a host loads the same
+# one. Carried by each of those tools, several packages would own one file, and
+# pacman installs no two packages that do.
+#
+# Fetched when BAML is set up by the workflow and left beside this file, rather
+# than fetched at run time, so that an installation does not depend on a network
+# it has not configured yet.
+source=('libbaml_cffi-x86_64-unknown-linux-gnu.so')
+sha256sums=('SKIP')
+
+package() {
+    # Where the wrapper of every tool with a host names it with
+    # BAML_LIBRARY_PATH.
+    install -Dm755 "${srcdir}/libbaml_cffi-x86_64-unknown-linux-gnu.so" \
+        "${pkgdir}/usr/lib/oparch/libbaml_cffi-x86_64-unknown-linux-gnu.so"
+}

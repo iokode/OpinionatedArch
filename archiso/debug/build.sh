@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
-# Builds an image carrying the tools built from this working tree, to try them
-# in before they are published.
+# Builds an image carrying the installer built from this working tree, with the
+# two tools it calls, to try them in before they are published.
 #
 # It is assembled the way archiso/distrib/build.sh assembles the published
 # image, out of a profile of archiso's with this directory's differences
@@ -11,11 +11,15 @@
 # the live system and `baseline` lacks is taken from `releng` as it is on the
 # day.
 #
-# The tools are built first and put where their packages put them. The image
-# carries no repository of its own, so an installation made from it needs a
-# network.
+# Every package the working tree defines is built first, the way the publish
+# workflow builds it, into a repository the image carries and the live system
+# lists ahead of every other, so that whatever an installation asks for that
+# the tree defines comes from the tree. The tools the image runs are taken from
+# those builds and put where their packages put them. The repository holds
+# nothing else, so an installation made from the image needs a network.
 #
-# Needs archiso, grub, jq, and the BAML toolchain the tools are built with.
+# Needs archiso, grub, jq, makepkg and fakeroot, and the BAML toolchain the
+# tools are built with.
 # Runs as any user: mkarchiso runs its steps in a user namespace when it is not
 # root. Takes the directory to leave the image in.
 
@@ -25,7 +29,14 @@ readonly HERE="$(cd "$(dirname "$0")" && pwd)"
 readonly ROOT="$(cd "$HERE/../.." && pwd)"
 readonly BASELINE=/usr/share/archiso/configs/baseline
 readonly RELENG=/usr/share/archiso/configs/releng/airootfs
-readonly TARGET=x86_64-unknown-linux-gnu
+
+# The repository of the working tree's packages, as the live system's
+# pacman.conf in airootfs/etc/ names it, and as scripts/vm.sh gives it to the
+# machine it installs.
+readonly REPOSITORY_NAME=oparch-debug
+readonly REPOSITORY_DIR=/usr/share/oparch/debug
+
+. "$ROOT/scripts/lib/toolchain.sh"
 
 say() { printf '==> %s\n' "$*" >&2; }
 
@@ -50,49 +61,22 @@ remove_work() {
 }
 trap remove_work EXIT
 
-# A build that allocates without bound takes a machine with no swap down before
-# anything can stop it, so each one is held to a ceiling where the user's
-# systemd is there to hold it.
-capped() {
-    if systemd-run --user --scope -q -p MemoryMax=8G -p MemorySwapMax=0 true 2>/dev/null; then
-        systemd-run --user --scope -q -p MemoryMax=8G -p MemorySwapMax=0 "$@"
-    else
-        "$@"
-    fi
-}
+# --------------------------------------------------------------- the packages
 
-# ------------------------------------------------------------------ the tools
+# Every package defined under packages/, and building them builds the tools the
+# image carries, where they are copied from below.
+say "Building the packages of $ROOT"
+repository="$work/repository"
+mkdir -p "$work/packages" "$repository"
+for definition in "$ROOT"/packages/*/PKGBUILD; do
+    name="$(basename "$(dirname "$definition")")"
+    say "Building $name"
+    build_package "$name" "$work/packages" "$repository"
+done
+repo-add "$repository/$REPOSITORY_NAME.db.tar.gz" "$repository"/*.pkg.tar.zst
 
-say "Building the tools from $ROOT"
-( cd "$ROOT/tools/installer/unattended" && capped baml pack main --output ./oparch-installer )
-capped baml --directory "$ROOT/tools/installer/interactive" generate
-capped cargo build --release --manifest-path "$ROOT/tools/installer/interactive/host/Cargo.toml"
-( cd "$ROOT/tools/return-message/render" \
-    && capped baml pack main --output ./oparch-return-message-render )
-( cd "$ROOT/tools/dotfiles/sync" && capped baml pack main --output ./oparch-dotfiles-sync )
-
-# The runtime library the interactive installer's host loads, for the toolchain
-# the host was built against. It is fetched the way the setup-baml action
-# fetches it, and kept where the host itself would keep it.
-toolchain="$(awk '
-    /^name = "baml_bridge"$/ { found = 1; next }
-    found && /^version = / { gsub(/[",]/, "", $3); print $3; exit }
-' "$ROOT/tools/installer/interactive/host/Cargo.lock")"
-library="$HOME/.cache/baml/libs/$toolchain/libbaml_cffi-$TARGET.so"
-if [ ! -f "$library" ]; then
-    manifest="$HOME/.baml/manifest-cache/prod/version/$toolchain.json"
-    if [ ! -f "$manifest" ]; then
-        say "There is no manifest for BAML $toolchain. 'baml toolchain use $toolchain' leaves one."
-        exit 1
-    fi
-    say "Fetching the BAML runtime library for $toolchain"
-    url="$(jq -er --arg t "$TARGET" '.cffi[$t].url' "$manifest")"
-    sha="$(jq -er --arg t "$TARGET" '.cffi[$t].sha256' "$manifest")"
-    mkdir -p "$(dirname "$library")"
-    curl -fsSL -o "$library.part" "$url"
-    printf '%s  %s\n' "$sha" "$library.part" | sha256sum -c --quiet -
-    mv "$library.part" "$library"
-fi
+# The runtime library the interactive installer's host loads.
+library="$(baml_runtime_library)"
 
 # ---------------------------------------------------------------- the profile
 
@@ -156,6 +140,10 @@ cp "$ROOT/tools/installer/interactive/host/target/release/oparch-installer-inter
 cp "$library" "$air/usr/lib/oparch/"
 cp -r "$ROOT/assets" "$air/usr/share/opinionatedarch/assets"
 cp "$ROOT/archiso/distrib/airootfs/root/.zprofile" "$air/root/"
+
+say "Putting the repository in"
+mkdir -p "$(dirname "$air$REPOSITORY_DIR")"
+cp -r "$repository" "$air$REPOSITORY_DIR"
 
 # ------------------------------------------------------------------ the image
 
