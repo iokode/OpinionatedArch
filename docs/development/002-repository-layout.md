@@ -4,9 +4,9 @@ Where the sources live, where the tests live, why the two answers are not the sa
 
 The repository holds the source of every tool under `tools/`, the tests under `tests/`, the scripts that are run from a checkout and belong to none of the other directories under `scripts/`, the assets the tools ship or read under `assets/`, the packages the project publishes and what it takes to sign them under `packages/`, the profiles images are built from under `archiso/`, the workflows that build, publish and deploy all of it under `.github/`, what the project runs at the edge of its own domain under `.cloudflare/`, and the documentation under `docs/`. Those are the directories, and there is no other.
 
-`archiso/` holds a directory for each image: `distrib/` for the installation image the project publishes, and `debug/` for an image carrying the tools built from the working tree, to try them in before they are published. How that image and the scripts that boot it are used is [Trying a Working Tree](009-trying-a-working-tree.md).
+`archiso/` holds a directory for each image: `distrib/` for the installation image the project publishes, and `debug/` for an image carrying the installer built from the working tree, to try it and the tools in before they are published. How that image and the scripts that boot it are used is [Trying a Working Tree](009-trying-a-working-tree.md).
 
-`scripts/` holds `install.sh`, the other way an installation is started, `vm-installer.sh`, which builds the debug image and boots it in a window to try the installer in, `vm.sh`, which installs a machine from that image, puts the tools built from the working tree in it, and boots it in a window, and `vm-config.yaml`, the answers `vm.sh` installs that machine with. What they share with the tests is in `scripts/lib/`: `guest.sh`, which starts a guest under QEMU and drives it over its serial line, and which the end-to-end harness runs its cases in.
+`scripts/` holds `install.sh`, the other way an installation is started, `vm-installer.sh`, which builds the debug image and boots it in a window to try the installer in, `vm.sh`, which installs a machine from that image with the packages built from the working tree, and boots it in a window, and `vm-config.yaml`, the answers `vm.sh` installs that machine with. What they share with the tests is in `scripts/lib/`: `guest.sh`, which starts a guest under QEMU and drives it over its serial line, and which the end-to-end harness runs its cases in. Beside it is `toolchain.sh`, which holds a build to a memory ceiling, finds the BAML runtime library and builds a package of the working tree, and which the debug image's build sources.
 
 More than one tool is written in BAML, and they have code in common — running external commands, reading command output, and the test doubles that go with those.
 
@@ -22,8 +22,9 @@ The tools of an entity are interfaces over one library of that entity, as [Oparc
 tools/
 ├── utils/                          generic code; not built on its own
 │   ├── baml.toml
-│   └── baml_src/
-│       └── ns_common/              → root.common
+│   ├── baml_src/
+│   │   └── ns_common/              → root.common
+│   └── host/                       the Rust crate every host is built on
 ├── <entity>/
 │   ├── lib/                        the entity's library; not built on its own
 │   │   ├── baml.toml
@@ -55,6 +56,8 @@ An entity is added by creating its directory and its library. A tool is added by
 
 `tools/utils/` holds what is generic: code that would read the same if the tool it was first written for did not exist. Running commands, touching files, reading YAML, splitting text.
 
+What is generic to a host is there too, in `tools/utils/host/`: a Rust crate, `oparch-host`, holding what every host does whichever tool it serves, as [Host Bridge](001-host-bridge.md) describes. It knows no tool and no generated SDK. A tool's host depends on it by path in its `Cargo.toml`, and holds only what is that tool's own.
+
 The domain logic of an entity belongs to its library, whichever of its tools first needed it, and stays there when a project outside the entity needs it too. That project symlinks the namespace exactly as it symlinks a shared one.
 
 The return-message template package and its values format are the case: they belong to the return message, and they are specified under `docs/tools/return-message/render/`. They live in `tools/return-message/lib/baml_src/ns_return_message/`, and the installer links them from there, because it asks for the fields a package declares and validates the same values in its own configuration file.
@@ -80,6 +83,7 @@ The harness is the opposite case and gets the opposite answer. It boots a virtua
 - One project per tool is chosen because each tool ships separately and declares its own generator; if all tools share a project, every generated SDK carries every tool's code and any change to one tool rebuilds the others.
 - The tools of an entity are gathered in the directory of that entity because they are interfaces over one library: the library and every tool built on it are found in one place, and the path of a tool says which library it is built on.
 - Code with more than one caller has exactly one home, wherever that home is; if it is copied into each caller, the copies drift.
+- What every host shares is in `tools/utils/` because it is generic by the same measure as `root.common`: it would read the same if the installer did not exist. It is a crate a host depends on by path rather than a namespace linked in, because the hosts are Rust, and a path dependency is how Cargo reaches code outside a project, where BAML has nothing but the link.
 - Only generic code lives there, because a directory named for what code *is not* — not specific to anyone — collects whatever has two callers, and ends up holding the domain of every tool with none of their names on it. What belongs to an entity is that entity's, however many projects read it.
 - The domain logic of an entity stays in its library even when a project outside the entity needs it, because where code lives is what says who owns it. If it moves out on its second caller, ownership follows use, and the answer to "who decides what this format means" changes every time something new reads it.
 - The shared code is reached by symlinking its namespace directory because BAML offers no other way to pull sources in from outside a project; if the files are duplicated instead, whichever project owns them stops being the source of truth it exists to be.
@@ -99,6 +103,7 @@ The harness is the opposite case and gets the opposite answer. It boots a virtua
 - Generated SDKs and BAML caches exclude themselves from version control — the generator writes a `.gitignore` into the SDK directory, and `.baml/` carries its own. Neither needs an entry in the repository's `.gitignore`.
 - A packed executable excludes itself from nothing, so the tool that produces one carries a `.gitignore` naming it.
 - What a `PKGBUILD` is given to package — the built binaries, the runtime library, the archive of assets — is put beside it when a package is built and is no part of this repository. The definition is committed; what it packages is produced.
+- A trigger package, which runs a tool on an event as [Oparch Tools](../decisions/015-oparch-tools.md) decides, has its directory under `packages/` like any other package. The units and hooks it installs are written rather than produced, and are committed beside its `PKGBUILD`.
 - Git stores the symlink itself, so a clone reproduces the layout with no setup step.
 - Do not add a shared namespace to a project that does not use it. The symlink is what declares the dependency, and it should mean something.
 - A namespace owned by a library is a directory several projects read, so renaming or removing its entity breaks whoever links it. The symlink is what makes that visible: it names the owner in the path.

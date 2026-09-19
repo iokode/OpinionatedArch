@@ -14,4 +14,4 @@ Recovery must be deterministic during incidents. One tool for both scopes, runni
 
 ## Input parameters
 
-- `<snapshot>`: Mandatory. Path of the snapshot to restore, as `oparch-snapshot-list` prints it.
+- `<snapshot>`: Mandatory. Path of the snapshot to restore, as `oparch-snapshot-list` prints it after the tab of the snapshot's line.
