@@ -1,0 +1,6 @@
+target/
+
+# The lock that decides the versions is the one beside the binary this crate is
+# built into. What a build of the crate on its own leaves here is a second lock
+# for the same crate, and two of them are two answers that can disagree.
+Cargo.lock
