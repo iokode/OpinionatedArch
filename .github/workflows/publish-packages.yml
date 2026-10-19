@@ -49,6 +49,10 @@ jobs:
           # binary without this step ships the previous program.
           baml --directory tools/installer/interactive generate
           cargo build --release --manifest-path tools/installer/interactive/host/Cargo.toml
+          baml --directory tools/work-context/interactive generate
+          cargo build --release --manifest-path tools/work-context/interactive/host/Cargo.toml
+          baml --directory tools/snapshot/interactive generate
+          cargo build --release --manifest-path tools/snapshot/interactive/host/Cargo.toml
 
           ( cd tools/installer/unattended \
               && baml pack main --output ./oparch-installer )
@@ -56,6 +60,18 @@ jobs:
               && baml pack main --output ./oparch-return-message-render )
           ( cd tools/dotfiles/sync \
               && baml pack main --output ./oparch-dotfiles-sync )
+          ( cd tools/work-context/list \
+              && baml pack main --output ./oparch-work-context-list )
+          ( cd tools/work-context/create \
+              && baml pack main --output ./oparch-work-context-create )
+          ( cd tools/work-context/remove \
+              && baml pack main --output ./oparch-work-context-remove )
+          ( cd tools/snapshot/create \
+              && baml pack main --output ./oparch-snapshot-create )
+          ( cd tools/snapshot/list \
+              && baml pack main --output ./oparch-snapshot-list )
+          ( cd tools/snapshot/remove \
+              && baml pack main --output ./oparch-snapshot-remove )
 
       - name: Work out what the repository does not already hold
         run: |
@@ -98,17 +114,42 @@ jobs:
 
           # The library was fetched and checked when BAML was set up, and its
           # path comes from there rather than being built again here.
+          cp "$BAML_RUNTIME_LIBRARY" packages/oparch-baml-runtime/
+
           cp tools/installer/unattended/oparch-installer \
               packages/oparch-installer/
           cp tools/installer/interactive/host/target/release/oparch-installer-interactive \
               packages/oparch-installer/
-          cp "$BAML_RUNTIME_LIBRARY" packages/oparch-installer/
 
           cp tools/return-message/render/oparch-return-message-render \
               packages/oparch-return-message-render/
 
           cp tools/dotfiles/sync/oparch-dotfiles-sync \
               packages/oparch-dotfiles-sync/
+
+          cp tools/work-context/list/oparch-work-context-list \
+              packages/oparch-work-context-list/
+
+          cp tools/work-context/create/oparch-work-context-create \
+              packages/oparch-work-context-create/
+
+          cp tools/work-context/remove/oparch-work-context-remove \
+              packages/oparch-work-context-remove/
+
+          cp tools/work-context/interactive/host/target/release/oparch-work-context-interactive \
+              packages/oparch-work-context-interactive/
+
+          cp tools/snapshot/create/oparch-snapshot-create \
+              packages/oparch-snapshot-create/
+
+          cp tools/snapshot/list/oparch-snapshot-list \
+              packages/oparch-snapshot-list/
+
+          cp tools/snapshot/remove/oparch-snapshot-remove \
+              packages/oparch-snapshot-remove/
+
+          cp tools/snapshot/interactive/host/target/release/oparch-snapshot-interactive \
+              packages/oparch-snapshot-interactive/
 
       - name: Build the packages
         run: |

@@ -41,5 +41,5 @@ A change under `/dotfiles` reaches a linked target at once, because that target 
 
 - `/dotfiles` is a Git repository only when the package it was installed from was one. A package taken as a directory or an archive leaves files, and the restore path [Disk Layout](001-disk-layout.md) describes does not exist on that machine until someone makes it a repository.
 - The `dotfiles` group is a boundary between the accounts of one person and not between people, as [Work Contexts and Accounts](000-work-contexts-and-accounts.md) establishes. Shared write access to shared configuration is the point of it, not a concession.
-- What [oparch-dotfiles-sync](../tools/dotfiles/sync/000-command.md) writes is the targets a map declares and its own state under `/var/lib/oparch/`. Its permission to read `/dotfiles` is the group's, and nothing here asks it to write there.
+- What [oparch-dotfiles-sync](../tools/dotfiles/sync/000-command.md) writes is the targets a map declares and its own state under `/var/lib/oparch/`. Nothing here asks it to write to `/dotfiles`.
 
