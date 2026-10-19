@@ -4,6 +4,8 @@
 
 `oparch-dotfiles-sync` applies the shared dotfiles source to target user and system paths. It installs declared packages and links, copies, and renders managed targets as declared in the map. The default source is `/dotfiles`, the shared dotfiles tree mounted outside any individual user home, and the default map is `/dotfiles/main.dfmap`.
 
+It runs as root. Run by any other user, it refuses with an error before doing anything else, `--dry-run` and `--list-secrets` included.
+
 ## Why is needed
 
 Manual dotfile application is difficult to keep consistent across all users and machines. A dedicated tool applies the shared `/dotfiles` source repeatably from one declarative map and avoids per-user divergence.

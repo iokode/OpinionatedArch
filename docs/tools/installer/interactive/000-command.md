@@ -18,7 +18,7 @@ Everything [oparch-installer](../../installer/unattended/000-command.md) require
 
 And two things of its own:
 
-- **The BAML runtime library.** This tool has a host, so its binary loads a shared library of about 25 MB rather than carrying it. Where it comes from is [Host Bridge](../../../development/001-host-bridge.md). Its package carries it and what goes on `PATH` is a wrapper that names it with `BAML_LIBRARY_PATH`, along with `BAML_LIBRARY_DISABLE_DOWNLOAD`, which turns a missing one into a failure instead of a silent download.
+- **The BAML runtime library.** This tool has a host, so its binary loads a shared library of about 25 MB rather than carrying it. Where it comes from is [Host Bridge](../../../development/001-host-bridge.md). It comes in a package of its own, `oparch-baml-runtime`, which this tool's package depends on, and what goes on `PATH` is a wrapper that names it with `BAML_LIBRARY_PATH`, along with `BAML_LIBRARY_DISABLE_DOWNLOAD`, which turns a missing one into a failure instead of a silent download.
 - **Its assets.** The wrapper names those too, at the one place [Oparch Tools](../../../decisions/015-oparch-tools.md) keeps them, because this tool's own default is a directory beside its binary and that is not where the project puts them.
 
 ## Input parameters

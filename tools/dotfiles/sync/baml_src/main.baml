@@ -189,6 +189,15 @@ function main() -> void {
     //# failure, and it has to survive until it is folded into the diagnostics
     let shell = root.common.system_shell();
     let files = root.common.system_files();
+    //# before anything else, the options included: a run that is not root's is
+    //# refused whatever it was asked to do. The tool runs as root because what
+    //# it applies is written into protected paths such as /etc
+    let refused = root.common.require_root(shell, "oparch-dotfiles-sync");
+    if (refused != "") {
+        diag.report(refused);
+        print_errors(diag);
+        baml.sys.exit(1);
+    }
     let options = parse_options(baml.sys.argv(), diag);
     let source_root = root.dotfiles.path_normalize(options.source);
     let map_path = root.dotfiles.path_normalize(options.map_path);

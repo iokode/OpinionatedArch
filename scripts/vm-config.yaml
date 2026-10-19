@@ -2,9 +2,9 @@
 # them; the format is docs/tools/installer/unattended/001-config-file-format.md.
 #
 # The disk is the one vm.sh attaches to its guest, over virtio. The machine is
-# installed over the network, because the debug image carries no repository of
-# its own. The shared secret is what the disk asks for and what every work
-# context logs in with.
+# installed over the network, because the repository the debug image carries
+# holds only the packages of the working tree. The shared secret is what the
+# disk asks for and what every work context logs in with.
 
 disk: /dev/vda
 install_mode: wipe-all

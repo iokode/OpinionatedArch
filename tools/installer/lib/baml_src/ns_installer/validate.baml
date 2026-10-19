@@ -22,32 +22,9 @@ function validate_hostname(hostname: string) -> bool {
     true
 }
 
-/// Lowercase letters, digits, underscore and dash; must start with a lowercase
-/// letter or underscore; 1..32 chars.
-function validate_username(username: string) -> bool {
-    if (username.length() <= 0 || username.length() > 32) {
-        return false;
-    }
-    let first = username.at(0) ?? "";
-    if (!first.is_ascii_lowercase() && first != "_") {
-        return false;
-    }
-    for (let character in username.chars()) {
-        if (
-            !character.is_ascii_lowercase()
-                && !character.is_ascii_numeric()
-                && character != "_"
-                && character != "-"
-        ) {
-            return false;
-        }
-    }
-    true
-}
-
-/// Parses the comma-separated work contexts. A work context is named by the
-/// account that carries it, so the name has to be a valid username. Rejects
-/// invalid and reserved names, drops duplicates, and requires at least one.
+/// Parses the comma-separated work contexts. Rejects the names a work context
+/// cannot take, which `root.common.work_context_name_error` decides, drops
+/// duplicates, and requires at least one.
 function parse_work_contexts_csv(raw: string) -> WorkContextsParse {
     let contexts: string[] = [];
     for (let token in raw.split(",")) {
@@ -55,11 +32,9 @@ function parse_work_contexts_csv(raw: string) -> WorkContextsParse {
         if (name == "") {
             continue;
         }
-        if (!validate_username(name)) {
-            return WorkContextsParse { work_contexts: [], error: `Invalid work context name: ${name}` };
-        }
-        if (name == "system") {
-            return WorkContextsParse { work_contexts: [], error: "Work context name 'system' is reserved." };
+        let invalid = root.common.work_context_name_error(name);
+        if (invalid != "") {
+            return WorkContextsParse { work_contexts: [], error: invalid };
         }
         if (!contexts.includes(name)) {
             contexts.push(name);
@@ -90,17 +65,6 @@ test "validate_hostname accepts what Arch accepts" {
     assert.is_true(!validate_hostname("has_underscore"));
     assert.is_true(!validate_hostname("x".repeat(64)));
     assert.is_true(validate_hostname("x".repeat(63)))
-}
-
-test "validate_username follows the useradd rules" {
-    assert.is_true(validate_username("ivan"));
-    assert.is_true(validate_username("_svc"));
-    assert.is_true(validate_username("user-1_2"));
-    assert.is_true(!validate_username(""));
-    assert.is_true(!validate_username("Ivan"));
-    assert.is_true(!validate_username("1user"));
-    assert.is_true(!validate_username("has space"));
-    assert.is_true(!validate_username("x".repeat(33)))
 }
 
 test "parse_work_contexts_csv trims, dedupes and keeps order" {
