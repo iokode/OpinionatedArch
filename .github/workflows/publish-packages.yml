@@ -98,11 +98,12 @@ jobs:
 
           # The library was fetched and checked when BAML was set up, and its
           # path comes from there rather than being built again here.
+          cp "$BAML_RUNTIME_LIBRARY" packages/oparch-baml-runtime/
+
           cp tools/installer/unattended/oparch-installer \
               packages/oparch-installer/
           cp tools/installer/interactive/host/target/release/oparch-installer-interactive \
               packages/oparch-installer/
-          cp "$BAML_RUNTIME_LIBRARY" packages/oparch-installer/
 
           cp tools/return-message/render/oparch-return-message-render \
               packages/oparch-return-message-render/
