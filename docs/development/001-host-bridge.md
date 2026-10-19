@@ -1,6 +1,6 @@
 # Host Bridge
 
-BAML has no TUI in its standard library yet, and `baml.sys.exec` returns process output buffered, with no incremental access. A tool that draws a terminal interface, or that shows what a long command is doing while it is still doing it, needs both.
+BAML has no TUI in its standard library yet. It streams what a command writes to standard output while the command runs, through `baml.sys.start_process`, but not what it writes to standard error, which a process started that way does not capture. A tool that draws a terminal interface, or that reads a long command's standard error while the command is still running, needs what BAML does not give.
 
 Until BAML covers them, such a tool needs a host language. BAML calls it through a generated SDK ("the bridge"), declared as a `[generator.<name>]` in `baml.toml`. Ten targets exist: `python/pydantic`, `python/pydantic/v1`, `typescript/node`, `typescript/web`, `swift`, `go`, `rust`, `java`, `cpp`, `csharp`.
 
@@ -14,7 +14,7 @@ Because the host is disposable, the selection criterion is not which host is bes
 
 ### Only a tool that needs one has a host
 
-A host exists to own a terminal and to read a command's output while it is still running. A tool that needs neither has no host and no bridge: `baml.sys` runs commands and `baml.fs` touches files, and `baml pack` turns the tool into the executable it ships as.
+A host exists to own a terminal and to read a command's standard error while it is still running. A tool that needs neither has no host and no bridge: `baml.sys` runs commands and `baml.fs` touches files, and `baml pack` turns the tool into the executable it ships as.
 
 Which tools need one is not settled by this document and is not expected to stay as it is. Today `oparch-installer-interactive` is the only one that has a host, and `oparch-return-message-render` the first built without one; a terminal interface is the kind of thing more tools will want, and each of them arrives at the same bridge by the same argument.
 
@@ -30,7 +30,7 @@ Opening the installer's encrypted secret store crossed as well, for as long as t
 
 ## Why
 
-- A host language is used at all because BAML currently provides neither a TUI nor streaming process output; if `baml.sys.exec` is used directly, a tool cannot show progress until each command has already finished.
+- A host language is used at all because BAML currently provides no TUI, and streams a command's standard output but not its standard error; a tool that tells what a command said from what it complained about, while the command runs, cannot do it in BAML alone.
 - A tool that needs neither of those has no host because a host is then pure cost: a second language, a generated SDK, a build step and a runtime library, all to forward calls that `baml.sys` and `baml.fs` already make. It would also be cost paid for something already scheduled for deletion.
 - The port is kept even where there is no host to hide, because what the ports buy is the recording doubles: a tool that called `baml.sys.exec` directly could only be tested by running the commands for real.
 - One bridge target is chosen for the project rather than per tool, because the reasons below are properties of the boundary and not of any one tool; a second target would mean a second set of them to keep in mind, for no gain.
@@ -103,4 +103,4 @@ A tool with a host and a packed tool therefore ship differently, and what `baml 
 
 - Classes with function-typed fields do not cross the boundary, so host closures must arrive flat at the entrypoint. They are wrapped there by a BAML class that implements the interface, and every other function sees only the interface.
 - A hosted flow stays testable without the bridge: a BAML implementation of the same interface substitutes for the host, so `baml test` exercises the full flow with no host binary involved. The bridge is a production-only dependency.
-- What would change this decision: BAML shipping a TUI and streaming process execution removes the need for a host entirely, which is the expected end state. Short of that, Go becomes preferable only if Rust's boundary limitations grow to affect the BAML side rather than the host side.
+- What would change this decision: BAML shipping a TUI and a stream of a command's standard error removes the need for a host entirely, which is the expected end state. Short of that, Go becomes preferable only if Rust's boundary limitations grow to affect the BAML side rather than the host side.

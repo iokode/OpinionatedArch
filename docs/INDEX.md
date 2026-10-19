@@ -83,3 +83,4 @@ The first four are written. The rest are specified and not implemented, which [R
 
 - [What Is Built](state/000-what-is-built.md)
 - [Remaining](state/001-remaining.md)
+- [BAML Suggestions](state/002-baml-suggestions.md)
