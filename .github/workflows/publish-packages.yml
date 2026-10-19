@@ -49,6 +49,8 @@ jobs:
           # binary without this step ships the previous program.
           baml --directory tools/installer/interactive generate
           cargo build --release --manifest-path tools/installer/interactive/host/Cargo.toml
+          baml --directory tools/password/rotate-interactive generate
+          cargo build --release --manifest-path tools/password/rotate-interactive/host/Cargo.toml
 
           ( cd tools/installer/unattended \
               && baml pack main --output ./oparch-installer )
@@ -56,6 +58,8 @@ jobs:
               && baml pack main --output ./oparch-return-message-render )
           ( cd tools/dotfiles/sync \
               && baml pack main --output ./oparch-dotfiles-sync )
+          ( cd tools/password/rotate \
+              && baml pack main --output ./oparch-password-rotate )
 
       - name: Work out what the repository does not already hold
         run: |
@@ -98,17 +102,24 @@ jobs:
 
           # The library was fetched and checked when BAML was set up, and its
           # path comes from there rather than being built again here.
+          cp "$BAML_RUNTIME_LIBRARY" packages/oparch-baml-runtime/
+
           cp tools/installer/unattended/oparch-installer \
               packages/oparch-installer/
           cp tools/installer/interactive/host/target/release/oparch-installer-interactive \
               packages/oparch-installer/
-          cp "$BAML_RUNTIME_LIBRARY" packages/oparch-installer/
 
           cp tools/return-message/render/oparch-return-message-render \
               packages/oparch-return-message-render/
 
           cp tools/dotfiles/sync/oparch-dotfiles-sync \
               packages/oparch-dotfiles-sync/
+
+          cp tools/password/rotate/oparch-password-rotate \
+              packages/oparch-password-rotate/
+
+          cp tools/password/rotate-interactive/host/target/release/oparch-password-rotate-interactive \
+              packages/oparch-password-rotate-interactive/
 
       - name: Build the packages
         run: |

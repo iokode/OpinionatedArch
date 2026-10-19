@@ -23,10 +23,11 @@ function packaged_netboot_binary() -> string {
 /// The package set from `docs/tools/installer/unattended/002-inputs-and-bootstrap-baseline.md`,
 /// plus the packages the selected hardware and options require.
 function bootstrap_packages(config: InstallConfig) -> string[] {
-    //# the last four are every tool this project ships except the installer,
-    //# which runs from a live environment and has no use on a machine that is
-    //# installed, and the keyring, which is what lets the rest be updated from
-    //# the repository they came from
+    // The renderer and the dotfiles tool go on every machine because both are
+    // run again on it once it is installed, and the assets because the renderer
+    // reads them there. The keyring goes because an installation gives the
+    // target the key this project's packages are signed with, rather than
+    // sending it to fetch one.
     let packages = [
         "base", "linux", "linux-headers", "linux-firmware", "mkinitcpio",
         "btrfs-progs", "cryptsetup", "grub", "efibootmgr",

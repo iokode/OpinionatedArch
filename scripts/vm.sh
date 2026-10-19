@@ -1,21 +1,20 @@
 #!/usr/bin/env bash
 #
-# Boots, in a window, a machine installed from the debug image, with the tools
-# built from this working tree in place of the ones the installation took from
-# the published repository, so that a change to them can be tried on an
-# installed system before it is merged.
+# Boots, in a window, a machine installed from the debug image, with what the
+# installer installs taken from this working tree, so that a change to them can
+# be tried on an installed system before it is merged.
 #
 #     scripts/vm.sh
 #
 # Every run installs the machine again, on a new disk: the debug image is built
 # and booted in a window, and the installer it carries installs the machine
 # there, with the answers in scripts/vm-config.yaml, while this script drives it
-# over the serial line. It installs over the network, because the debug image
-# carries no repository of its own. Once that is done the window closes, and one
-# opens on the installed disk.
-#
-# The tools are copied over the packaged ones, so updating their packages
-# inside the machine puts the published ones back.
+# over the serial line. It installs over the network, because the repository the
+# debug image carries holds only the packages of this tree. The installation
+# takes the project's packages from that repository, oparch-debug, and the
+# machine is given a copy of it, listed ahead of every other repository, so that
+# a package installed on it with pacman is this tree's too. Once that is done
+# the window closes, and one opens on the installed disk.
 #
 # What the image is and how it is built is archiso/debug/build.sh.
 
@@ -32,6 +31,10 @@ readonly VARS="$WORK/firmware-vars.fd"
 
 # How long an installation over the network is waited for.
 readonly WAIT_INSTALL=3600
+
+# The repository of this tree's packages, where archiso/debug/build.sh puts it
+# on the image and where the machine is given it.
+readonly REPOSITORY_DIR=/usr/share/oparch/debug
 
 . "$ROOT/scripts/lib/guest.sh"
 
@@ -102,9 +105,9 @@ boot_live() {
         -append "archisobasedir=arch archisolabel=$label console=tty0 console=ttyS0,115200 systemd.mask=getty@tty1.service"
 }
 
-# Installs the machine, puts the tools from this tree over the packaged ones
-# while the installation is still mounted, and powers the live system off. The
-# disk is only safe to boot once the guest that wrote it has gone.
+# Installs the machine, gives it the repository of this tree's packages while
+# the installation is still mounted, and powers the live system off. The disk
+# is only safe to boot once the guest that wrote it has gone.
 install_machine() {
     guest_wait_for_shell || return 1
     guest_quieten || return 1
@@ -137,11 +140,13 @@ install_machine() {
         return 1
     fi
 
-    guest_check "the tools from this tree are where the installation put the packaged ones" \
-        "install -m 755 /usr/bin/oparch-return-message-render /mnt/usr/bin/oparch-return-message-render \
-            && install -m 755 /usr/bin/oparch-dotfiles-sync /mnt/usr/bin/oparch-dotfiles-sync \
-            && rm -rf /mnt/usr/share/opinionatedarch/assets \
-            && cp -r /usr/share/opinionatedarch/assets /mnt/usr/share/opinionatedarch/assets" || return 1
+    # The medium is gone once the machine boots, so the machine keeps a copy of
+    # the repository, at the path the image has it, and lists it ahead of the
+    # project's repository, which the installer puts first.
+    guest_check "the machine installs this tree's packages from a repository of its own" \
+        "mkdir -p /mnt$(dirname "$REPOSITORY_DIR") \
+            && cp -r $REPOSITORY_DIR /mnt$REPOSITORY_DIR \
+            && sed -i 's|^\[oparch\]\$|[oparch-debug]\nSigLevel = Never\nServer = file://$REPOSITORY_DIR\n\n&|' /mnt/etc/pacman.conf" || return 1
 
     guest_say "powering the live system off"
     guest_send poweroff

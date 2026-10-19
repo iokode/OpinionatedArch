@@ -1,0 +1,16 @@
+[package]
+name = "oparch-host"
+version = "0.1.0"
+edition = "2021"
+
+# What every tool with a terminal interface shares. It is a library a host
+# depends on by path, and it depends on no tool and on no generated SDK.
+[lib]
+name = "oparch_host"
+path = "src/lib.rs"
+
+[dependencies]
+crossterm = "0.29"
+ratatui = "0.29"
+tokio = { version = "1", features = ["full"] }
+libc = "0.2"
